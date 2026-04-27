@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:health_widgets/widgets/main_screen.dart';
+import 'package:health_widgets/view.dart';
 // Полезно для группировки
 
 void main() => runApp(
   MaterialApp(
     theme: ThemeData.dark(useMaterial3: true),
     debugShowCheckedModeBanner: false,
-    home: const MainScreen(),
+    home: const AppView(),
   ),
 );

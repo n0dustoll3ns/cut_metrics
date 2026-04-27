@@ -5,12 +5,22 @@ import 'package:health_widgets/domain.dart';
 import 'package:home_widget/home_widget.dart';
 
 // Вспомогательный класс для работы с интервалами внутри алгоритма
+// Добавил sourceName для отладки, чтобы видеть, кто кого переписывает
 class _SleepInterval {
   DateTime start;
   DateTime end;
   HealthDataType type;
+  String sourceName;
 
-  _SleepInterval({required this.start, required this.end, required this.type});
+  _SleepInterval({required this.start, required this.end, required this.type, required this.sourceName});
+
+  @override
+  String toString() {
+    return '${_fmtTime(start)}-${_fmtTime(end)} | ${type.toString().split('.').last.padRight(6)} | Src: $sourceName';
+  }
+
+  String _fmtTime(DateTime t) =>
+      "${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}";
 }
 
 class SleepViewModel extends ChangeNotifier {
@@ -82,8 +92,10 @@ class SleepViewModel extends ChangeNotifier {
 
     try {
       final now = DateTime.now();
-      // Берем запас по дням + 1 день, чтобы захватить ночи, которые начались вчера, но закончились сегодня
-      final startDate = DateTime(now.year, now.month, now.day).subtract(Duration(days: _selectedDays + 1));
+      // Берем запас +2 дня, чтобы гарантированно захватить ночи
+      final startDate = DateTime(now.year, now.month, now.day).subtract(Duration(days: _selectedDays + 2));
+
+      debugPrint(">>> START FETCHING SLEEP DATA");
 
       List<HealthDataPoint> healthData = await _health.getHealthDataFromTypes(
         types: [HealthDataType.SLEEP_DEEP, HealthDataType.SLEEP_LIGHT, HealthDataType.SLEEP_REM],
@@ -91,13 +103,21 @@ class SleepViewModel extends ChangeNotifier {
         endTime: now,
       );
 
-      // 1. Преобразуем HealthDataPoint в простые интервалы для сортировки
+      debugPrint("Raw points count: ${healthData.length}");
+
+      // 1. Преобразуем HealthDataPoint в простые интервалы
       List<_SleepInterval> intervals = [];
       for (var point in healthData) {
         if (point.value is NumericHealthValue) {
-          // Проверяем, что длительность > 0, чтобы избежать ошибок
           if ((point.value as NumericHealthValue).numericValue > 0) {
-            intervals.add(_SleepInterval(start: point.dateFrom, end: point.dateTo, type: point.type));
+            intervals.add(
+              _SleepInterval(
+                start: point.dateFrom,
+                end: point.dateTo,
+                type: point.type,
+                sourceName: point.sourceName,
+              ),
+            );
           }
         }
       }
@@ -105,40 +125,87 @@ class SleepViewModel extends ChangeNotifier {
       // 2. Сортируем интервалы по времени начала
       intervals.sort((a, b) => a.start.compareTo(b.start));
 
-      // 3. ОБЪЕДИНЕНИЕ ПЕРЕСЕКАЮЩИХСЯ ИНТЕРВАЛОВ (MERGE OVERLAPS)
-      // Это ключевой шаг для удаления дубликатов от разных источников (Xiaomi, Google Fit и т.д.)
-      List<_SleepInterval> mergedIntervals = [];
+      debugPrint("--- SORTED INTERVALS (Before Merge) ---");
+      for (var i in intervals) {
+        debugPrint("  IN: $i");
+      }
+
+      // 3. ОБРАБОТКА ПЕРЕСЕЧЕНИЙ С ПРИОРИТЕТОМ ПОСЛЕДНЕГО (OVERWRITE)
+      List<_SleepInterval> processedIntervals = [];
 
       for (var current in intervals) {
-        if (mergedIntervals.isEmpty) {
-          mergedIntervals.add(current);
+        if (processedIntervals.isEmpty) {
+          processedIntervals.add(current);
         } else {
-          var last = mergedIntervals.last;
+          var last = processedIntervals.last;
 
-          // Если текущий интервал начинается раньше, чем заканчивается предыдущий
-          // ИЛИ они совпадают по границе
-          if (current.start.isBefore(last.end) || current.start.isAtSameMomentAs(last.end)) {
-            // Обновляем конец предыдущего интервала, если текущий заканчивается позже
-            if (current.end.isAfter(last.end)) {
-              last.end = current.end;
+          // Проверяем пересечение: текущий начинается раньше, чем заканчивается предыдущий
+          if (current.start.isBefore(last.end)) {
+            debugPrint("⚠️ OVERLAP DETECTED!");
+            debugPrint("   Existing: $last");
+            debugPrint("   Incoming: $current");
+
+            // Логика "Вытеснения":
+            // Мы считаем верными данные текущего (incoming) интервала.
+            // Поэтому мы должны обрезать предыдущий (last) интервал так,
+            // чтобы он заканчивался там, где начинается текущий.
+
+            if (current.start.isAfter(last.start)) {
+              debugPrint("   -> TRIMMING Existing end from ${last.end} to ${current.start}");
+              last.end = current.start;
+
+              // Если после обрезки предыдущий интервал стал слишком коротким или нулевым,
+              // его можно было бы удалить, но оставим для целостности истории,
+              // если длительность > 0.
+              if (last.end.difference(last.start).inMinutes <= 0) {
+                debugPrint("   -> Existing interval became empty after trim. Removing it.");
+                processedIntervals.removeLast();
+              }
+            } else {
+              // Текущий интервал начался раньше или одновременно с последним.
+              // Это значит, что текущий интервал полностью или частично перекрывает начало последнего.
+              // Поскольку текущий имеет приоритет (как более "свежий" в логике сортировки/источника),
+              // мы можем заменить последний текущим, если текущий длиннее или покрывает его.
+              // Но проще всего в данном алгоритме просто добавить текущий,
+              // а последний удалить, если он полностью внутри текущего, или обрезать последний с начала?
+              // Упрощение: если current.start <= last.start, то current "победил" в начале.
+              // Удаляем last, и даем текущему шанс слиться с пред-предыдущим на следующей итерации?
+              // Нет, мы идем линейно.
+              // Просто заменяем last на current, если current.start <= last.start.
+              debugPrint("   -> Incoming starts before Existing. Replacing Existing with Incoming.");
+              processedIntervals.removeLast();
+              // Важно: нам нужно проверить слияние/пересечение с новым "последним" элементом списка.
+              // Поэтому мы не добавляем current сразу, а пытаемся сравнить его снова.
+              // Для простоты реализации в цикле: добавим current, но на следующей итерации
+              // он может быть обрезан следующим элементом.
+              // Однако, чтобы корректно обработать случай "вложенности",
+              // лучше просто добавить current. Он "съест" хвост предыдущего.
             }
-            // Примечание: Если типы разные (например, Deep и Light перекрылись),
-            // мы все равно сливаем их геометрически, чтобы не считать одно время дважды.
-            // Тип оставляем от первого интервала или можно игнорировать тип при слиянии,
-            // но для простоты оставим тип последнего добавленного или первого.
-            // В данном случае тип не критичен для слияния геометрии, главное - время.
+
+            // Добавляем текущий интервал.
+            // Он теперь не пересекается с предыдущим (так как мы обрезали предыдущий до current.start)
+            processedIntervals.add(current);
+            debugPrint("   -> Result: Added Incoming. Previous was trimmed/replaced.");
           } else {
-            // Нет пересечения, добавляем новый интервал
-            mergedIntervals.add(current);
+            // Нет пересечения
+            processedIntervals.add(current);
           }
         }
       }
 
+      debugPrint("--- PROCESSED INTERVALS (After Overwrite Logic) ---");
+      double totalMinutes = 0;
+      for (var i in processedIntervals) {
+        int mins = i.end.difference(i.start).inMinutes;
+        totalMinutes += mins;
+        debugPrint("  FINAL: $i (${mins} min)");
+      }
+      debugPrint("Total processed minutes: ${totalMinutes.toInt()}");
+
       // 4. Распределение по дням
-      // Создаем карту для накопления часов: Key = Дата (День пробуждения/Основной день)
       Map<String, Map<HealthDataType, double>> dailyStats = {};
 
-      // Инициализируем карту для последних N дней нулями
+      // Инициализируем карту нулями для нужного диапазона
       for (int i = 0; i < _selectedDays; i++) {
         DateTime date = DateTime(now.year, now.month, now.day).subtract(Duration(days: i));
         String key = _getDateKey(date);
@@ -149,23 +216,20 @@ class SleepViewModel extends ChangeNotifier {
         };
       }
 
-      for (var interval in mergedIntervals) {
-        // Определяем, какому дню принадлежит этот сон.
-        // Логика: Если сон начался до 12:00 дня, считаем его принадлежащим этому дню (утренний сон).
-        // Если сон начался после 12:00 дня (вечер), он принадлежит следующему дню (дню пробуждения).
-        // Это стандартная логика для трекеров сна.
-
+      for (var interval in processedIntervals) {
+        // Логика определения дня:
+        // Если сон начался после 12:00, считаем его относящимся к следующему дню (дню пробуждения).
         DateTime targetDate = interval.start;
         if (interval.start.hour >= 12) {
-          // Если начали спать в 22:00, это статистика для "завтрашнего" дня
           targetDate = interval.start.add(Duration(days: 1));
         }
 
-        // Проверяем, попадает ли целевая дата в наш диапазон отображения
         String key = _getDateKey(targetDate);
 
         if (dailyStats.containsKey(key)) {
           double durationHours = interval.end.difference(interval.start).inMinutes / 60.0;
+
+          // debugPrint("ASSIGNING: ${interval.type} ($durationHours h) to Day: $key");
 
           switch (interval.type) {
             case HealthDataType.SLEEP_DEEP:
@@ -206,8 +270,12 @@ class SleepViewModel extends ChangeNotifier {
         );
       }
 
-      // Сортируем от старого к новому для графика (опционально, зависит от вашего UI)
       processedData.sort((a, b) => a.date.compareTo(b.date));
+
+      debugPrint("--- FINAL RESULTS ---");
+      for (var day in processedData) {
+        debugPrint(day.toString());
+      }
 
       _sleepData = processedData;
       _isLoading = false;
@@ -220,7 +288,6 @@ class SleepViewModel extends ChangeNotifier {
     }
   }
 
-  // Helper для создания унифицированного ключа даты (без времени)
   String _getDateKey(DateTime date) {
     return "${date.year}-${date.month}-${date.day}";
   }

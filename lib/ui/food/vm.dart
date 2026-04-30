@@ -1,10 +1,11 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:health/health.dart';
-import 'package:health_widgets/domain/nutrition.dart'; // Импорт вашей модели
+import 'package:health_widgets/domain/nutrition.dart';
 import 'package:health_widgets/repo/health.dart';
 
 class NutritionViewModel extends ChangeNotifier {
+  static const String primarySource = 'com.fatsecret.android'; //TODO добавить выбор основного источника
   static const dataTypes = [HealthDataType.NUTRITION];
   final HealthRepository repository;
 
@@ -19,23 +20,10 @@ class NutritionViewModel extends ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get error => _error;
 
-  // Вычисляемое свойство: среднее количество ккал за выбранный период
-  double get averageCalories {
-    if (_nutritionData.isEmpty) return 0;
-    final totalCals = _nutritionData.fold<double>(0, (sum, item) => sum + item.calories);
-    return totalCals / _nutritionData.length;
-  }
-
   NutritionViewModel(this.repository);
 
   /// Инициализация: запрос прав и загрузка данных
   Future<void> authorizeAndFetchNutritionData() async {
-    // Типы данных для питания в Health Connect / Apple Health
-    // NUTRITION обычно возвращает агрегированные записи, но лучше запрашивать конкретные нутриенты,
-    // если пакет health их поддерживает отдельно, или общий тип.
-    // В пакете flutter_health часто используется HealthDataType.NUTRITION или отдельные флаги.
-    // Проверьте документацию вашего пакета. Обычно это:
-
     try {
       bool granted = await repository.checkAndRequestPermissions(dataTypes);
       if (!granted) {
@@ -54,7 +42,7 @@ class NutritionViewModel extends ChangeNotifier {
   Future<void> setSelectedDays(int days) async {
     if (_selectedDays == days) return;
     _selectedDays = days;
-    notifyListeners(); // Сразу уведомляем, чтобы UI показал лоадер
+    notifyListeners();
     await _fetchAndProcess();
   }
 
@@ -66,15 +54,15 @@ class NutritionViewModel extends ChangeNotifier {
 
     try {
       final now = DateTime.now();
-      // Берем данные с небольшим запасом, чтобы захватить полные дни
       final startDate = DateTime(now.year, now.month, now.day).subtract(Duration(days: _selectedDays + 1));
 
-      // 1. Получаем сырые данные
-      // Примечание: Убедитесь, что ваш HealthRepository поддерживает передачу списка типов
       final rawPoints = await repository.fetchRawData(types: dataTypes, startDate: startDate, endDate: now);
 
-      // 2. Обрабатываем данные: группируем по дням и суммируем БЖУ/Ккал
-      _nutritionData = _processNutritionData(rawPoints: rawPoints, daysToAnalyze: _selectedDays, now: now);
+      _nutritionData = _processNutritionData(
+        rawPoints: rawPoints.where((e) => e.sourceName == primarySource).toList(),
+        daysToAnalyze: _selectedDays,
+        now: now,
+      );
 
       _isLoading = false;
       notifyListeners();
@@ -86,43 +74,46 @@ class NutritionViewModel extends ChangeNotifier {
     }
   }
 
-  /// Логика агрегации данных (аналог SleepAnalyzer)
+  /// Логика агрегации данных с дедупликацией записей
   List<NutritionDay> _processNutritionData({
     required List<HealthDataPoint> rawPoints,
     required int daysToAnalyze,
     required DateTime now,
   }) {
-    // Карта для накопления данных по каждому дню
-    // Ключ: строка даты "YYYY-MM-DD", Значение: объект-аккумулятор
     final Map<String, _DailyNutritionAccumulator> dailyMap = {};
 
-    // Инициализируем карту пустыми значениями для последних N дней,
-    // чтобы в графике были нулевые столбцы для дней без еды
+    // Инициализируем карту пустыми значениями для последних N дней
     for (int i = 0; i < daysToAnalyze; i++) {
       final date = now.subtract(Duration(days: i));
       final key = _getDateKey(date);
       dailyMap[key] = _DailyNutritionAccumulator(date: date);
     }
 
-    // Проходим по всем точкам из Health Connect
+    // 🔥 Set для отслеживания уже обработанных записей (дедупликация)
+    final processedRecordIds = <String>{};
+
     for (var point in rawPoints) {
-      final date = point.dateFrom; // Или dateTo, зависит от того, как приходят данные
+      final date = point.dateFrom;
       final key = _getDateKey(date);
 
-      // Если дата входит в наш анализируемый период
-      if (dailyMap.containsKey(key)) {
-        final accumulator = dailyMap[key]!;
+      if (!dailyMap.containsKey(key)) continue;
 
-        // HealthDataPoint.value может быть разных типов.
-        // Для NUTRITION это часто NutritionDataPoint или просто numeric value в зависимости от типа.
-        // ВАЖНО: Структура HealthDataPoint в пакете 'health' может отличаться.
-        // Ниже примерная логика парсинга. Вам нужно адаптировать её под реальный тип данных из пакета.
+      // 🔥 Генерируем уникальный ключ для записи
+      final recordId = _generateRecordUniqueId(point);
 
-        _parseAndAddToAccumulator(point, accumulator);
+      // 🔥 Пропускаем, если запись уже была обработана
+      if (processedRecordIds.contains(recordId)) {
+        if (kDebugMode) {
+          debugPrint('Skipping duplicate nutrition record: $recordId');
+        }
+        continue;
       }
+      processedRecordIds.add(recordId);
+
+      final accumulator = dailyMap[key]!;
+      _parseAndAddToAccumulator(point, accumulator);
     }
 
-    // Преобразуем карту в список и сортируем по дате (от старых к новым для графика слева направо)
     final result = dailyMap.values.toList();
     result.sort((a, b) => a.date.compareTo(b.date));
 
@@ -139,16 +130,34 @@ class NutritionViewModel extends ChangeNotifier {
         .toList();
   }
 
-  void _parseAndAddToAccumulator(HealthDataPoint point, _DailyNutritionAccumulator acc) {
-    // В пакете flutter_health данные о питании могут приходить как:
-    // 1. Отдельные точки для каждого нутриента (тип зависит от HealthDataType)
-    // 2. Одна точка Nutrition с полями.
+  /// 🔥 Генерация уникального идентификатора для записи
+  /// Приоритет: uuid > композитный ключ (источник + время + тип + значение)
+  String _generateRecordUniqueId(HealthDataPoint point) {
+    // Если есть UUID — используем его (самый надёжный вариант)
+    if (point.uuid.isNotEmpty) point.uuid;
 
-    // Пример обработки (адаптируйте под вашу версию пакета):
+    // Фоллбэк: композитный ключ из доступных полей
+    final source = point.sourceName;
+    final timestamp = point.dateFrom.millisecondsSinceEpoch;
+    final type = point.type.toString();
+
+    // Значение: извлекаем числовое представление для ключа
+    String valueHash = '0';
+    final value = point.value;
+    if (value is NumericHealthValue) {
+      valueHash = value.numericValue.toString();
+    } else if (value is NutritionHealthValue) {
+      // Хешируем основные поля нутриента
+      valueHash = '${value.calories}_${value.protein}_${value.fat}_${value.carbs}';
+    }
+
+    // Формируем ключ: источник|время|тип|значение
+    return '$source|$timestamp|$type|$valueHash';
+  }
+
+  void _parseAndAddToAccumulator(HealthDataPoint point, _DailyNutritionAccumulator acc) {
     final value = point.value;
     final type = point.type;
-
-    // Если значение - число (например, граммы или ккал)
 
     if (value is NumericHealthValue) {
       double val = value.numericValue.toDouble();
@@ -168,6 +177,7 @@ class NutritionViewModel extends ChangeNotifier {
           acc.carbs += val;
           break;
         default:
+          break;
       }
     } else if (value is NutritionHealthValue) {
       acc.calories += value.calories?.toDouble() ?? 0.0;
@@ -175,8 +185,6 @@ class NutritionViewModel extends ChangeNotifier {
       acc.fat += value.fat?.toDouble() ?? 0.0;
       acc.carbs += value.carbs?.toDouble() ?? 0.0;
     }
-
-    // Если значение - сложный объект (зависит от реализации пакета), распарсите его аналогично.
   }
 
   String _getDateKey(DateTime date) {

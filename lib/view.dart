@@ -40,7 +40,7 @@ class _AppViewState extends State<AppView> {
           bottomNavigationBar: BottomNavigationBar(
             items: _AppNavigation.values
                 .map(
-                  (e) => switch (_navigation) {
+                  (e) => switch (e) {
                     _AppNavigation.sleep => BottomNavigationBarItem(
                       icon: Icon(Icons.bed_outlined),
                       label: 'Sleep',

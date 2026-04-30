@@ -4,10 +4,7 @@ import 'package:health_widgets/domain/nutrition.dart';
 class NutritionPainter extends CustomPainter {
   final List<NutritionDay> data;
 
-  // Опционально: можно передать среднее значение извне, если не считать внутри
-  final double? averageCalories;
-
-  NutritionPainter(this.data, {this.averageCalories});
+  NutritionPainter(this.data);
 
   // Форматирование даты dd.mm
   String _formatDate(DateTime date) {
@@ -34,9 +31,10 @@ class NutritionPainter extends CustomPainter {
     if (maxGrams < 100.0) maxGrams = 100.0;
 
     // Рассчитываем среднее, если не передано снаружи
-    double avgCal =
-        averageCalories ??
-        (data.isNotEmpty ? data.map((e) => e.calories).reduce((a, b) => a + b) / data.length : 0);
+    final avgData = [...data]..removeWhere((e) => e.date.day == DateTime.now().day);
+    double avgCal = (avgData.isNotEmpty
+        ? avgData.map((e) => e.calories).reduce((a, b) => a + b) / avgData.length
+        : 0);
 
     // Отступы: 30px сверху (для среднего и ккал), 20px снизу (для даты)
     double chartHeight = size.height - 50;
@@ -118,7 +116,7 @@ class NutritionPainter extends CustomPainter {
       double topOfBar = currentY - (totalHeight * (data[i].carbs / data[i].totalGrams));
 
       // --- ТЕКСТ: Ккал за день (над столбиком) ---
-      _drawText(canvas, '${data[i].calories.toInt()} kcal', x, topOfBar - 18, barWidth, isBold: true);
+      _drawText(canvas, '${data[i].calories.toInt()}\nkcal', x, topOfBar - 28, barWidth, isBold: true);
 
       // --- ТЕКСТ: Дата (под столбиком) ---
       _drawText(canvas, _formatDate(data[i].date), x, size.height - 15, barWidth, isDate: true);
@@ -203,6 +201,5 @@ class NutritionPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant NutritionPainter oldDelegate) =>
-      oldDelegate.data != data || oldDelegate.averageCalories != averageCalories;
+  bool shouldRepaint(covariant NutritionPainter oldDelegate) => oldDelegate.data != data;
 }

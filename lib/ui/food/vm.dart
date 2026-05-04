@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:health/health.dart';
 import 'package:health_widgets/domain/nutrition.dart';
 import 'package:health_widgets/repo/health.dart';
+import 'package:home_widget/home_widget.dart';
 
 class NutritionViewModel extends ChangeNotifier {
   static const String primarySource = 'com.fatsecret.android'; //TODO добавить выбор основного источника
@@ -80,13 +81,13 @@ class NutritionViewModel extends ChangeNotifier {
     required int daysToAnalyze,
     required DateTime now,
   }) {
-    final Map<String, _DailyNutritionAccumulator> dailyMap = {};
+    final Map<String, _DailyNutritionDTO> dailyMap = {};
 
     // Инициализируем карту пустыми значениями для последних N дней
     for (int i = 0; i < daysToAnalyze; i++) {
       final date = now.subtract(Duration(days: i));
       final key = _getDateKey(date);
-      dailyMap[key] = _DailyNutritionAccumulator(date: date);
+      dailyMap[key] = _DailyNutritionDTO(date: date);
     }
 
     // 🔥 Set для отслеживания уже обработанных записей (дедупликация)
@@ -155,7 +156,7 @@ class NutritionViewModel extends ChangeNotifier {
     return '$source|$timestamp|$type|$valueHash';
   }
 
-  void _parseAndAddToAccumulator(HealthDataPoint point, _DailyNutritionAccumulator acc) {
+  void _parseAndAddToAccumulator(HealthDataPoint point, _DailyNutritionDTO acc) {
     final value = point.value;
     final type = point.type;
 
@@ -190,15 +191,27 @@ class NutritionViewModel extends ChangeNotifier {
   String _getDateKey(DateTime date) {
     return "${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}";
   }
+
+  Future<void> updateSystemWidget(String path) async {
+    try {
+      await HomeWidget.saveWidgetData<String>('nutrition_chart_path', path);
+      await HomeWidget.updateWidget(
+        name: 'NutritionWidgetProvider',
+        androidName: 'NutritionWidgetProvider',
+      );
+    } catch (e) {
+      debugPrint("Widget update failed: $e");
+    }
+  }
 }
 
 /// Вспомогательный класс для накопления данных за один день
-class _DailyNutritionAccumulator {
+class _DailyNutritionDTO {
   final DateTime date;
   double calories = 0;
   double protein = 0;
   double fat = 0;
   double carbs = 0;
 
-  _DailyNutritionAccumulator({required this.date});
+  _DailyNutritionDTO({required this.date});
 }

@@ -9,13 +9,13 @@ import es.antonborri.home_widget.HomeWidgetProvider
 import java.io.File
 
 
-class SleepWidgetProvider : HomeWidgetProvider() {
+class NutritionWidgetProvider : HomeWidgetProvider() {
     override fun onUpdate(context: Context, appWidgetManager: AppWidgetManager, appWidgetIds: IntArray, widgetData: android.content.SharedPreferences) {
         for (appWidgetId in appWidgetIds) {
             val views = RemoteViews(context.packageName, R.layout.sleep_widget_layout)
 
             // Получаем путь к картинке, который мы сохранили во Flutter
-            val imagePath = widgetData.getString("sleep_chart_path", null)
+            val imagePath = widgetData.getString("nutrition_chart_path", null)
             
             if (imagePath != null) {
                 val file = File(imagePath)

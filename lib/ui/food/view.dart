@@ -33,12 +33,12 @@ class _NutitonViewState extends State<NutitonView> {
       if (byteData == null) return;
 
       final tempDir = await getTemporaryDirectory();
-      final file = await File('${tempDir.path}/food_chart.png').create();
+      final file = await File('${tempDir.path}/nutrition_chart.png').create();
       await file.writeAsBytes(byteData.buffer.asUint8List());
 
       if (context.mounted) {
-        // TODO
-        // context.read<NutritionViewModel>().updateSystemWidget(file.path);
+        
+        context.read<NutritionViewModel>().updateSystemWidget(file.path);
       }
     } catch (e) {
       debugPrint("Screenshot failed: $e");

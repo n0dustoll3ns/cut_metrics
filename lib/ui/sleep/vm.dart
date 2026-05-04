@@ -85,7 +85,7 @@ class SleepViewModel extends ChangeNotifier {
 
   Future<void> updateSystemWidget(String imagePath) async {
     try {
-      await HomeWidget.saveWidgetData<String>('chart_path', imagePath);
+      await HomeWidget.saveWidgetData<String>('sleep_chart_path', imagePath);
       await HomeWidget.updateWidget(name: 'SleepWidgetProvider', androidName: 'SleepWidgetProvider');
     } catch (e) {
       debugPrint("Widget update failed: $e");

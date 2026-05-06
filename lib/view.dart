@@ -4,9 +4,11 @@ import 'package:health_widgets/ui/food/view.dart';
 import 'package:health_widgets/ui/food/vm.dart';
 import 'package:health_widgets/ui/sleep/view.dart';
 import 'package:health_widgets/ui/sleep/vm.dart';
+import 'package:health_widgets/ui/weight/view.dart';
+import 'package:health_widgets/ui/weight/vm.dart';
 import 'package:provider/provider.dart';
 
-enum _AppNavigation { sleep, food }
+enum _AppNavigation { sleep, food, weight }
 
 class AppView extends StatefulWidget {
   const AppView({super.key});
@@ -25,16 +27,27 @@ class _AppViewState extends State<AppView> {
       providers: [
         ChangeNotifierProvider(create: (_) => SleepViewModel(repo)),
         ChangeNotifierProvider(create: (_) => NutritionViewModel(repo)),
+        ChangeNotifierProvider(create: (_) => WeightViewModel(repo)),
       ],
 
       builder: (context, _) {
         return Scaffold(
-          appBar: AppBar(title: const Text('Sleep Analytics'), centerTitle: true),
+          appBar: AppBar(
+            title: Text(
+              switch (_navigation) {
+                _AppNavigation.sleep => 'Sleep Analytics',
+                _AppNavigation.food => 'Nutrition Analytics',
+                _AppNavigation.weight => 'Weight Analytics',
+              },
+            ),
+            centerTitle: true,
+          ),
 
           body: SafeArea(
             child: switch (_navigation) {
               _AppNavigation.sleep => SleepView(),
               _AppNavigation.food => NutitonView(),
+              _AppNavigation.weight => WeightView(),
             },
           ),
           bottomNavigationBar: BottomNavigationBar(
@@ -45,10 +58,13 @@ class _AppViewState extends State<AppView> {
                       icon: Icon(Icons.bed_outlined),
                       label: 'Sleep',
                     ),
-                    // TODO: Handle this case.
                     _AppNavigation.food => BottomNavigationBarItem(
                       icon: Icon(Icons.fastfood_outlined),
                       label: 'Nutrition',
+                    ),
+                    _AppNavigation.weight => BottomNavigationBarItem(
+                      icon: Icon(Icons.monitor_weight_outlined),
+                      label: 'Weight',
                     ),
                   },
                 )

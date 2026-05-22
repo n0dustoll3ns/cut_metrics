@@ -1,7 +1,6 @@
 import 'package:health/health.dart';
-import '../domain.dart'; // Ваш файл с моделью SleepDay
+import '../domain.dart';
 
-// Внутренняя модель для алгоритма (можно вынести в отдельный файл)
 class _SleepInterval {
   DateTime start;
   DateTime end;
@@ -11,7 +10,6 @@ class _SleepInterval {
 }
 
 class SleepAnalyzer {
-  /// Принимает сырые данные и возвращает готовую статистику по дням
   List<SleepDay> processSleepData({
     required List<HealthDataPoint> rawPoints,
     required int daysToAnalyze,
@@ -52,17 +50,11 @@ class SleepAnalyzer {
         // Логика "последний побеждает": обрезаем предыдущий
         if (current.start.isAfter(last.start)) {
           last.end = current.start;
-          // Если после обрезки интервал исчез - удаляем (опционально)
           if (last.end.difference(last.start).inMinutes <= 0) {
             result.removeLast();
           }
         } else {
-          // Current полностью перекрывает начало Last или начинается раньше
-          // Удаляем Last, так как Current "новее" или важнее в этой точке
           result.removeLast();
-          // Важно: нужно проверить слияние с новым последним элементом,
-          // но для упрощения линейного прохода просто добавим current.
-          // В идеале тут рекурсия или while, но для сна обычно хватает линейного прохода с сортировкой.
         }
         result.add(current);
       } else {

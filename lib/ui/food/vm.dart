@@ -6,7 +6,7 @@ import 'package:health_widgets/repo/health.dart';
 import 'package:home_widget/home_widget.dart';
 
 class NutritionViewModel extends ChangeNotifier {
-  static const String primarySource = 'com.fatsecret.android'; //TODO добавить выбор основного источника
+  static const String primarySource = 'com.fatsecret.android';
   static const dataTypes = [HealthDataType.NUTRITION];
   final HealthRepository repository;
 
@@ -57,10 +57,19 @@ class NutritionViewModel extends ChangeNotifier {
       final now = DateTime.now();
       final startDate = DateTime(now.year, now.month, now.day).subtract(Duration(days: _selectedDays + 1));
 
+      // Загружаем данные о питании
       final rawPoints = await repository.fetchRawData(types: dataTypes, startDate: startDate, endDate: now);
+      
+      // Загружаем данные об активности для расчета расхода калорий
+      final activityPoints = await repository.fetchRawData(
+        types: [HealthDataType.ACTIVE_ENERGY_BURNED, HealthDataType.BASAL_ENERGY_BURNED],
+        startDate: startDate,
+        endDate: now,
+      );
 
       _nutritionData = _processNutritionData(
-        rawPoints: rawPoints.where((e) => e.sourceName == primarySource).toList(),
+        nutritionPoints: rawPoints.where((e) => e.sourceName == primarySource).toList(),
+        activityPoints: activityPoints,
         daysToAnalyze: _selectedDays,
         now: now,
       );
@@ -77,7 +86,8 @@ class NutritionViewModel extends ChangeNotifier {
 
   /// Логика агрегации данных с дедупликацией записей
   List<NutritionDay> _processNutritionData({
-    required List<HealthDataPoint> rawPoints,
+    required List<HealthDataPoint> nutritionPoints,
+    required List<HealthDataPoint> activityPoints,
     required int daysToAnalyze,
     required DateTime now,
   }) {
@@ -90,19 +100,20 @@ class NutritionViewModel extends ChangeNotifier {
       dailyMap[key] = _DailyNutritionDTO(date: date);
     }
 
-    // 🔥 Set для отслеживания уже обработанных записей (дедупликация)
+    // Set для отслеживания уже обработанных записей (дедупликация)
     final processedRecordIds = <String>{};
 
-    for (var point in rawPoints) {
+    // Обрабатываем данные о питании
+    for (var point in nutritionPoints) {
       final date = point.dateFrom;
       final key = _getDateKey(date);
 
       if (!dailyMap.containsKey(key)) continue;
 
-      // 🔥 Генерируем уникальный ключ для записи
+      // Генерируем уникальный ключ для записи
       final recordId = _generateRecordUniqueId(point);
 
-      // 🔥 Пропускаем, если запись уже была обработана
+      // Пропускаем, если запись уже была обработана
       if (processedRecordIds.contains(recordId)) {
         if (kDebugMode) {
           debugPrint('Skipping duplicate nutrition record: $recordId');
@@ -113,6 +124,31 @@ class NutritionViewModel extends ChangeNotifier {
 
       final accumulator = dailyMap[key]!;
       _parseAndAddToAccumulator(point, accumulator);
+    }
+
+    // Обрабатываем данные об активности (расход калорий)
+    for (var point in activityPoints) {
+      final date = point.dateFrom;
+      final key = _getDateKey(date);
+
+      if (!dailyMap.containsKey(key)) continue;
+
+      final value = point.value;
+      if (value is NumericHealthValue) {
+        final accumulator = dailyMap[key]!;
+        final kcal = value.numericValue.toDouble();
+        
+        switch (point.type) {
+          case HealthDataType.BASAL_ENERGY_BURNED:
+            accumulator.basalMetabolism += kcal;
+            break;
+          case HealthDataType.ACTIVE_ENERGY_BURNED:
+            accumulator.activityCalories += kcal;
+            break;
+          default:
+            break;
+        }
+      }
     }
 
     final result = dailyMap.values.toList();
@@ -126,15 +162,16 @@ class NutritionViewModel extends ChangeNotifier {
             protein: acc.protein,
             fat: acc.fat,
             carbs: acc.carbs,
+            basalMetabolism: acc.basalMetabolism,
+            activityCalories: acc.activityCalories,
           ),
         )
         .toList();
   }
 
-  /// 🔥 Генерация уникального идентификатора для записи
-  /// Приоритет: uuid > композитный ключ (источник + время + тип + значение)
+  /// Генерация уникального идентификатора для записи
   String _generateRecordUniqueId(HealthDataPoint point) {
-    // Если есть UUID — используем его (самый надёжный вариант)
+    // Если есть UUID — используем его
     if (point.uuid.isNotEmpty) point.uuid;
 
     // Фоллбэк: композитный ключ из доступных полей
@@ -212,6 +249,8 @@ class _DailyNutritionDTO {
   double protein = 0;
   double fat = 0;
   double carbs = 0;
+  double basalMetabolism = 0;
+  double activityCalories = 0;
 
   _DailyNutritionDTO({required this.date});
 }

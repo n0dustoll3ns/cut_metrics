@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:health_widgets/dashboard_view.dart';
+import 'package:health_widgets/health_dashboard_viewmodel.dart';
 import 'package:health_widgets/repo/health.dart';
-import 'package:health_widgets/viewmodels/health_dashboard_viewmodel.dart';
 import 'package:provider/provider.dart';
-import 'dashboard_view.dart';
 
 void main() => runApp(
   MaterialApp(

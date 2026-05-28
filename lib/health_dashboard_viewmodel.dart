@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:health/health.dart';
+import 'package:health_widgets/domain.dart';
 import '../repo/health.dart';
 import '../domain/weight.dart';
 import '../domain/nutrition.dart';
@@ -109,10 +110,10 @@ class HealthDashboardViewModel extends ChangeNotifier {
         ),
       ]);
 
-      final weightPoints = results[0] as List<HealthDataPoint>;
-      final nutritionPoints = results[1] as List<HealthDataPoint>;
-      final activityPoints = results[2] as List<HealthDataPoint>;
-      final sleepPoints = results[3] as List<HealthDataPoint>;
+      final weightPoints = results[0];
+      final nutritionPoints = results[1];
+      final activityPoints = results[2];
+      final sleepPoints = results[3];
 
       // Обрабатываем вес с EMA
       _weightData = _processWeightData(weightPoints, now);

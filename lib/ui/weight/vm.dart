@@ -3,7 +3,6 @@ import 'package:flutter/foundation.dart';
 import 'package:health/health.dart';
 import 'package:health_widgets/domain/weight.dart';
 import 'package:health_widgets/repo/health.dart';
-import 'package:home_widget/home_widget.dart';
 
 class WeightViewModel extends ChangeNotifier {
   final HealthRepository repository;
@@ -196,18 +195,6 @@ class WeightViewModel extends ChangeNotifier {
 
   String _getDateKey(DateTime date) {
     return "${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}";
-  }
-
-  Future<void> updateSystemWidget(String path) async {
-    try {
-      await HomeWidget.saveWidgetData<String>('weight_chart_path', path);
-      await HomeWidget.updateWidget(
-        name: 'WeightWidgetProvider',
-        androidName: 'WeightWidgetProvider',
-      );
-    } catch (e) {
-      debugPrint("Widget update failed: $e");
-    }
   }
 }
 

@@ -4,11 +4,10 @@ import 'package:health/health.dart';
 import 'package:health_widgets/domain.dart';
 import 'package:health_widgets/domain/sleep.dart';
 import 'package:health_widgets/repo/health.dart';
-import 'package:home_widget/home_widget.dart';
 
 class SleepViewModel extends ChangeNotifier {
   // Внедряем зависимости (в реальном проекте лучше через DI, например get_it)
-  final HealthRepository _repository ;
+  final HealthRepository _repository;
   final SleepAnalyzer _analyzer = SleepAnalyzer();
 
   List<SleepDay> _sleepData = [];
@@ -24,7 +23,11 @@ class SleepViewModel extends ChangeNotifier {
   SleepViewModel(HealthRepository repository) : _repository = repository;
 
   Future<void> authorizeAndFetchSleepData() async {
-    final types = [HealthDataType.SLEEP_DEEP, HealthDataType.SLEEP_LIGHT, HealthDataType.SLEEP_REM];
+    final types = [
+      HealthDataType.SLEEP_DEEP,
+      HealthDataType.SLEEP_LIGHT,
+      HealthDataType.SLEEP_REM,
+    ];
 
     try {
       bool granted = await _repository.checkAndRequestPermissions(types);
@@ -62,13 +65,21 @@ class SleepViewModel extends ChangeNotifier {
 
       // 1. Получаем сырые данные через Репозиторий
       final rawPoints = await _repository.fetchRawData(
-        types: [HealthDataType.SLEEP_DEEP, HealthDataType.SLEEP_LIGHT, HealthDataType.SLEEP_REM],
+        types: [
+          HealthDataType.SLEEP_DEEP,
+          HealthDataType.SLEEP_LIGHT,
+          HealthDataType.SLEEP_REM,
+        ],
         startDate: startDate,
         endDate: now,
       );
 
       // 2. Обрабатываем данные через Сервис/Анализатор
-      _sleepData = _analyzer.processSleepData(rawPoints: rawPoints, daysToAnalyze: _selectedDays, now: now);
+      _sleepData = _analyzer.processSleepData(
+        rawPoints: rawPoints,
+        daysToAnalyze: _selectedDays,
+        now: now,
+      );
 
       _isLoading = false;
       notifyListeners();
@@ -80,15 +91,6 @@ class SleepViewModel extends ChangeNotifier {
       _isLoading = false;
       notifyListeners();
       debugPrint("Error: $e");
-    }
-  }
-
-  Future<void> updateSystemWidget(String imagePath) async {
-    try {
-      await HomeWidget.saveWidgetData<String>('sleep_chart_path', imagePath);
-      await HomeWidget.updateWidget(name: 'SleepWidgetProvider', androidName: 'SleepWidgetProvider');
-    } catch (e) {
-      debugPrint("Widget update failed: $e");
     }
   }
 }

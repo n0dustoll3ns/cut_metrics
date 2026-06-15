@@ -3,7 +3,6 @@ import 'package:flutter/foundation.dart';
 import 'package:health/health.dart';
 import 'package:health_widgets/domain/nutrition.dart';
 import 'package:health_widgets/repo/health.dart';
-import 'package:home_widget/home_widget.dart';
 
 class NutritionViewModel extends ChangeNotifier {
   static const String primarySource = 'com.fatsecret.android';
@@ -55,20 +54,33 @@ class NutritionViewModel extends ChangeNotifier {
 
     try {
       final now = DateTime.now();
-      final startDate = DateTime(now.year, now.month, now.day).subtract(Duration(days: _selectedDays + 1));
+      final startDate = DateTime(
+        now.year,
+        now.month,
+        now.day,
+      ).subtract(Duration(days: _selectedDays + 1));
 
       // Загружаем данные о питании
-      final rawPoints = await repository.fetchRawData(types: dataTypes, startDate: startDate, endDate: now);
-      
+      final rawPoints = await repository.fetchRawData(
+        types: dataTypes,
+        startDate: startDate,
+        endDate: now,
+      );
+
       // Загружаем данные об активности для расчета расхода калорий
       final activityPoints = await repository.fetchRawData(
-        types: [HealthDataType.ACTIVE_ENERGY_BURNED, HealthDataType.BASAL_ENERGY_BURNED],
+        types: [
+          HealthDataType.ACTIVE_ENERGY_BURNED,
+          HealthDataType.BASAL_ENERGY_BURNED,
+        ],
         startDate: startDate,
         endDate: now,
       );
 
       _nutritionData = _processNutritionData(
-        nutritionPoints: rawPoints.where((e) => e.sourceName == primarySource).toList(),
+        nutritionPoints: rawPoints
+            .where((e) => e.sourceName == primarySource)
+            .toList(),
         activityPoints: activityPoints,
         daysToAnalyze: _selectedDays,
         now: now,
@@ -137,7 +149,7 @@ class NutritionViewModel extends ChangeNotifier {
       if (value is NumericHealthValue) {
         final accumulator = dailyMap[key]!;
         final kcal = value.numericValue.toDouble();
-        
+
         switch (point.type) {
           case HealthDataType.BASAL_ENERGY_BURNED:
             accumulator.basalMetabolism += kcal;
@@ -186,14 +198,18 @@ class NutritionViewModel extends ChangeNotifier {
       valueHash = value.numericValue.toString();
     } else if (value is NutritionHealthValue) {
       // Хешируем основные поля нутриента
-      valueHash = '${value.calories}_${value.protein}_${value.fat}_${value.carbs}';
+      valueHash =
+          '${value.calories}_${value.protein}_${value.fat}_${value.carbs}';
     }
 
     // Формируем ключ: источник|время|тип|значение
     return '$source|$timestamp|$type|$valueHash';
   }
 
-  void _parseAndAddToAccumulator(HealthDataPoint point, _DailyNutritionDTO acc) {
+  void _parseAndAddToAccumulator(
+    HealthDataPoint point,
+    _DailyNutritionDTO acc,
+  ) {
     final value = point.value;
     final type = point.type;
 
@@ -227,18 +243,6 @@ class NutritionViewModel extends ChangeNotifier {
 
   String _getDateKey(DateTime date) {
     return "${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}";
-  }
-
-  Future<void> updateSystemWidget(String path) async {
-    try {
-      await HomeWidget.saveWidgetData<String>('nutrition_chart_path', path);
-      await HomeWidget.updateWidget(
-        name: 'NutritionWidgetProvider',
-        androidName: 'NutritionWidgetProvider',
-      );
-    } catch (e) {
-      debugPrint("Widget update failed: $e");
-    }
   }
 }
 

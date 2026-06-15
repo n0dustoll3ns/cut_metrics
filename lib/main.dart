@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:health_widgets/dashboard_view.dart';
-import 'package:health_widgets/health_dashboard_viewmodel.dart';
-import 'package:health_widgets/repo/health.dart';
+import 'package:cut_metrics/dashboard_view.dart';
+import 'package:cut_metrics/health_dashboard_viewmodel.dart';
+import 'package:cut_metrics/repo/health.dart';
 import 'package:provider/provider.dart';
 
 void main() => runApp(

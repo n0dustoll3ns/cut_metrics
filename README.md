@@ -1,3 +1,3 @@
-# health_widgets
+# cut_metrics
 
-A new Flutter project.
+A simple app which aggregates data from health services to informative and usefull metrics on cut phase

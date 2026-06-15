@@ -1,8 +1,8 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:health/health.dart';
-import 'package:health_widgets/domain/nutrition.dart';
-import 'package:health_widgets/repo/health.dart';
+import 'package:cut_metrics/domain/nutrition.dart';
+import 'package:cut_metrics/repo/health.dart';
 
 class NutritionViewModel extends ChangeNotifier {
   static const String primarySource = 'com.fatsecret.android';

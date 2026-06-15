@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:fl_chart/fl_chart.dart';
-import 'package:health_widgets/ui/weight/vm.dart';
-import 'package:health_widgets/ui/food/vm.dart';
-import 'package:health_widgets/ui/sleep/vm.dart';
-import 'package:health_widgets/domain/weight.dart';
-import 'package:health_widgets/domain/nutrition.dart';
-import 'package:health_widgets/domain.dart';
+import 'package:cut_metrics/ui/weight/vm.dart';
+import 'package:cut_metrics/ui/food/vm.dart';
+import 'package:cut_metrics/ui/sleep/vm.dart';
+import 'package:cut_metrics/domain/weight.dart';
+import 'package:cut_metrics/domain/nutrition.dart';
+import 'package:cut_metrics/domain.dart';
 
 class DashboardView extends StatefulWidget {
   const DashboardView({super.key});

@@ -1,8 +1,8 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:health/health.dart';
-import 'package:health_widgets/domain/weight.dart';
-import 'package:health_widgets/repo/health.dart';
+import 'package:cut_metrics/domain/weight.dart';
+import 'package:cut_metrics/repo/health.dart';
 
 class WeightViewModel extends ChangeNotifier {
   final HealthRepository repository;

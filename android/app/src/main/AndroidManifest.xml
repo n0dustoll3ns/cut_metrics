@@ -22,7 +22,7 @@
     </queries>
 
     <application
-        android:label="health_widgets"
+        android:label="cut_metrics"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
 

@@ -1,9 +1,9 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:health/health.dart';
-import 'package:health_widgets/domain.dart';
-import 'package:health_widgets/domain/sleep.dart';
-import 'package:health_widgets/repo/health.dart';
+import 'package:cut_metrics/domain.dart';
+import 'package:cut_metrics/domain/sleep.dart';
+import 'package:cut_metrics/repo/health.dart';
 
 class SleepViewModel extends ChangeNotifier {
   // Внедряем зависимости (в реальном проекте лучше через DI, например get_it)

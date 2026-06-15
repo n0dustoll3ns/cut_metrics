@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:health/health.dart';
-import 'package:health_widgets/domain.dart';
+import 'package:cut_metrics/domain.dart';
 import '../repo/health.dart';
 import '../domain/weight.dart';
 import '../domain/nutrition.dart';

@@ -6,7 +6,7 @@ plugins {
 }
 
 android {
-    namespace = "com.sandbox.healthwidgets"
+    namespace = "com.sandbox.cutmetrics"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -20,7 +20,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.sandbox.healthwidgets"
+        applicationId = "com.sandbox.cutmetrics"
         minSdk = 26
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode

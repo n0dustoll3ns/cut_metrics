@@ -36,8 +36,8 @@ class HealthDashboardViewModel extends ChangeNotifier {
   HealthDashboardViewModel({
     required HealthRepository repository,
     SleepAnalyzer? sleepAnalyzer,
-  })  : _repository = repository,
-        _sleepAnalyzer = sleepAnalyzer ?? SleepAnalyzer();
+  }) : _repository = repository,
+       _sleepAnalyzer = sleepAnalyzer ?? SleepAnalyzer();
 
   /// Инициализация: запрос прав и загрузка всех данных
   Future<void> loadData() async {
@@ -70,8 +70,11 @@ class HealthDashboardViewModel extends ChangeNotifier {
       }
 
       final now = DateTime.now();
-      final startDate = DateTime(now.year, now.month, now.day)
-          .subtract(Duration(days: _selectedDays + 2));
+      final startDate = DateTime(
+        now.year,
+        now.month,
+        now.day,
+      ).subtract(Duration(days: _selectedDays + 2));
 
       // Загружаем все данные параллельно
       final results = await Future.wait([
@@ -144,7 +147,10 @@ class HealthDashboardViewModel extends ChangeNotifier {
   }
 
   /// Обработка данных о весе
-  List<WeightDay> _processWeightData(List<HealthDataPoint> rawPoints, DateTime now) {
+  List<WeightDay> _processWeightData(
+    List<HealthDataPoint> rawPoints,
+    DateTime now,
+  ) {
     final Map<String, _WeightDTO> dailyMap = {};
 
     // Инициализируем карту пустыми значениями для последних N дней
@@ -306,13 +312,17 @@ class HealthDashboardViewModel extends ChangeNotifier {
     if (value is NumericHealthValue) {
       valueHash = value.numericValue.toString();
     } else if (value is NutritionHealthValue) {
-      valueHash = '${value.calories}_${value.protein}_${value.fat}_${value.carbs}';
+      valueHash =
+          '${value.calories}_${value.protein}_${value.fat}_${value.carbs}';
     }
 
     return '$source|$timestamp|$type|$valueHash';
   }
 
-  void _parseAndAddToAccumulator(HealthDataPoint point, _DailyNutritionDTO acc) {
+  void _parseAndAddToAccumulator(
+    HealthDataPoint point,
+    _DailyNutritionDTO acc,
+  ) {
     final value = point.value;
     final type = point.type;
 

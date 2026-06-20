@@ -21,6 +21,8 @@ class HealthRepository {
     var status = await _health.getHealthConnectSdkStatus();
     debugPrint("📱 Health Connect SDK Status: $status");
 
+    
+
     if (status != HealthConnectSdkStatus.sdkAvailable) {
       debugPrint("❌ SDK NOT Available. User needs to install Health Connect app.");
       // Можно попробовать предложить установку:

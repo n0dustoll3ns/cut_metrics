@@ -1,6 +1,3 @@
-import 'package:cut_metrics/ui/food/vm.dart';
-import 'package:cut_metrics/ui/sleep/vm.dart';
-import 'package:cut_metrics/ui/weight/vm.dart';
 import 'package:flutter/material.dart';
 import 'package:cut_metrics/dashboard_view.dart';
 import 'package:cut_metrics/health_dashboard_viewmodel.dart';
@@ -30,9 +27,6 @@ class _AppViewState extends State<AppView> {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => HealthDashboardViewModel(repository: repo)),
-        ChangeNotifierProvider(create: (context) => WeightViewModel(repo)),
-        ChangeNotifierProvider(create: (context) => NutritionViewModel(repo)),
-        ChangeNotifierProvider(create: (context) => SleepViewModel(repo)),
       ],
       builder: (context, _) {
         return Scaffold(

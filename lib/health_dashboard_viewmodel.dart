@@ -12,6 +12,20 @@ import '../domain/sleep.dart';
 class HealthDashboardViewModel extends ChangeNotifier {
   final HealthRepository repo;
   final SleepAnalyzer _sleepAnalyzer;
+  static const sleepDataTypes = [
+    HealthDataType.SLEEP_DEEP,
+    HealthDataType.SLEEP_LIGHT,
+    HealthDataType.SLEEP_REM,
+  ];
+  static const weightDataTypes = [HealthDataType.WEIGHT];
+  static const nutritionDataTypes = [HealthDataType.NUTRITION];
+  static const stepsDataTypes = [HealthDataType.STEPS];
+  static const allDataTypes = [
+    ...sleepDataTypes,
+    ...weightDataTypes,
+    ...nutritionDataTypes,
+    ...stepsDataTypes,
+  ];
 
   // Данные для графиков
   List<WeightDay> _weightData = [];
@@ -33,11 +47,9 @@ class HealthDashboardViewModel extends ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get error => _error;
 
-  HealthDashboardViewModel({
-    required HealthRepository repository,
-    SleepAnalyzer? sleepAnalyzer,
-  }) : repo = repository,
-       _sleepAnalyzer = sleepAnalyzer ?? SleepAnalyzer();
+  HealthDashboardViewModel({required HealthRepository repository, SleepAnalyzer? sleepAnalyzer})
+    : repo = repository,
+      _sleepAnalyzer = sleepAnalyzer ?? SleepAnalyzer();
 
   /// Инициализация: запрос прав и загрузка всех данных
   Future<void> loadData() async {
@@ -47,21 +59,8 @@ class HealthDashboardViewModel extends ChangeNotifier {
 
     try {
       // Запрашиваем права на все типы данных сразу
-      final allTypes = [
-        HealthDataType.WEIGHT,
-        HealthDataType.NUTRITION,
-        HealthDataType.DIETARY_ENERGY_CONSUMED,
-        HealthDataType.DIETARY_PROTEIN_CONSUMED,
-        HealthDataType.DIETARY_FATS_CONSUMED,
-        HealthDataType.DIETARY_CARBS_CONSUMED,
-        HealthDataType.ACTIVE_ENERGY_BURNED,
-        HealthDataType.BASAL_ENERGY_BURNED,
-        HealthDataType.SLEEP_DEEP,
-        HealthDataType.SLEEP_LIGHT,
-        HealthDataType.SLEEP_REM,
-      ];
 
-      bool granted = await repo.checkAndRequestPermissions(allTypes);
+      bool granted = await repo.checkAndRequestPermissions(allDataTypes);
       if (!granted) {
         _error = "Permission denied or SDK unavailable";
         _isLoading = false;
@@ -70,64 +69,23 @@ class HealthDashboardViewModel extends ChangeNotifier {
       }
 
       final now = DateTime.now();
-      final startDate = DateTime(
-        now.year,
-        now.month,
-        now.day,
-      ).subtract(Duration(days: _selectedDays + 2));
+      final startDate = DateTime(now.year, now.month, now.day).subtract(Duration(days: _selectedDays + 2));
 
       // Загружаем все данные параллельно
-      final results = await Future.wait([
-        repo.fetchRawData(
-          types: [HealthDataType.WEIGHT],
-          startDate: startDate,
-          endDate: now,
-        ),
-        repo.fetchRawData(
-          types: [
-            HealthDataType.NUTRITION,
-            HealthDataType.DIETARY_ENERGY_CONSUMED,
-            HealthDataType.DIETARY_PROTEIN_CONSUMED,
-            HealthDataType.DIETARY_FATS_CONSUMED,
-            HealthDataType.DIETARY_CARBS_CONSUMED,
-          ],
-          startDate: startDate,
-          endDate: now,
-        ),
-        repo.fetchRawData(
-          types: [
-            HealthDataType.ACTIVE_ENERGY_BURNED,
-            HealthDataType.BASAL_ENERGY_BURNED,
-          ],
-          startDate: startDate,
-          endDate: now,
-        ),
-        repo.fetchRawData(
-          types: [
-            HealthDataType.SLEEP_DEEP,
-            HealthDataType.SLEEP_LIGHT,
-            HealthDataType.SLEEP_REM,
-          ],
-          startDate: startDate,
-          endDate: now,
-        ),
-      ]);
 
-      final weightPoints = results[0];
-      final nutritionPoints = results[1];
-      final activityPoints = results[2];
-      final sleepPoints = results[3];
+      final (weightPoints, nutritionPoints, activityPoints, sleepPoints) = (
+        await repo.fetchRawData(types: weightDataTypes, startDate: startDate, endDate: now),
+        await repo.fetchRawData(types: nutritionDataTypes, startDate: startDate, endDate: now),
+        await repo.fetchRawData(types: stepsDataTypes, startDate: startDate, endDate: now),
+        await repo.fetchRawData(types: sleepDataTypes, startDate: startDate, endDate: now),
+      );
 
       // Обрабатываем вес с EMA
       _weightData = _processWeightData(weightPoints, now);
       _emaData = _calculateEMA(_weightData, _getEmaPeriod());
 
       // Обрабатываем энергобаланс
-      _nutritionData = _processEnergyBalanceData(
-        nutritionPoints,
-        activityPoints,
-        now,
-      );
+      _nutritionData = _processEnergyBalanceData(nutritionPoints, activityPoints, now);
 
       // Обрабатываем сон через SleepAnalyzer
       _sleepData = _sleepAnalyzer.processSleepData(
@@ -147,10 +105,7 @@ class HealthDashboardViewModel extends ChangeNotifier {
   }
 
   /// Обработка данных о весе
-  List<WeightDay> _processWeightData(
-    List<HealthDataPoint> rawPoints,
-    DateTime now,
-  ) {
+  List<WeightDay> _processWeightData(List<HealthDataPoint> rawPoints, DateTime now) {
     final Map<String, _WeightDTO> dailyMap = {};
 
     // Инициализируем карту пустыми значениями для последних N дней
@@ -202,9 +157,7 @@ class HealthDashboardViewModel extends ChangeNotifier {
 
     // Фильтруем только данные из FatSecret (или другого основного источника)
     const primarySource = 'com.fatsecret.android';
-    final filteredNutritionPoints = nutritionPoints
-        .where((e) => e.sourceName == primarySource)
-        .toList();
+    final filteredNutritionPoints = nutritionPoints.where((e) => e.sourceName == primarySource).toList();
 
     // Обрабатываем данные о питании
     for (var point in filteredNutritionPoints) {
@@ -312,17 +265,13 @@ class HealthDashboardViewModel extends ChangeNotifier {
     if (value is NumericHealthValue) {
       valueHash = value.numericValue.toString();
     } else if (value is NutritionHealthValue) {
-      valueHash =
-          '${value.calories}_${value.protein}_${value.fat}_${value.carbs}';
+      valueHash = '${value.calories}_${value.protein}_${value.fat}_${value.carbs}';
     }
 
     return '$source|$timestamp|$type|$valueHash';
   }
 
-  void _parseAndAddToAccumulator(
-    HealthDataPoint point,
-    _DailyNutritionDTO acc,
-  ) {
+  void _parseAndAddToAccumulator(HealthDataPoint point, _DailyNutritionDTO acc) {
     final value = point.value;
     final type = point.type;
 

@@ -1,9 +1,7 @@
+import 'package:cut_metrics/health_dashboard_viewmodel.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:fl_chart/fl_chart.dart';
-import 'package:cut_metrics/ui/weight/vm.dart';
-import 'package:cut_metrics/ui/food/vm.dart';
-import 'package:cut_metrics/ui/sleep/vm.dart';
 import 'package:cut_metrics/domain/weight.dart';
 import 'package:cut_metrics/domain/nutrition.dart';
 import 'package:cut_metrics/domain.dart';
@@ -16,7 +14,6 @@ class DashboardView extends StatefulWidget {
 }
 
 class _DashboardViewState extends State<DashboardView> {
-  int _selectedDays = 7;
   final ScrollController _scrollController = ScrollController();
 
   @override
@@ -32,12 +29,7 @@ class _DashboardViewState extends State<DashboardView> {
   }
 
   void _onDaysChanged(int days) {
-    setState(() {
-      _selectedDays = days;
-    });
-    context.read<WeightViewModel>().setSelectedDays(days);
-    context.read<NutritionViewModel>().setSelectedDays(days);
-    context.read<SleepViewModel>().setSelectedDays(days);
+    context.read<HealthDashboardViewModel>().setSelectedDays(days);
   }
 
   @override
@@ -59,6 +51,7 @@ class _DashboardViewState extends State<DashboardView> {
   }
 
   Widget _buildTimeNavigation() {
+    var days = context.select((HealthDashboardViewModel vm) => vm.selectedDays);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       color: Colors.grey[900],
@@ -72,7 +65,7 @@ class _DashboardViewState extends State<DashboardView> {
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
               ),
               DropdownButton<int>(
-                value: _selectedDays,
+                value: days,
                 dropdownColor: Colors.grey[850],
                 underline: Container(),
                 items: const [
@@ -101,9 +94,9 @@ class _DashboardViewState extends State<DashboardView> {
             height: 40,
             child: ListView.builder(
               scrollDirection: Axis.horizontal,
-              itemCount: _selectedDays,
+              itemCount: days,
               itemBuilder: (context, index) {
-                final date = DateTime.now().subtract(Duration(days: _selectedDays - 1 - index));
+                final date = DateTime.now().subtract(Duration(days: days - 1 - index));
                 return Container(
                   width: 50,
                   margin: const EdgeInsets.only(right: 4),
@@ -140,11 +133,11 @@ class _DashboardViewState extends State<DashboardView> {
   }
 
   Widget _buildWeightChart() {
-    return Consumer2<WeightViewModel, NutritionViewModel>(
-      builder: (context, weightVM, nutritionVM, _) {
-        final weightData = weightVM.weightData;
-        final emaData = weightVM.emaData;
-        final isLoading = weightVM.isLoading;
+    return Builder(
+      builder: (context) {
+        final weightData = context.select((HealthDashboardViewModel vm) => vm.weightData);
+        final emaData = context.select((HealthDashboardViewModel vm) => vm.emaData);
+        final isLoading = context.select((HealthDashboardViewModel vm) => vm.isLoading);
 
         if (isLoading) {
           return Card(
@@ -276,10 +269,10 @@ class _DashboardViewState extends State<DashboardView> {
   }
 
   Widget _buildEnergyBalanceChart() {
-    return Consumer<NutritionViewModel>(
-      builder: (context, nutritionVM, _) {
-        final data = nutritionVM.nutritionData;
-        final isLoading = nutritionVM.isLoading;
+    return Builder(
+      builder: (context) {
+        final isLoading = context.select((HealthDashboardViewModel vm) => vm.isLoading);
+        final data = context.select((HealthDashboardViewModel vm) => vm.nutritionData);
 
         if (isLoading) {
           return Card(
@@ -451,10 +444,10 @@ class _DashboardViewState extends State<DashboardView> {
   }
 
   Widget _buildSleepChart() {
-    return Consumer<SleepViewModel>(
-      builder: (context, sleepVM, _) {
-        final data = sleepVM.sleepData;
-        final isLoading = sleepVM.isLoading;
+    return Builder(
+      builder: (context) {
+        final data = context.select((HealthDashboardViewModel vm) => vm.sleepData);
+        final isLoading = context.select((HealthDashboardViewModel vm) => vm.isLoading);
 
         if (isLoading) {
           return Card(

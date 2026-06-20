@@ -20,14 +20,14 @@ class SleepViewModel extends ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get error => _error;
 
-  SleepViewModel(HealthRepository repository) : _repository = repository;
+  SleepViewModel(HealthRepository repository) : _repository = repository {
+    _init();
+  }
 
-  Future<void> authorizeAndFetchSleepData() async {
-    final types = [
-      HealthDataType.SLEEP_DEEP,
-      HealthDataType.SLEEP_LIGHT,
-      HealthDataType.SLEEP_REM,
-    ];
+  void _init() => _authorizeAndFetchSleepData();
+
+  Future<void> _authorizeAndFetchSleepData() async {
+    final types = [HealthDataType.SLEEP_DEEP, HealthDataType.SLEEP_LIGHT, HealthDataType.SLEEP_REM];
 
     try {
       bool granted = await _repository.checkAndRequestPermissions(types);
@@ -65,21 +65,13 @@ class SleepViewModel extends ChangeNotifier {
 
       // 1. Получаем сырые данные через Репозиторий
       final rawPoints = await _repository.fetchRawData(
-        types: [
-          HealthDataType.SLEEP_DEEP,
-          HealthDataType.SLEEP_LIGHT,
-          HealthDataType.SLEEP_REM,
-        ],
+        types: [HealthDataType.SLEEP_DEEP, HealthDataType.SLEEP_LIGHT, HealthDataType.SLEEP_REM],
         startDate: startDate,
         endDate: now,
       );
 
       // 2. Обрабатываем данные через Сервис/Анализатор
-      _sleepData = _analyzer.processSleepData(
-        rawPoints: rawPoints,
-        daysToAnalyze: _selectedDays,
-        now: now,
-      );
+      _sleepData = _analyzer.processSleepData(rawPoints: rawPoints, daysToAnalyze: _selectedDays, now: now);
 
       _isLoading = false;
       notifyListeners();

@@ -20,10 +20,14 @@ class NutritionViewModel extends ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get error => _error;
 
-  NutritionViewModel(this.repository);
+  NutritionViewModel(this.repository) {
+    _init();
+  }
+
+  void _init() => _authorizeAndFetchNutritionData();
 
   /// Инициализация: запрос прав и загрузка данных
-  Future<void> authorizeAndFetchNutritionData() async {
+  Future<void> _authorizeAndFetchNutritionData() async {
     try {
       bool granted = await repository.checkAndRequestPermissions(dataTypes);
       if (!granted) {
@@ -54,33 +58,20 @@ class NutritionViewModel extends ChangeNotifier {
 
     try {
       final now = DateTime.now();
-      final startDate = DateTime(
-        now.year,
-        now.month,
-        now.day,
-      ).subtract(Duration(days: _selectedDays + 1));
+      final startDate = DateTime(now.year, now.month, now.day).subtract(Duration(days: _selectedDays + 1));
 
       // Загружаем данные о питании
-      final rawPoints = await repository.fetchRawData(
-        types: dataTypes,
-        startDate: startDate,
-        endDate: now,
-      );
+      final rawPoints = await repository.fetchRawData(types: dataTypes, startDate: startDate, endDate: now);
 
       // Загружаем данные об активности для расчета расхода калорий
       final activityPoints = await repository.fetchRawData(
-        types: [
-          HealthDataType.ACTIVE_ENERGY_BURNED,
-          HealthDataType.BASAL_ENERGY_BURNED,
-        ],
+        types: [HealthDataType.ACTIVE_ENERGY_BURNED, HealthDataType.BASAL_ENERGY_BURNED],
         startDate: startDate,
         endDate: now,
       );
 
       _nutritionData = _processNutritionData(
-        nutritionPoints: rawPoints
-            .where((e) => e.sourceName == primarySource)
-            .toList(),
+        nutritionPoints: rawPoints.where((e) => e.sourceName == primarySource).toList(),
         activityPoints: activityPoints,
         daysToAnalyze: _selectedDays,
         now: now,
@@ -198,18 +189,14 @@ class NutritionViewModel extends ChangeNotifier {
       valueHash = value.numericValue.toString();
     } else if (value is NutritionHealthValue) {
       // Хешируем основные поля нутриента
-      valueHash =
-          '${value.calories}_${value.protein}_${value.fat}_${value.carbs}';
+      valueHash = '${value.calories}_${value.protein}_${value.fat}_${value.carbs}';
     }
 
     // Формируем ключ: источник|время|тип|значение
     return '$source|$timestamp|$type|$valueHash';
   }
 
-  void _parseAndAddToAccumulator(
-    HealthDataPoint point,
-    _DailyNutritionDTO acc,
-  ) {
+  void _parseAndAddToAccumulator(HealthDataPoint point, _DailyNutritionDTO acc) {
     final value = point.value;
     final type = point.type;
 

@@ -10,7 +10,7 @@ import '../domain/sleep.dart';
 /// Единая ViewModel для всего дашборда.
 /// Собирает всю логику по загрузке и обработке данных из Google Health.
 class HealthDashboardViewModel extends ChangeNotifier {
-  final HealthRepository _repository;
+  final HealthRepository repo;
   final SleepAnalyzer _sleepAnalyzer;
 
   // Данные для графиков
@@ -36,7 +36,7 @@ class HealthDashboardViewModel extends ChangeNotifier {
   HealthDashboardViewModel({
     required HealthRepository repository,
     SleepAnalyzer? sleepAnalyzer,
-  }) : _repository = repository,
+  }) : repo = repository,
        _sleepAnalyzer = sleepAnalyzer ?? SleepAnalyzer();
 
   /// Инициализация: запрос прав и загрузка всех данных
@@ -61,7 +61,7 @@ class HealthDashboardViewModel extends ChangeNotifier {
         HealthDataType.SLEEP_REM,
       ];
 
-      bool granted = await _repository.checkAndRequestPermissions(allTypes);
+      bool granted = await repo.checkAndRequestPermissions(allTypes);
       if (!granted) {
         _error = "Permission denied or SDK unavailable";
         _isLoading = false;
@@ -78,12 +78,12 @@ class HealthDashboardViewModel extends ChangeNotifier {
 
       // Загружаем все данные параллельно
       final results = await Future.wait([
-        _repository.fetchRawData(
+        repo.fetchRawData(
           types: [HealthDataType.WEIGHT],
           startDate: startDate,
           endDate: now,
         ),
-        _repository.fetchRawData(
+        repo.fetchRawData(
           types: [
             HealthDataType.NUTRITION,
             HealthDataType.DIETARY_ENERGY_CONSUMED,
@@ -94,7 +94,7 @@ class HealthDashboardViewModel extends ChangeNotifier {
           startDate: startDate,
           endDate: now,
         ),
-        _repository.fetchRawData(
+        repo.fetchRawData(
           types: [
             HealthDataType.ACTIVE_ENERGY_BURNED,
             HealthDataType.BASAL_ENERGY_BURNED,
@@ -102,7 +102,7 @@ class HealthDashboardViewModel extends ChangeNotifier {
           startDate: startDate,
           endDate: now,
         ),
-        _repository.fetchRawData(
+        repo.fetchRawData(
           types: [
             HealthDataType.SLEEP_DEEP,
             HealthDataType.SLEEP_LIGHT,

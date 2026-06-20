@@ -1,3 +1,6 @@
+import 'package:cut_metrics/ui/food/vm.dart';
+import 'package:cut_metrics/ui/sleep/vm.dart';
+import 'package:cut_metrics/ui/weight/vm.dart';
 import 'package:flutter/material.dart';
 import 'package:cut_metrics/dashboard_view.dart';
 import 'package:cut_metrics/health_dashboard_viewmodel.dart';
@@ -24,15 +27,19 @@ class _AppViewState extends State<AppView> {
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (_) => HealthDashboardViewModel(repository: repo),
-      child: Scaffold(
-        appBar: AppBar(
-          title: const Text('Health Dashboard'),
-          centerTitle: true,
-        ),
-        body: const DashboardView(),
-      ),
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => HealthDashboardViewModel(repository: repo)),
+        ChangeNotifierProvider(create: (context) => WeightViewModel(repo)),
+        ChangeNotifierProvider(create: (context) => NutritionViewModel(repo)),
+        ChangeNotifierProvider(create: (context) => SleepViewModel(repo)),
+      ],
+      builder: (context, _) {
+        return Scaffold(
+          appBar: AppBar(title: const Text('Health Dashboard'), centerTitle: true),
+          body: const DashboardView(),
+        );
+      },
     );
   }
 }

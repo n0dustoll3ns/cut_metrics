@@ -187,18 +187,16 @@ class _DashboardViewState extends State<DashboardView> {
     double maxWeight = data.map((e) => e.weight).reduce((a, b) => a > b ? a : b);
     double range = maxWeight - minWeight;
     if (range < 1.0) range = 1.0;
-    minWeight -= range * 0.1;
-    maxWeight += range * 0.1;
+    minWeight -= range * 0.4;
+    maxWeight += range * 0.4;
 
     return LineChart(
       LineChartData(
         gridData: FlGridData(
           show: true,
-          drawVerticalLine: false,
+          drawVerticalLine: true,
           horizontalInterval: range / 4,
-          getDrawingHorizontalLine: (value) {
-            return FlLine(color: Colors.white24, strokeWidth: 1);
-          },
+          getDrawingHorizontalLine: (value) => FlLine(color: Colors.white24, strokeWidth: 1),
         ),
         titlesData: FlTitlesData(
           leftTitles: AxisTitles(
@@ -241,9 +239,8 @@ class _DashboardViewState extends State<DashboardView> {
             barWidth: 3,
             dotData: FlDotData(
               show: true,
-              getDotPainter: (spot, percent, barData, index) {
-                return FlDotCirclePainter(radius: 4, color: const Color(0xFF4CAF50));
-              },
+              getDotPainter: (spot, percent, barData, index) =>
+                  FlDotCirclePainter(radius: 4, color: const Color(0xFF4CAF50)),
             ),
             belowBarData: BarAreaData(
               show: true,

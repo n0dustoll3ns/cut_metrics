@@ -49,7 +49,9 @@ class HealthDashboardViewModel extends ChangeNotifier {
 
   HealthDashboardViewModel({required HealthRepository repository, SleepAnalyzer? sleepAnalyzer})
     : repo = repository,
-      _sleepAnalyzer = sleepAnalyzer ?? SleepAnalyzer();
+      _sleepAnalyzer = sleepAnalyzer ?? SleepAnalyzer() {
+    loadData();
+  }
 
   /// Инициализация: запрос прав и загрузка всех данных
   Future<void> loadData() async {

@@ -1,7 +1,7 @@
+import 'package:cut_metrics/repo/health_mock.dart';
 import 'package:flutter/material.dart';
 import 'package:cut_metrics/dashboard_view.dart';
 import 'package:cut_metrics/health_dashboard_viewmodel.dart';
-import 'package:cut_metrics/repo/health.dart';
 import 'package:provider/provider.dart';
 
 void main() => runApp(
@@ -12,21 +12,14 @@ void main() => runApp(
   ),
 );
 
-class AppView extends StatefulWidget {
+class AppView extends StatelessWidget {
   const AppView({super.key});
-
-  @override
-  State<AppView> createState() => _AppViewState();
-}
-
-class _AppViewState extends State<AppView> {
-  final repo = HealthRepository();
 
   @override
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => HealthDashboardViewModel(repository: repo)),
+        ChangeNotifierProvider(create: (_) => HealthDashboardViewModel(repository: MockHealthRepository())),
       ],
       builder: (context, _) {
         return Scaffold(

@@ -1,5 +1,6 @@
 import 'package:cut_metrics/health_dashboard_viewmodel.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:cut_metrics/domain/weight.dart';
@@ -28,16 +29,12 @@ class _DashboardViewState extends State<DashboardView> {
     super.dispose();
   }
 
-  void _onDaysChanged(int days) {
-    context.read<HealthDashboardViewModel>().setSelectedDays(days);
-  }
-
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
         // Верхняя панель с навигацией по дням
-        _buildTimeNavigation(),
+        const _TimeNav(),
 
         // Три графика
         Expanded(
@@ -48,88 +45,6 @@ class _DashboardViewState extends State<DashboardView> {
         ),
       ],
     );
-  }
-
-  Widget _buildTimeNavigation() {
-    var days = context.select((HealthDashboardViewModel vm) => vm.selectedDays);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      color: Colors.grey[900],
-      child: Column(
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text(
-                'Timeline',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
-              ),
-              DropdownButton<int>(
-                value: days,
-                dropdownColor: Colors.grey[850],
-                underline: Container(),
-                items: const [
-                  DropdownMenuItem(
-                    value: 7,
-                    child: Text('7 days', style: TextStyle(color: Colors.white)),
-                  ),
-                  DropdownMenuItem(
-                    value: 14,
-                    child: Text('14 days', style: TextStyle(color: Colors.white)),
-                  ),
-                  DropdownMenuItem(
-                    value: 30,
-                    child: Text('30 days', style: TextStyle(color: Colors.white)),
-                  ),
-                ],
-                onChanged: (val) {
-                  if (val != null) _onDaysChanged(val);
-                },
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          // Горизонтальный скролл с датами
-          SizedBox(
-            height: 40,
-            child: ListView.builder(
-              scrollDirection: Axis.horizontal,
-              itemCount: days,
-              itemBuilder: (context, index) {
-                final date = DateTime.now().subtract(Duration(days: days - 1 - index));
-                return Container(
-                  width: 50,
-                  margin: const EdgeInsets.only(right: 4),
-                  decoration: BoxDecoration(color: Colors.grey[800], borderRadius: BorderRadius.circular(8)),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        '${date.day}',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      Text(
-                        _getMonthShort(date.month),
-                        style: const TextStyle(color: Colors.white54, fontSize: 10),
-                      ),
-                    ],
-                  ),
-                );
-              },
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  String _getMonthShort(int month) {
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    return months[month - 1];
   }
 
   Widget _buildWeightChart() {
@@ -598,6 +513,55 @@ class LegendItem extends StatelessWidget {
         const SizedBox(width: 6),
         Text(label, style: const TextStyle(fontSize: 12, color: Colors.white70)),
       ],
+    );
+  }
+}
+
+class _TimeNav extends StatelessWidget {
+  const _TimeNav();
+
+  @override
+  Widget build(BuildContext context) {
+    final (start, end) = context.select((HealthDashboardViewModel vm) => (vm.start, vm.end));
+    return Padding(
+      padding: const EdgeInsets.all(8.0),
+      child: Row(
+        spacing: 16,
+        children: [
+          Expanded(
+            child: OutlinedButton(
+              onPressed: () async {
+                final res = await showDatePicker(
+                  context: context,
+                  firstDate: end.subtract(Duration(days: 999)),
+                  lastDate: end,
+                  currentDate: start,
+                );
+                if (res != null && context.mounted) {
+                  context.read<HealthDashboardViewModel>().setDate(start: res);
+                }
+              },
+              child: Text(DateFormat.yMd().format(start)),
+            ),
+          ),
+          Expanded(
+            child: OutlinedButton(
+              onPressed: () async {
+                final res = await showDatePicker(
+                  context: context,
+                  firstDate: end.subtract(Duration(days: 999)),
+                  lastDate: end,
+                  currentDate: end,
+                );
+                if (res != null && context.mounted) {
+                  context.read<HealthDashboardViewModel>().setDate(end: res);
+                }
+              },
+              child: Text(DateFormat.yMd().format(end)),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

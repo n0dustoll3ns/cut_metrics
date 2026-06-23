@@ -27,23 +27,14 @@ class HealthDashboardViewModel extends ChangeNotifier {
     ...stepsDataTypes,
   ];
 
-  // Данные для графиков
-  List<WeightDay> _weightData = [];
-  List<WeightDay> _emaData = [];
-  List<NutritionDay> _nutritionData = [];
-  List<SleepDay> _sleepData = [];
-
-  // Состояние
-  int _selectedDays = 14;
-  bool _isLoading = false;
-  String? _error;
-
   // Геттеры
   List<WeightDay> get weightData => _weightData;
   List<WeightDay> get emaData => _emaData;
   List<NutritionDay> get nutritionData => _nutritionData;
   List<SleepDay> get sleepData => _sleepData;
-  int get selectedDays => _selectedDays;
+  DateTime get start => _start;
+  DateTime get end => _end;
+  int get selectedDurationInDays => _end.difference(_start).inDays;
   bool get isLoading => _isLoading;
   String? get error => _error;
 
@@ -51,6 +42,24 @@ class HealthDashboardViewModel extends ChangeNotifier {
     : repo = repository,
       _sleepAnalyzer = sleepAnalyzer ?? SleepAnalyzer() {
     loadData();
+  }
+
+  // Данные для графиков
+  List<WeightDay> _weightData = [];
+  List<WeightDay> _emaData = [];
+  List<NutritionDay> _nutritionData = [];
+  List<SleepDay> _sleepData = [];
+
+  // Состояние
+  DateTime _start = DateTime.now().subtract(Duration(days: 7));
+  DateTime _end = DateTime.now();
+  bool _isLoading = false;
+  String? _error;
+
+  void setDate({DateTime? start, DateTime? end}) {
+    if (start != null) _start = start;
+    if (end != null) _end = end;
+    notifyListeners();
   }
 
   /// Инициализация: запрос прав и загрузка всех данных
@@ -70,30 +79,27 @@ class HealthDashboardViewModel extends ChangeNotifier {
         return;
       }
 
-      final now = DateTime.now();
-      final startDate = DateTime(now.year, now.month, now.day).subtract(Duration(days: _selectedDays + 2));
-
       // Загружаем все данные параллельно
 
       final (weightPoints, nutritionPoints, activityPoints, sleepPoints) = (
-        await repo.fetchRawData(types: weightDataTypes, startDate: startDate, endDate: now),
-        await repo.fetchRawData(types: nutritionDataTypes, startDate: startDate, endDate: now),
-        await repo.fetchRawData(types: stepsDataTypes, startDate: startDate, endDate: now),
-        await repo.fetchRawData(types: sleepDataTypes, startDate: startDate, endDate: now),
+        await repo.fetchRawData(types: weightDataTypes, startDate: _start, endDate: _end),
+        await repo.fetchRawData(types: nutritionDataTypes, startDate: _start, endDate: _end),
+        await repo.fetchRawData(types: stepsDataTypes, startDate: _start, endDate: _end),
+        await repo.fetchRawData(types: sleepDataTypes, startDate: _start, endDate: _end),
       );
 
       // Обрабатываем вес с EMA
-      _weightData = _processWeightData(weightPoints, now);
+      _weightData = _processWeightData(weightPoints);
       _emaData = _calculateEMA(_weightData, _getEmaPeriod());
 
       // Обрабатываем энергобаланс
-      _nutritionData = _processEnergyBalanceData(nutritionPoints, activityPoints, now);
+      _nutritionData = _processEnergyBalanceData(nutritionPoints, activityPoints, _end);
 
       // Обрабатываем сон через SleepAnalyzer
       _sleepData = _sleepAnalyzer.processSleepData(
         rawPoints: sleepPoints,
-        daysToAnalyze: _selectedDays,
-        now: now,
+        daysToAnalyze: selectedDurationInDays,
+        now: _end,
       );
 
       _isLoading = false;
@@ -107,12 +113,12 @@ class HealthDashboardViewModel extends ChangeNotifier {
   }
 
   /// Обработка данных о весе
-  List<WeightDay> _processWeightData(List<HealthDataPoint> rawPoints, DateTime now) {
+  List<WeightDay> _processWeightData(List<HealthDataPoint> rawPoints) {
     final Map<String, _WeightDTO> dailyMap = {};
 
     // Инициализируем карту пустыми значениями для последних N дней
-    for (int i = 0; i < _selectedDays; i++) {
-      final date = now.subtract(Duration(days: i));
+    for (int i = 0; i < selectedDurationInDays; i++) {
+      final date = _end.subtract(Duration(days: i));
       final key = _getDateKey(date);
       dailyMap[key] = _WeightDTO(date: date);
     }
@@ -148,7 +154,7 @@ class HealthDashboardViewModel extends ChangeNotifier {
     final Map<String, _DailyNutritionDTO> dailyMap = {};
 
     // Инициализируем карту пустыми значениями для последних N дней
-    for (int i = 0; i < _selectedDays; i++) {
+    for (int i = 0; i < selectedDurationInDays; i++) {
       final date = now.subtract(Duration(days: i));
       final key = _getDateKey(date);
       dailyMap[key] = _DailyNutritionDTO(date: date);
@@ -249,8 +255,8 @@ class HealthDashboardViewModel extends ChangeNotifier {
 
   /// Период EMA в зависимости от выбранного диапазона
   int _getEmaPeriod() {
-    if (_selectedDays >= 30) return 10;
-    if (_selectedDays >= 14) return 5;
+    if (selectedDurationInDays >= 20) return 10;
+    if (selectedDurationInDays >= 10) return 5;
     return 3;
   }
 
@@ -303,14 +309,6 @@ class HealthDashboardViewModel extends ChangeNotifier {
       acc.fat += value.fat?.toDouble() ?? 0.0;
       acc.carbs += value.carbs?.toDouble() ?? 0.0;
     }
-  }
-
-  /// Смена количества отображаемых дней
-  Future<void> setSelectedDays(int days) async {
-    if (_selectedDays == days) return;
-    _selectedDays = days;
-    notifyListeners();
-    await loadData();
   }
 
   String _getDateKey(DateTime date) {

@@ -215,12 +215,12 @@ class ViewModel extends ChangeNotifier {
       final date = point.dateFrom;
       final key = _getDateKey(date);
 
-      if (!dailyMap.containsKey(key)) continue;
-
       final value = point.value;
       if (value is NumericHealthValue) {
         final steps = value.numericValue;
-        dailyMap[key] = StepsDay(date: date, steps: steps.toInt());
+        dailyMap[key] =
+            dailyMap[key]?.copyWithAddedSteps(steps: steps.toInt()) ??
+            StepsDay(date: date, steps: steps.toInt());
       }
     }
 

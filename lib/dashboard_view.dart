@@ -1,7 +1,6 @@
-import 'package:cut_metrics/health_dashboard_viewmodel.dart';
+import 'package:cut_metrics/view_model.dart';
 import 'package:cut_metrics/ui/steps_chart.dart';
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:cut_metrics/domain/weight.dart';
@@ -13,20 +12,15 @@ class DashboardView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        // Верхняя панель с навигацией по дням
-        const _TimeNav(),
-
-        // Три графика
-        Expanded(
-          child: SingleChildScrollView(
-            child: Column(
-              children: [_buildWeightChart(), _buildEnergyBalanceChart(), _buildSleepChart(), StepsChart()],
-            ),
-          ),
-        ),
-      ],
+    return SingleChildScrollView(
+      child: Column(
+        children: [
+          SizedBox(height: 380, child: StepsChart()),
+          _buildWeightChart(),
+          _buildEnergyBalanceChart(),
+          _buildSleepChart(),
+        ],
+      ),
     );
   }
 
@@ -486,55 +480,6 @@ class LegendItem extends StatelessWidget {
         const SizedBox(width: 6),
         Text(label, style: const TextStyle(fontSize: 12, color: Colors.white70)),
       ],
-    );
-  }
-}
-
-class _TimeNav extends StatelessWidget {
-  const _TimeNav();
-
-  @override
-  Widget build(BuildContext context) {
-    final (start, end) = context.select((ViewModel vm) => (vm.start, vm.end));
-    return Padding(
-      padding: const EdgeInsets.all(8.0),
-      child: Row(
-        spacing: 16,
-        children: [
-          Expanded(
-            child: OutlinedButton(
-              onPressed: () async {
-                final res = await showDatePicker(
-                  context: context,
-                  firstDate: end.subtract(Duration(days: 999)),
-                  lastDate: end,
-                  currentDate: start,
-                );
-                if (res != null && context.mounted) {
-                  context.read<ViewModel>().setDate(start: res);
-                }
-              },
-              child: Text(DateFormat.yMd().format(start)),
-            ),
-          ),
-          Expanded(
-            child: OutlinedButton(
-              onPressed: () async {
-                final res = await showDatePicker(
-                  context: context,
-                  firstDate: end.subtract(Duration(days: 999)),
-                  lastDate: end,
-                  currentDate: end,
-                );
-                if (res != null && context.mounted) {
-                  context.read<ViewModel>().setDate(end: res);
-                }
-              },
-              child: Text(DateFormat.yMd().format(end)),
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

@@ -4,12 +4,8 @@ class SleepDay {
   final double light;
   final double rem;
 
-  const SleepDay({
-    required this.date,
-    required this.deep,
-    required this.light,
-    required this.rem,
-  }) : total = deep + light + rem;
+  const SleepDay({required this.date, required this.deep, required this.light, required this.rem})
+    : total = deep + light + rem;
 
   final double total;
 
@@ -23,20 +19,12 @@ class StepsDay {
   final DateTime date;
   final int steps; // вес в кг
 
-  StepsDay({required this.date, required this.steps});
+  const StepsDay({required this.date, required this.steps});
+
+  StepsDay copyWithAddedSteps({required int steps}) {
+    return StepsDay(date: date, steps: steps + this.steps);
+  }
 }
 
-String getMonthTitle(int number) => const [
-  'jan',
-  'feb',
-  'mar',
-  'apr',
-  'may',
-  'jun',
-  'jul',
-  'aug',
-  'sep',
-  'oct',
-  'nov',
-  'dec',
-][number];
+String getMonthTitle(int number) =>
+    const ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'][number];

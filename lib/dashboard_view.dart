@@ -1,4 +1,5 @@
 import 'package:cut_metrics/health_dashboard_viewmodel.dart';
+import 'package:cut_metrics/ui/steps_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -40,7 +41,12 @@ class _DashboardViewState extends State<DashboardView> {
         Expanded(
           child: SingleChildScrollView(
             controller: _scrollController,
-            child: Column(children: [_buildWeightChart(), _buildEnergyBalanceChart(), _buildSleepChart()]),
+            child: Column(children: [
+            _buildWeightChart(), 
+            _buildEnergyBalanceChart(), 
+            _buildSleepChart(),
+            StepsChart()
+            ]),
           ),
         ),
       ],

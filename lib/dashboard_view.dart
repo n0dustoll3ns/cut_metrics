@@ -8,27 +8,8 @@ import 'package:cut_metrics/domain/weight.dart';
 import 'package:cut_metrics/domain/nutrition.dart';
 import 'package:cut_metrics/domain.dart';
 
-class DashboardView extends StatefulWidget {
+class DashboardView extends StatelessWidget {
   const DashboardView({super.key});
-
-  @override
-  State<DashboardView> createState() => _DashboardViewState();
-}
-
-class _DashboardViewState extends State<DashboardView> {
-  final ScrollController _scrollController = ScrollController();
-
-  @override
-  void initState() {
-    super.initState();
-    // Загружаем данные для всех VM при инициализации
-  }
-
-  @override
-  void dispose() {
-    _scrollController.dispose();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -40,13 +21,9 @@ class _DashboardViewState extends State<DashboardView> {
         // Три графика
         Expanded(
           child: SingleChildScrollView(
-            controller: _scrollController,
-            child: Column(children: [
-            _buildWeightChart(), 
-            _buildEnergyBalanceChart(), 
-            _buildSleepChart(),
-            StepsChart()
-            ]),
+            child: Column(
+              children: [_buildWeightChart(), _buildEnergyBalanceChart(), _buildSleepChart(), StepsChart()],
+            ),
           ),
         ),
       ],
@@ -56,9 +33,9 @@ class _DashboardViewState extends State<DashboardView> {
   Widget _buildWeightChart() {
     return Builder(
       builder: (context) {
-        final weightData = context.select((HealthDashboardViewModel vm) => vm.weightData);
-        final emaData = context.select((HealthDashboardViewModel vm) => vm.emaData);
-        final isLoading = context.select((HealthDashboardViewModel vm) => vm.isLoading);
+        final weightData = context.select((ViewModel vm) => vm.weightData);
+        final emaData = context.select((ViewModel vm) => vm.emaData);
+        final isLoading = context.select((ViewModel vm) => vm.isLoading);
 
         if (isLoading) {
           return Card(
@@ -189,8 +166,8 @@ class _DashboardViewState extends State<DashboardView> {
   Widget _buildEnergyBalanceChart() {
     return Builder(
       builder: (context) {
-        final isLoading = context.select((HealthDashboardViewModel vm) => vm.isLoading);
-        final data = context.select((HealthDashboardViewModel vm) => vm.nutritionData);
+        final isLoading = context.select((ViewModel vm) => vm.isLoading);
+        final data = context.select((ViewModel vm) => vm.nutritionData);
 
         if (isLoading) {
           return Card(
@@ -343,16 +320,6 @@ class _DashboardViewState extends State<DashboardView> {
                   topRight: Radius.circular(4),
                 ),
               ),
-              // Столбец расхода (отрицательный, показываем вниз от оси X или рядом)
-              BarChartRodData(
-                toY: -day.totalEnergyExpenditure,
-                color: Colors.red.withValues(alpha: 0.7),
-                width: 12,
-                borderRadius: const BorderRadius.only(
-                  bottomLeft: Radius.circular(4),
-                  bottomRight: Radius.circular(4),
-                ),
-              ),
             ],
             barsSpace: 4,
           );
@@ -364,8 +331,8 @@ class _DashboardViewState extends State<DashboardView> {
   Widget _buildSleepChart() {
     return Builder(
       builder: (context) {
-        final data = context.select((HealthDashboardViewModel vm) => vm.sleepData);
-        final isLoading = context.select((HealthDashboardViewModel vm) => vm.isLoading);
+        final data = context.select((ViewModel vm) => vm.sleepData);
+        final isLoading = context.select((ViewModel vm) => vm.isLoading);
 
         if (isLoading) {
           return Card(
@@ -528,7 +495,7 @@ class _TimeNav extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final (start, end) = context.select((HealthDashboardViewModel vm) => (vm.start, vm.end));
+    final (start, end) = context.select((ViewModel vm) => (vm.start, vm.end));
     return Padding(
       padding: const EdgeInsets.all(8.0),
       child: Row(
@@ -544,7 +511,7 @@ class _TimeNav extends StatelessWidget {
                   currentDate: start,
                 );
                 if (res != null && context.mounted) {
-                  context.read<HealthDashboardViewModel>().setDate(start: res);
+                  context.read<ViewModel>().setDate(start: res);
                 }
               },
               child: Text(DateFormat.yMd().format(start)),
@@ -560,7 +527,7 @@ class _TimeNav extends StatelessWidget {
                   currentDate: end,
                 );
                 if (res != null && context.mounted) {
-                  context.read<HealthDashboardViewModel>().setDate(end: res);
+                  context.read<ViewModel>().setDate(end: res);
                 }
               },
               child: Text(DateFormat.yMd().format(end)),

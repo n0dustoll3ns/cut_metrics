@@ -9,7 +9,7 @@ import '../domain/sleep.dart';
 
 /// Единая ViewModel для всего дашборда.
 /// Собирает всю логику по загрузке и обработке данных из Google Health.
-class HealthDashboardViewModel extends ChangeNotifier {
+class ViewModel extends ChangeNotifier {
   final HealthRepository repo;
   final SleepAnalyzer _sleepAnalyzer;
   static const sleepDataTypes = [
@@ -32,13 +32,14 @@ class HealthDashboardViewModel extends ChangeNotifier {
   List<WeightDay> get emaData => _emaData;
   List<NutritionDay> get nutritionData => _nutritionData;
   List<SleepDay> get sleepData => _sleepData;
+  List<StepsDay> get stepsData => _stepsData;
   DateTime get start => _start;
   DateTime get end => _end;
   int get selectedDurationInDays => _end.difference(_start).inDays;
   bool get isLoading => _isLoading;
   String? get error => _error;
 
-  HealthDashboardViewModel({required HealthRepository repository, SleepAnalyzer? sleepAnalyzer})
+  ViewModel({required HealthRepository repository, SleepAnalyzer? sleepAnalyzer})
     : repo = repository,
       _sleepAnalyzer = sleepAnalyzer ?? SleepAnalyzer() {
     loadData();
@@ -49,6 +50,7 @@ class HealthDashboardViewModel extends ChangeNotifier {
   List<WeightDay> _emaData = [];
   List<NutritionDay> _nutritionData = [];
   List<SleepDay> _sleepData = [];
+  List<StepsDay> _stepsData = [];
 
   // Состояние
   DateTime _start = DateTime.now().subtract(Duration(days: 7));
@@ -93,7 +95,7 @@ class HealthDashboardViewModel extends ChangeNotifier {
       _emaData = _calculateEMA(_weightData, _getEmaPeriod());
 
       // Обрабатываем энергобаланс
-      _nutritionData = _processEnergyBalanceData(nutritionPoints, activityPoints, _end);
+      _nutritionData = _processEnergyBalanceData(nutritionPoints, _end);
 
       // Обрабатываем сон через SleepAnalyzer
       _sleepData = _sleepAnalyzer.processSleepData(
@@ -101,6 +103,9 @@ class HealthDashboardViewModel extends ChangeNotifier {
         daysToAnalyze: selectedDurationInDays,
         now: _end,
       );
+
+      // Обрабатываем шаги
+      _stepsData = _processStepsData(activityPoints);
 
       _isLoading = false;
       notifyListeners();
@@ -146,11 +151,7 @@ class HealthDashboardViewModel extends ChangeNotifier {
   }
 
   /// Обработка данных об энергобалансе (приход/расход)
-  List<NutritionDay> _processEnergyBalanceData(
-    List<HealthDataPoint> nutritionPoints,
-    List<HealthDataPoint> activityPoints,
-    DateTime now,
-  ) {
+  List<NutritionDay> _processEnergyBalanceData(List<HealthDataPoint> nutritionPoints, DateTime now) {
     final Map<String, _DailyNutritionDTO> dailyMap = {};
 
     // Инициализируем карту пустыми значениями для последних N дней
@@ -190,31 +191,6 @@ class HealthDashboardViewModel extends ChangeNotifier {
       _parseAndAddToAccumulator(point, accumulator);
     }
 
-    // Обрабатываем данные об активности (расход калорий)
-    for (var point in activityPoints) {
-      final date = point.dateFrom;
-      final key = _getDateKey(date);
-
-      if (!dailyMap.containsKey(key)) continue;
-
-      final value = point.value;
-      if (value is NumericHealthValue) {
-        final accumulator = dailyMap[key]!;
-        final kcal = value.numericValue.toDouble();
-
-        switch (point.type) {
-          case HealthDataType.BASAL_ENERGY_BURNED:
-            accumulator.basalMetabolism += kcal;
-            break;
-          case HealthDataType.ACTIVE_ENERGY_BURNED:
-            accumulator.activityCalories += kcal;
-            break;
-          default:
-            break;
-        }
-      }
-    }
-
     final result = dailyMap.values.toList();
     result.sort((a, b) => a.date.compareTo(b.date));
 
@@ -226,11 +202,32 @@ class HealthDashboardViewModel extends ChangeNotifier {
             protein: acc.protein,
             fat: acc.fat,
             carbs: acc.carbs,
-            basalMetabolism: acc.basalMetabolism,
-            activityCalories: acc.activityCalories,
           ),
         )
         .toList();
+  }
+
+  /// Обработка данных об энергобалансе (приход/расход)
+  List<StepsDay> _processStepsData(List<HealthDataPoint> rawPoints) {
+    final Map<String, StepsDay> dailyMap = {};
+    // Обрабатываем данные об активности (расход калорий)
+    for (var point in rawPoints) {
+      final date = point.dateFrom;
+      final key = _getDateKey(date);
+
+      if (!dailyMap.containsKey(key)) continue;
+
+      final value = point.value;
+      if (value is NumericHealthValue) {
+        final steps = value.numericValue;
+        dailyMap[key] = StepsDay(date: date, steps: steps.toInt());
+      }
+    }
+
+    final result = dailyMap.values.toList();
+    result.sort((a, b) => a.date.compareTo(b.date));
+
+    return result;
   }
 
   /// Вычисление EMA (Exponential Moving Average)

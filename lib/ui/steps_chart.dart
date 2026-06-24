@@ -1,24 +1,29 @@
 import 'package:cut_metrics/domain.dart';
+import 'package:cut_metrics/health_dashboard_viewmodel.dart';
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:provider/provider.dart';
 
 class StepsChart extends StatelessWidget {
-  final List<StepsDay> data;
-  final double targetSteps;
-  const StepsChart({required this.data, required this.targetSteps});
+  const StepsChart({super.key});
 
   @override
   Widget build(BuildContext context) {
-    int maxSteps = data.map((e) => e.steps).reduce((a, b) => a > b ? a : b);
+    final data = context.select((ViewModel vm) => vm.stepsData);
+
+    const targetSteps = 12000;
+
     //TODO добавить горизонтальный пунктир на графике для отметки целевого количества шагов [targetSteps]
     return BarChart(
       BarChartData(
         gridData: FlGridData(
           show: true,
-          horizontalInterval: maxSteps * 1.15,
           checkToShowHorizontalLine: (value) => value % 2000 == 0,
-          getDrawingHorizontalLine: (value) =>
-              FlLine(color: Colors.white24, strokeWidth: 1),
+          getDrawingHorizontalLine: (value) => FlLine(
+            dashArray: [2, 1],
+            color: value == targetSteps ? Theme.of(context).primaryColor : Colors.white24,
+            strokeWidth: 1,
+          ),
         ),
         titlesData: FlTitlesData(
           leftTitles: AxisTitles(
@@ -46,24 +51,15 @@ class StepsChart extends StatelessWidget {
               },
             ),
           ),
-          topTitles: const AxisTitles(
-            sideTitles: SideTitles(showTitles: false),
-          ),
-          rightTitles: const AxisTitles(
-            sideTitles: SideTitles(showTitles: false),
-          ),
+          topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
         ),
         borderData: FlBorderData(show: false),
         barGroups: data
             .map(
               (day) => BarChartGroupData(
-                x: day.steps,
-                barRods: [
-                  BarChartRodData(
-                    toY: day.steps.toDouble(),
-                    color: Theme.of(context).primaryColor,
-                  ),
-                ],
+                x: ,
+                barRods: [BarChartRodData(toY: day.steps.toDouble(), color: Theme.of(context).primaryColor)],
               ),
             )
             .toList(),

@@ -19,7 +19,7 @@ class AppView extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => HealthDashboardViewModel(repository: MockHealthRepository())),
+        ChangeNotifierProvider(create: (_) => ViewModel(repository: MockHealthRepository())),
       ],
       builder: (context, _) {
         return Scaffold(

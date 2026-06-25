@@ -83,12 +83,14 @@ class ViewModel extends ChangeNotifier {
 
       // Загружаем все данные параллельно
 
-      final (weightPoints, nutritionPoints, activityPoints, sleepPoints) = (
+      final (weightPoints, nutritionPoints, sleepPoints) = (
         await repo.fetchRawData(types: weightDataTypes, startDate: _start, endDate: _end),
         await repo.fetchRawData(types: nutritionDataTypes, startDate: _start, endDate: _end),
-        await repo.fetchRawData(types: stepsDataTypes, startDate: _start, endDate: _end),
         await repo.fetchRawData(types: sleepDataTypes, startDate: _start, endDate: _end),
       );
+
+      // Получаем агрегированные данные о шагах (устраняет дубликаты от разных источников)
+      final aggregatedSteps = await repo.fetchAggregatedSteps(startDate: _start, endDate: _end);
 
       // Обрабатываем вес с EMA
       _weightData = _processWeightData(weightPoints);
@@ -105,7 +107,7 @@ class ViewModel extends ChangeNotifier {
       );
 
       // Обрабатываем шаги
-      _stepsData = _processStepsData(activityPoints);
+      _stepsData = _processStepsData(aggregatedSteps);
 
       _isLoading = false;
       notifyListeners();
@@ -207,24 +209,40 @@ class ViewModel extends ChangeNotifier {
         .toList();
   }
 
-  /// Обработка данных об энергобалансе (приход/расход)
-  List<StepsDay> _processStepsData(List<HealthDataPoint> rawPoints) {
-    final Map<String, StepsDay> dailyMap = {};
-    // Обрабатываем данные об активности (расход калорий)
-    for (var point in rawPoints) {
-      final date = point.dateFrom;
-      final key = _getDateKey(date);
+  /// Обработка агрегированных данных о шагах (устранение дубликатов)
+  /// Принимает Map<String, int> где ключ - дата в формате "YYYY-MM-DD", значение - количество шагов
+  List<StepsDay> _processStepsData(Map<String, int> aggregatedSteps) {
+    final List<StepsDay> result = [];
 
-      final value = point.value;
-      if (value is NumericHealthValue) {
-        final steps = value.numericValue;
-        dailyMap[key] =
-            dailyMap[key]?.copyWithAddedSteps(steps: steps.toInt()) ??
-            StepsDay(date: date, steps: steps.toInt());
+    // Преобразуем агрегированные данные в список StepsDay
+    for (var entry in aggregatedSteps.entries) {
+      try {
+        // Парсим дату из ключа формата "YYYY-MM-DD"
+        final dateParts = entry.key.split('-');
+        if (dateParts.length != 3) {
+          debugPrint('⚠️ Invalid date format: ${entry.key}');
+          continue;
+        }
+
+        final year = int.parse(dateParts[0]);
+        final month = int.parse(dateParts[1]);
+        final day = int.parse(dateParts[2]);
+        final date = DateTime(year, month, day);
+
+        // Добавляем null-safety проверку: если шагов нет или значение некорректно, пропускаем
+        final steps = entry.value;
+        if (steps < 0) {
+          debugPrint('⚠️ Negative steps value for ${entry.key}: $steps');
+          continue;
+        }
+
+        result.add(StepsDay(date: date, steps: steps));
+      } catch (e) {
+        debugPrint('❌ Error parsing steps data for ${entry.key}: $e');
       }
     }
 
-    final result = dailyMap.values.toList();
+    // Сортируем по дате
     result.sort((a, b) => a.date.compareTo(b.date));
 
     return result;

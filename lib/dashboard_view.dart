@@ -112,7 +112,7 @@ class DashboardView extends StatelessWidget {
                 if (value.toInt() >= data.length) return const Text('');
                 final date = data[value.toInt()].date;
                 return Text(
-                  '${date.day}.${date.month}',
+                  '${date.value.day}.${date.value.month}',
                   style: const TextStyle(color: Colors.white54, fontSize: 10),
                 );
               },
@@ -250,7 +250,7 @@ class DashboardView extends StatelessWidget {
                 if (value.toInt() >= data.length) return const Text('');
                 final date = data[value.toInt()].date;
                 return Text(
-                  '${date.day}.${date.month}',
+                  '${date.value.day}.${date.value.month}',
                   style: const TextStyle(color: Colors.white54, fontSize: 10),
                 );
               },
@@ -410,7 +410,7 @@ class DashboardView extends StatelessWidget {
                 if (value.toInt() >= data.length) return const Text('');
                 final date = data[value.toInt()].date;
                 return Text(
-                  '${date.day}.${date.month}',
+                  '${date.value.day}.${date.value.month}',
                   style: const TextStyle(color: Colors.white54, fontSize: 10),
                 );
               },

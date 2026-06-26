@@ -1,6 +1,8 @@
 // Модель данных для дня питания
+import 'package:cut_metrics/domain/date_extension.dart';
+
 class NutritionDay {
-  final DateTime date;
+  final DateKey date;
   final double calories; // ккал - приход энергии
   final double protein; // граммы
   final double fat; // граммы

@@ -98,7 +98,7 @@ class StepsChart extends StatelessWidget {
                           if (value.toInt() >= data.length) return const Text('');
                           final date = data[value.toInt()].date;
                           return Text(
-                            '${date.day}\n${getMonthTitle(date.month)}',
+                            '${date.value.day}\n${getMonthTitle(date.value.month)}',
                             textAlign: TextAlign.center,
                             style: const TextStyle(color: Colors.white54, fontSize: 10),
                           );

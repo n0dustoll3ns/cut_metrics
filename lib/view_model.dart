@@ -1,5 +1,7 @@
 import 'dart:async';
-import 'package:flutter/foundation.dart';
+import 'package:collection/collection.dart';
+import 'package:cut_metrics/domain/date_extension.dart';
+import 'package:flutter/material.dart';
 import 'package:health/health.dart';
 import 'package:cut_metrics/domain.dart';
 import '../repo/health.dart';
@@ -42,8 +44,21 @@ class ViewModel extends ChangeNotifier {
   ViewModel({required HealthRepository repository, SleepAnalyzer? sleepAnalyzer})
     : repo = repository,
       _sleepAnalyzer = sleepAnalyzer ?? SleepAnalyzer() {
-    loadData();
+    _init();
   }
+
+  // Состояние
+  DateTime _start = DateTime.now();
+  DateTime _end = DateTime.now();
+  bool _isLoading = false;
+  String? _error;
+
+  // Кеш для графиков
+  Map<DateKey, WeightDay> _weightCache = {};
+  Map<DateKey, WeightDay> _emaCache = {};
+  Map<DateKey, NutritionDay> _nutritionCache = {};
+  Map<DateKey, SleepDay> _sleepCache = {};
+  Map<DateKey, StepsDay> _stepsCache = {};
 
   // Данные для графиков
   List<WeightDay> _weightData = [];
@@ -52,23 +67,48 @@ class ViewModel extends ChangeNotifier {
   List<SleepDay> _sleepData = [];
   List<StepsDay> _stepsData = [];
 
-  // Состояние
-  DateTime _start = DateTime.now().subtract(Duration(days: 7));
-  DateTime _end = DateTime.now();
-  bool _isLoading = false;
-  String? _error;
-
-  void setDate({DateTime? start, DateTime? end}) {
-    if (start != null) _start = start;
-    if (end != null) _end = end;
-    notifyListeners();
+  /// Инициализация
+  void _init() async {
+    await setDate(start: DateTime.now().subtract(Duration(days: 30)), end: DateTime.now());
+    await setDate(start: DateTime.now().subtract(Duration(days: 7)), end: DateTime.now());
   }
 
-  /// Инициализация: запрос прав и загрузка всех данных
+  DateTimeRange? get unloadedInterval {
+    DateKey currentLatestStart = [
+      _weightCache.keys.earliestDate,
+      _emaCache.keys.earliestDate,
+      _nutritionCache.keys.earliestDate,
+      _sleepCache.keys.earliestDate,
+      _stepsCache.keys.earliestDate,
+    ].latestDate;
+    DateKey currentEarliestEnd = [
+      _weightCache.keys.latestDate,
+      _emaCache.keys.latestDate,
+      _nutritionCache.keys.latestDate,
+      _sleepCache.keys.latestDate,
+      _stepsCache.keys.latestDate,
+    ].earliestDate;
+
+    final currentLoadedInterval = DateTimeRange(
+      start: currentLatestStart.value,
+      end: currentEarliestEnd.value,
+    );
+
+    final targetInterval = DateTimeRange(start: _start, end: _end);
+
+    return targetInterval.getUncoveredRange(currentLoadedInterval);
+  }
+
+  /// Запрос прав и загрузка всех данных
   Future<void> loadData() async {
+    //TODO добавить загрузку данных с разных дат
     _isLoading = true;
     _error = null;
     notifyListeners();
+
+    final interval = unloadedInterval;
+
+    if (interval == null) return;
 
     try {
       // Запрашиваем права на все типы данных сразу
@@ -81,23 +121,21 @@ class ViewModel extends ChangeNotifier {
         return;
       }
 
-      // Загружаем все данные параллельно
+      // Загружаем все данные
 
-      final (weightPoints, nutritionPoints, sleepPoints) = (
-        await repo.fetchRawData(types: weightDataTypes, startDate: _start, endDate: _end),
-        await repo.fetchRawData(types: nutritionDataTypes, startDate: _start, endDate: _end),
-        await repo.fetchRawData(types: sleepDataTypes, startDate: _start, endDate: _end),
+      final (weightPoints, nutritionPoints, activityPoints, sleepPoints) = (
+        await repo.fetchRawData(types: weightDataTypes, startDate: interval.start, endDate: interval.end),
+        await repo.fetchRawData(types: nutritionDataTypes, startDate: interval.start, endDate: interval.end),
+        await repo.fetchRawData(types: stepsDataTypes, startDate: interval.start, endDate: interval.end),
+        await repo.fetchRawData(types: sleepDataTypes, startDate: interval.start, endDate: interval.end),
       );
 
-      // Получаем агрегированные данные о шагах (устраняет дубликаты от разных источников)
-      final aggregatedSteps = await repo.fetchAggregatedSteps(startDate: _start, endDate: _end);
-
       // Обрабатываем вес с EMA
-      _weightData = _processWeightData(weightPoints);
-      _emaData = _calculateEMA(_weightData, _getEmaPeriod());
+      _processWeightData(weightPoints);
+      _processEMA(_weightData, _emaPeriod);
 
       // Обрабатываем энергобаланс
-      _nutritionData = _processEnergyBalanceData(nutritionPoints, _end);
+      // _processEnergyBalanceData(nutritionPoints, _end);
 
       // Обрабатываем сон через SleepAnalyzer
       _sleepData = _sleepAnalyzer.processSleepData(
@@ -107,7 +145,7 @@ class ViewModel extends ChangeNotifier {
       );
 
       // Обрабатываем шаги
-      _stepsData = _processStepsData(aggregatedSteps);
+      _stepsData = _processStepsData(activityPoints);
 
       _isLoading = false;
       notifyListeners();
@@ -120,156 +158,129 @@ class ViewModel extends ChangeNotifier {
   }
 
   /// Обработка данных о весе
-  List<WeightDay> _processWeightData(List<HealthDataPoint> rawPoints) {
-    final Map<String, _WeightDTO> dailyMap = {};
-
-    // Инициализируем карту пустыми значениями для последних N дней
-    for (int i = 0; i < selectedDurationInDays; i++) {
-      final date = _end.subtract(Duration(days: i));
-      final key = _getDateKey(date);
-      dailyMap[key] = _WeightDTO(date: date);
-    }
-
+  void _processWeightData(List<HealthDataPoint> rawPoints) {
     for (var point in rawPoints) {
-      final date = point.dateFrom;
-      final key = _getDateKey(date);
+      final key = DateKey(point.dateFrom);
 
-      if (!dailyMap.containsKey(key)) continue;
+      if (_weightCache.containsKey(key)) continue;
 
       final value = point.value;
       if (value is NumericHealthValue) {
-        final accumulator = dailyMap[key]!;
-        accumulator.addWeight(value.numericValue.toDouble());
+        _weightCache[key] = WeightDay(date: key, weight: value.numericValue.toDouble());
       }
     }
-
-    final result = dailyMap.values.where((e) => e.weight != null).toList();
-    result.sort((a, b) => a.date.compareTo(b.date));
-
-    return result
-        .where((e) => e.weight != null)
-        .map((acc) => WeightDay(date: acc.date, weight: acc.weight!))
-        .toList();
   }
 
-  /// Обработка данных об энергобалансе (приход/расход)
-  List<NutritionDay> _processEnergyBalanceData(List<HealthDataPoint> nutritionPoints, DateTime now) {
-    final Map<String, _DailyNutritionDTO> dailyMap = {};
+  // /// Обработка данных об энергобалансе (приход/расход)
+  // void _processEnergyBalanceData(List<HealthDataPoint> nutritionPoints, DateTime now) {
+  //   final Map<DateKey, _DailyNutritionDTO> dailyMap = {};
 
-    // Инициализируем карту пустыми значениями для последних N дней
-    for (int i = 0; i < selectedDurationInDays; i++) {
-      final date = now.subtract(Duration(days: i));
-      final key = _getDateKey(date);
-      dailyMap[key] = _DailyNutritionDTO(date: date);
-    }
+  //   // Инициализируем карту пустыми значениями для последних N дней
+  //   for (int i = 0; i < selectedDurationInDays; i++) {
+  //     final date = now.subtract(Duration(days: i));
+  //     final key = DateKey(date);
+  //     dailyMap[key] = _DailyNutritionDTO(date: date);
+  //   }
 
-    // Set для отслеживания уже обработанных записей (дедупликация)
-    final processedRecordIds = <String>{};
+  //   // Set для отслеживания уже обработанных записей (дедупликация)
+  //   final processedRecordIds = <String>{};
 
-    // Фильтруем только данные из FatSecret (или другого основного источника)
-    const primarySource = 'com.fatsecret.android';
-    final filteredNutritionPoints = nutritionPoints.where((e) => e.sourceName == primarySource).toList();
+  //   // Фильтруем только данные из FatSecret (или другого основного источника)
+  //   const primarySource = 'com.fatsecret.android';
+  //   final filteredNutritionPoints = nutritionPoints.where((e) => e.sourceName == primarySource).toList();
 
-    // Обрабатываем данные о питании
-    for (var point in filteredNutritionPoints) {
+  //   // Обрабатываем данные о питании
+  //   for (var point in filteredNutritionPoints) {
+  //     final date = point.dateFrom;
+  //     final key = DateKey(date);
+
+  //     if (!dailyMap.containsKey(key)) continue;
+
+  //     // Генерируем уникальный ключ для записи
+  //     final recordId = _generateRecordUniqueId(point);
+
+  //     // Пропускаем, если запись уже была обработана
+  //     if (processedRecordIds.contains(recordId)) {
+  //       if (kDebugMode) {
+  //         debugPrint('Skipping duplicate nutrition record: $recordId');
+  //       }
+  //       continue;
+  //     }
+  //     processedRecordIds.add(recordId);
+
+  //     final accumulator = dailyMap[key]!;
+  //     _parseAndAddToAccumulator(point, accumulator);
+  //   }
+
+  //   final result = dailyMap.values.toList();
+  //   result.sort((a, b) => a.date.compareTo(b.date));
+
+  //   return result
+  //       .map(
+  //         (acc) => NutritionDay(
+  //           date: acc.date,
+  //           calories: acc.calories,
+  //           protein: acc.protein,
+  //           fat: acc.fat,
+  //           carbs: acc.carbs,
+  //         ),
+  //       )
+  //       .toList();
+  // }
+
+  /// Обработка данных об шагах (приход/расход)
+  List<StepsDay> _processStepsData(List<HealthDataPoint> rawPoints) {
+    final Map<DateKey, StepsDay> dailyMap = {};
+
+    for (var point in rawPoints) {
       final date = point.dateFrom;
-      final key = _getDateKey(date);
+      final key = DateKey(date);
 
-      if (!dailyMap.containsKey(key)) continue;
-
-      // Генерируем уникальный ключ для записи
-      final recordId = _generateRecordUniqueId(point);
-
-      // Пропускаем, если запись уже была обработана
-      if (processedRecordIds.contains(recordId)) {
-        if (kDebugMode) {
-          debugPrint('Skipping duplicate nutrition record: $recordId');
-        }
-        continue;
+      final value = point.value;
+      if (value is NumericHealthValue) {
+        final steps = value.numericValue;
+        dailyMap[key] =
+            dailyMap[key]?.copyWithAddedSteps(steps: steps.toInt()) ??
+            StepsDay(date: DateKey(date), steps: steps.toInt());
       }
-      processedRecordIds.add(recordId);
-
-      final accumulator = dailyMap[key]!;
-      _parseAndAddToAccumulator(point, accumulator);
     }
 
     final result = dailyMap.values.toList();
-    result.sort((a, b) => a.date.compareTo(b.date));
-
-    return result
-        .map(
-          (acc) => NutritionDay(
-            date: acc.date,
-            calories: acc.calories,
-            protein: acc.protein,
-            fat: acc.fat,
-            carbs: acc.carbs,
-          ),
-        )
-        .toList();
-  }
-
-  /// Обработка агрегированных данных о шагах (устранение дубликатов)
-  /// Принимает Map<String, int> где ключ - дата в формате "YYYY-MM-DD", значение - количество шагов
-  List<StepsDay> _processStepsData(Map<String, int> aggregatedSteps) {
-    final List<StepsDay> result = [];
-
-    // Преобразуем агрегированные данные в список StepsDay
-    for (var entry in aggregatedSteps.entries) {
-      try {
-        // Парсим дату из ключа формата "YYYY-MM-DD"
-        final dateParts = entry.key.split('-');
-        if (dateParts.length != 3) {
-          debugPrint('⚠️ Invalid date format: ${entry.key}');
-          continue;
-        }
-
-        final year = int.parse(dateParts[0]);
-        final month = int.parse(dateParts[1]);
-        final day = int.parse(dateParts[2]);
-        final date = DateTime(year, month, day);
-
-        // Добавляем null-safety проверку: если шагов нет или значение некорректно, пропускаем
-        final steps = entry.value;
-        if (steps < 0) {
-          debugPrint('⚠️ Negative steps value for ${entry.key}: $steps');
-          continue;
-        }
-
-        result.add(StepsDay(date: date, steps: steps));
-      } catch (e) {
-        debugPrint('❌ Error parsing steps data for ${entry.key}: $e');
-      }
-    }
-
-    // Сортируем по дате
     result.sort((a, b) => a.date.compareTo(b.date));
 
     return result;
   }
 
   /// Вычисление EMA (Exponential Moving Average)
-  List<WeightDay> _calculateEMA(List<WeightDay> data, int period) {
-    if (data.isEmpty) return [];
+  List<WeightDay> _processEMA(List<WeightDay> data, int period) {
+    final cachedDates = _emaCache.values.map((e) => e.date).toSet();
+    final clearedData = data..removeWhere((e) => cachedDates.contains(e.date));
+    final fullData = [..._emaCache.values, ...clearedData];
 
-    final result = <WeightDay>[];
+    fullData.sort((a, b) => a.date.value.isBefore(b.date.value) ? -1 : 1);
+
     final multiplier = 2 / (period + 1);
 
+    final result = <WeightDay>[];
+
     // Первое значение EMA - это просто первое значение веса
-    double ema = data.first.weight;
-    result.add(WeightDay(date: data.first.date, weight: ema));
+    double ema = fullData.first.weight;
+    result.add(WeightDay(date: fullData.first.date, weight: ema));
 
     // Вычисляем EMA для остальных точек
-    for (int i = 1; i < data.length; i++) {
-      ema = (data[i].weight - ema) * multiplier + ema;
-      result.add(WeightDay(date: data[i].date, weight: ema));
+    for (int i = 1; i < fullData.length; i++) {
+      ema = (fullData[i].weight - ema) * multiplier + ema;
+      result.add(WeightDay(date: fullData[i].date, weight: ema));
     }
+
+    _emaCache.clear();
+    _emaCache = Map.fromEntries(result.map((e) => MapEntry(e.date, e)));
 
     return result;
   }
 
   /// Период EMA в зависимости от выбранного диапазона
-  int _getEmaPeriod() {
+  int get _emaPeriod {
     if (selectedDurationInDays >= 20) return 10;
     if (selectedDurationInDays >= 10) return 5;
     return 3;
@@ -326,20 +337,44 @@ class ViewModel extends ChangeNotifier {
     }
   }
 
-  String _getDateKey(DateTime date) {
-    return "${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}";
+  Future<void> setDate({DateTime? start, DateTime? end}) async {
+    if (start != null) _start = start;
+    if (end != null) _end = end;
+
+    await loadData();
+
+    _setChartsData();
+
+    notifyListeners();
   }
-}
 
-/// Вспомогательный класс для накопления данных о весе за один день
-class _WeightDTO {
-  final DateTime date;
-  double? weight;
+  void _setChartsData() {
+    _weightData = _weightCache.entries
+        .where((k) => k.key.value.isInsideInterval(start, end))
+        .map((e) => e.value)
+        .sorted((a, b) => a.date.compareTo(b.date));
 
-  _WeightDTO({required this.date});
+    _emaData = _emaCache.entries
+        .where((k) => k.key.value.isInsideInterval(start, end))
+        .map((e) => e.value)
+        .sorted((a, b) => a.date.compareTo(b.date));
 
-  void addWeight(double w) {
-    weight = w;
+    _nutritionData = _nutritionCache.entries
+        .where((k) => k.key.value.isInsideInterval(start, end))
+        .map((e) => e.value)
+        .sorted((a, b) => a.date.compareTo(b.date));
+
+    _sleepData = _sleepCache.entries
+        .where((k) => k.key.value.isInsideInterval(start, end))
+        .map((e) => e.value)
+        .sorted((a, b) => a.date.compareTo(b.date));
+
+    _stepsData = _stepsCache.entries
+        .where((k) => k.key.value.isInsideInterval(start, end))
+        .map((e) => e.value)
+        .sorted((a, b) => a.date.compareTo(b.date));
+
+
   }
 }
 

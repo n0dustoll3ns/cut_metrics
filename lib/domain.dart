@@ -1,5 +1,7 @@
+import 'package:cut_metrics/domain/date_extension.dart';
+
 class SleepDay {
-  final DateTime date;
+  final DateKey date;
   final double deep;
   final double light;
   final double rem;
@@ -11,12 +13,12 @@ class SleepDay {
 
   @override
   String toString() =>
-      '\nSleepDay ${date.day}.${date.month}: deep = ${deep.toStringAsFixed(2)}; total = ${total.toStringAsFixed(2)}';
+      '\nSleepDay ${date.value.day}.${date.value.month}: deep = ${deep.toStringAsFixed(2)}; total = ${total.toStringAsFixed(2)}';
 }
 
 // Модель данных для дня с шагами
 class StepsDay {
-  final DateTime date;
+  final DateKey date;
   final int steps; // вес в кг
 
   const StepsDay({required this.date, required this.steps});

@@ -1,3 +1,4 @@
+import 'package:cut_metrics/domain/date_extension.dart';
 import 'package:health/health.dart';
 import '../domain.dart';
 
@@ -65,12 +66,12 @@ class SleepAnalyzer {
   }
 
   List<SleepDay> _aggregateByDay(List<_SleepInterval> intervals, int days, DateTime now) {
-    Map<String, Map<HealthDataType, double>> dailyStats = {};
+    Map<DateKey, Map<HealthDataType, double>> dailyStats = {};
 
     // Инициализация дней
     for (int i = 0; i < days; i++) {
       DateTime date = DateTime(now.year, now.month, now.day).subtract(Duration(days: i));
-      String key = _dateKey(date);
+      final key = DateKey(date);
       dailyStats[key] = {
         HealthDataType.SLEEP_DEEP: 0.0,
         HealthDataType.SLEEP_LIGHT: 0.0,
@@ -85,7 +86,7 @@ class SleepAnalyzer {
         targetDate = interval.start.add(const Duration(days: 1));
       }
 
-      String key = _dateKey(targetDate);
+      final key = DateKey(targetDate);
       if (dailyStats.containsKey(key)) {
         double hours = interval.end.difference(interval.start).inMinutes / 60.0;
 
@@ -112,12 +113,12 @@ class SleepAnalyzer {
     List<SleepDay> result = [];
     for (int i = 0; i < days; i++) {
       DateTime date = DateTime(now.year, now.month, now.day).subtract(Duration(days: i));
-      String key = _dateKey(date);
-      var stats = dailyStats[key]!;
+      final key = DateKey(date);
+      final stats = dailyStats[key]!;
 
       result.add(
         SleepDay(
-          date: date,
+          date: key,
           deep: stats[HealthDataType.SLEEP_DEEP] ?? 0.0,
           light: stats[HealthDataType.SLEEP_LIGHT] ?? 0.0,
           rem: stats[HealthDataType.SLEEP_REM] ?? 0.0,
@@ -128,6 +129,4 @@ class SleepAnalyzer {
     result.sort((a, b) => a.date.compareTo(b.date));
     return result;
   }
-
-  String _dateKey(DateTime d) => "${d.year}-${d.month}-${d.day}";
 }

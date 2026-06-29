@@ -19,7 +19,7 @@ class SleepDay {
 // Модель данных для дня с шагами
 class StepsDay {
   final DateKey date;
-  final int steps; // вес в кг
+  final int steps;
 
   const StepsDay({required this.date, required this.steps});
 

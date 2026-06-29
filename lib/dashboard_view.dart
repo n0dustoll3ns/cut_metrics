@@ -27,46 +27,15 @@ class DashboardView extends StatelessWidget {
   Widget _buildWeightChart() {
     return Builder(
       builder: (context) {
+        final isLoading = context.select((ViewModel vm) => vm.isLoading);
         final weightData = context.select((ViewModel vm) => vm.weightData);
         final emaData = context.select((ViewModel vm) => vm.emaData);
-        final isLoading = context.select((ViewModel vm) => vm.isLoading);
 
-        if (isLoading) {
-          return Card(
-            margin: EdgeInsets.all(8),
-            color: Colors.grey[900],
-            child: Padding(
-              padding: EdgeInsets.all(40),
-              child: Center(child: CircularProgressIndicator()),
-            ),
-          );
-        }
-
-        return Card(
-          margin: const EdgeInsets.all(8),
-          color: Colors.grey[900],
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Weight & EMA',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
-                ),
-                const SizedBox(height: 16),
-                SizedBox(
-                  height: 200,
-                  child: weightData.isEmpty
-                      ? const Center(
-                          child: Text('No data', style: TextStyle(color: Colors.white54)),
-                        )
-                      : _buildWeightLineChart(weightData, emaData),
-                ),
-              ],
-            ),
-          ),
+        return _ChartCard(
+          title: 'Weight & EMA',
+          isLoading: isLoading,
+          isEmpty: weightData.isEmpty,
+          child: _buildWeightLineChart(weightData, emaData),
         );
       },
     );
@@ -123,7 +92,6 @@ class DashboardView extends StatelessWidget {
         ),
         borderData: FlBorderData(show: false),
         lineBarsData: [
-          // Основная линия веса
           LineChartBarData(
             spots: data.asMap().entries.map((e) => FlSpot(e.key.toDouble(), e.value.weight)).toList(),
             isCurved: true,
@@ -143,7 +111,6 @@ class DashboardView extends StatelessWidget {
               ),
             ),
           ),
-          // Линия EMA
           if (emaData.isNotEmpty)
             LineChartBarData(
               spots: emaData.asMap().entries.map((e) => FlSpot(e.key.toDouble(), e.value.weight)).toList(),
@@ -163,55 +130,18 @@ class DashboardView extends StatelessWidget {
         final isLoading = context.select((ViewModel vm) => vm.isLoading);
         final data = context.select((ViewModel vm) => vm.nutritionData);
 
-        if (isLoading) {
-          return Card(
-            margin: EdgeInsets.all(8),
-            color: Colors.grey[900],
-            child: Padding(
-              padding: EdgeInsets.all(40),
-              child: Center(child: CircularProgressIndicator()),
-            ),
-          );
-        }
-
-        return Card(
-          margin: const EdgeInsets.all(8),
-          color: Colors.grey[900],
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Energy Balance',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
-                ),
-                const SizedBox(height: 16),
-                SizedBox(
-                  height: 200,
-                  child: data.isEmpty
-                      ? const Center(
-                          child: Text('No data', style: TextStyle(color: Colors.white54)),
-                        )
-                      : _buildEnergyBalanceBarChart(data),
-                ),
-                const SizedBox(height: 8),
-                // Легенда
-                Wrap(
-                  spacing: 16,
-                  runSpacing: 8,
-                  children: const [
-                    LegendItem(color: Color(0xFF4A5DCB), label: 'Protein'),
-                    LegendItem(color: Color(0xFFF9C620), label: 'Fats'),
-                    LegendItem(color: Color(0xFF8E423E), label: 'Carbs'),
-                    LegendItem(color: Color(0xFF2196F3), label: 'Basal'),
-                    LegendItem(color: Color(0xFF4CAF50), label: 'Activity'),
-                  ],
-                ),
-              ],
-            ),
-          ),
+        return _ChartCard(
+          title: 'Energy Balance',
+          isLoading: isLoading,
+          isEmpty: data.isEmpty,
+          legend: const [
+            LegendItem(color: Color(0xFF4A5DCB), label: 'Protein'),
+            LegendItem(color: Color(0xFFF9C620), label: 'Fats'),
+            LegendItem(color: Color(0xFF8E423E), label: 'Carbs'),
+            LegendItem(color: Color(0xFF2196F3), label: 'Basal'),
+            LegendItem(color: Color(0xFF4CAF50), label: 'Activity'),
+          ],
+          child: _buildEnergyBalanceBarChart(data),
         );
       },
     );
@@ -224,21 +154,17 @@ class DashboardView extends StatelessWidget {
           show: true,
           drawVerticalLine: false,
           horizontalInterval: 500,
-          getDrawingHorizontalLine: (value) {
-            return FlLine(color: Colors.white24, strokeWidth: 1);
-          },
+          getDrawingHorizontalLine: (value) => FlLine(color: Colors.white24, strokeWidth: 1),
         ),
         titlesData: FlTitlesData(
           leftTitles: AxisTitles(
             sideTitles: SideTitles(
               showTitles: true,
               reservedSize: 40,
-              getTitlesWidget: (value, meta) {
-                return Text(
-                  value.toInt().toString(),
-                  style: const TextStyle(color: Colors.white54, fontSize: 10),
-                );
-              },
+              getTitlesWidget: (value, meta) => Text(
+                value.toInt().toString(),
+                style: const TextStyle(color: Colors.white54, fontSize: 10),
+              ),
             ),
           ),
           bottomTitles: AxisTitles(
@@ -263,48 +189,9 @@ class DashboardView extends StatelessWidget {
         barGroups: data.asMap().entries.map((entry) {
           final index = entry.key;
           final day = entry.value;
-
-          // Приход энергии (калории из КБЖУ)
-          // final calorieBars = [
-          //   BarChartGroupData(
-          //     x: index,
-          //     barRods: [
-          //       BarChartRodData(
-          //         toY: day.protein * 4, // 4 ккал на грамм белка
-          //         color: const Color(0xFF4A5DCB),
-          //         width: 8,
-          //         borderRadius: const BorderRadius.only(
-          //           topLeft: Radius.circular(4),
-          //           topRight: Radius.circular(4),
-          //         ),
-          //       ),
-          //       BarChartRodData(
-          //         toY: day.fat * 9, // 9 ккал на грамм жира
-          //         color: const Color(0xFFF9C620),
-          //         width: 8,
-          //         borderRadius: const BorderRadius.only(
-          //           topLeft: Radius.circular(4),
-          //           topRight: Radius.circular(4),
-          //         ),
-          //       ),
-          //       BarChartRodData(
-          //         toY: day.carbs * 4, // 4 ккал на грамм углеводов
-          //         color: const Color(0xFF8E423E),
-          //         width: 8,
-          //         borderRadius: const BorderRadius.only(
-          //           topLeft: Radius.circular(4),
-          //           topRight: Radius.circular(4),
-          //         ),
-          //       ),
-          //     ],
-          //     barsSpace: 2,
-          //   ),
-          // ];
-
           return BarChartGroupData(
             x: index,
             barRods: [
-              // Столбец прихода (положительный)
               BarChartRodData(
                 toY: day.calories,
                 color: Colors.blue,
@@ -328,53 +215,16 @@ class DashboardView extends StatelessWidget {
         final data = context.select((ViewModel vm) => vm.sleepData);
         final isLoading = context.select((ViewModel vm) => vm.isLoading);
 
-        if (isLoading) {
-          return Card(
-            margin: EdgeInsets.all(8),
-            color: Colors.grey[900],
-            child: Padding(
-              padding: EdgeInsets.all(40),
-              child: Center(child: CircularProgressIndicator()),
-            ),
-          );
-        }
-
-        return Card(
-          margin: const EdgeInsets.all(8),
-          color: Colors.grey[900],
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Sleep Phases',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
-                ),
-                const SizedBox(height: 16),
-                SizedBox(
-                  height: 200,
-                  child: data.isEmpty
-                      ? const Center(
-                          child: Text('No data', style: TextStyle(color: Colors.white54)),
-                        )
-                      : _buildSleepStackedBarChart(data),
-                ),
-                const SizedBox(height: 8),
-                // Легенда
-                const Wrap(
-                  spacing: 16,
-                  runSpacing: 8,
-                  children: [
-                    LegendItem(color: Color(0xFF1A237E), label: 'Deep'),
-                    LegendItem(color: Color(0xFF3F51B5), label: 'Light'),
-                    LegendItem(color: Color(0xFF9FA8DA), label: 'REM'),
-                  ],
-                ),
-              ],
-            ),
-          ),
+        return _ChartCard(
+          title: 'Sleep Phases',
+          isLoading: isLoading,
+          isEmpty: data.isEmpty,
+          legend: const [
+            LegendItem(color: Color(0xFF1A237E), label: 'Deep'),
+            LegendItem(color: Color(0xFF3F51B5), label: 'Light'),
+            LegendItem(color: Color(0xFF9FA8DA), label: 'REM'),
+          ],
+          child: _buildSleepStackedBarChart(data),
         );
       },
     );
@@ -387,18 +237,17 @@ class DashboardView extends StatelessWidget {
           show: true,
           drawVerticalLine: false,
           horizontalInterval: 2,
-          getDrawingHorizontalLine: (value) {
-            return FlLine(color: Colors.white24, strokeWidth: 1);
-          },
+          getDrawingHorizontalLine: (value) => FlLine(color: Colors.white24, strokeWidth: 1),
         ),
         titlesData: FlTitlesData(
           leftTitles: AxisTitles(
             sideTitles: SideTitles(
               showTitles: true,
               reservedSize: 30,
-              getTitlesWidget: (value, meta) {
-                return Text('${value.toInt()}h', style: const TextStyle(color: Colors.white54, fontSize: 10));
-              },
+              getTitlesWidget: (value, meta) => Text(
+                '${value.toInt()}h',
+                style: const TextStyle(color: Colors.white54, fontSize: 10),
+              ),
             ),
           ),
           bottomTitles: AxisTitles(
@@ -423,7 +272,6 @@ class DashboardView extends StatelessWidget {
         barGroups: data.asMap().entries.map((entry) {
           final index = entry.key;
           final day = entry.value;
-
           return BarChartGroupData(
             x: index,
             barRods: [
@@ -456,6 +304,68 @@ class DashboardView extends StatelessWidget {
             barsSpace: 4,
           );
         }).toList(),
+      ),
+    );
+  }
+}
+
+// РЕФАКТОРИНГ: общий виджет карточки-графика, устранён copy-paste loading/empty state.
+// Все три графика (weight, energy, sleep) используют его вместо дублирующегося кода.
+class _ChartCard extends StatelessWidget {
+  final String title;
+  final bool isLoading;
+  final bool isEmpty;
+  final Widget child;
+  final List<Widget>? legend;
+
+  const _ChartCard({
+    required this.title,
+    required this.isLoading,
+    required this.isEmpty,
+    required this.child,
+    this.legend,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (isLoading) {
+      return Card(
+        margin: const EdgeInsets.all(8),
+        color: Colors.grey[900],
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: const Padding(
+          padding: EdgeInsets.all(40),
+          child: Center(child: CircularProgressIndicator()),
+        ),
+      );
+    }
+
+    return Card(
+      margin: const EdgeInsets.all(8),
+      color: Colors.grey[900],
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title,
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              height: 200,
+              child: isEmpty
+                  ? const Center(child: Text('No data', style: TextStyle(color: Colors.white54)))
+                  : child,
+            ),
+            if (legend != null) ...[
+              const SizedBox(height: 8),
+              Wrap(spacing: 16, runSpacing: 8, children: legend!),
+            ],
+          ],
+        ),
       ),
     );
   }

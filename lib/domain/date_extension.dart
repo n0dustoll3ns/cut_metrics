@@ -4,7 +4,7 @@ extension OnlyDate on DateTime {
   DateTime get onlyDate => DateTime(year, month, day);
 
   bool isInsideInterval(DateTime start, DateTime end) {
-    return isAfter(start) && isBefore(end);
+    return !isBefore(start) && !isAfter(end);
   }
 }
 
@@ -17,8 +17,6 @@ class DateKey extends ValueKey<DateTime> {
 extension Coverage on DateTimeRange {
   /// Проверяет, покрывает ли интервал [other] текущий интервал ПОЛНОСТЬЮ
   bool isFullyCoveredBy(DateTimeRange other) {
-    // Текущий старт должен быть равен или позже старта другого,
-    // а текущий конец — равен или раньше конца другого.
     return (start.isAfter(other.start) || start.isAtSameMomentAs(other.start)) &&
         (end.isBefore(other.end) || end.isAtSameMomentAs(other.end));
   }
@@ -27,29 +25,24 @@ extension Coverage on DateTimeRange {
   /// Если текущий интервал полностью покрыт, возвращает null.
   DateTimeRange? getUncoveredRange(DateTimeRange other) {
     // Сценарий 0: Полное покрытие -> ничего закрывать не надо
-    if (isFullyCoveredBy(other)) {
-      return null;
-    }
+    if (isFullyCoveredBy(other)) return null;
 
     // Сценарий 1: Интервалы вообще не пересекаются
-    // Непокрытая часть — это весь наш первый интервал
     final overlaps = start.isBefore(other.end) && end.isAfter(other.start);
-    if (!overlaps) {
-      return this;
-    }
+    if (!overlaps) return this;
 
     // Сценарий 2: Пересечение есть, но покрытие частичное.
-    // Нам нужно определить крайние точки «непокрытости».
+    // Непокрытый старт: если наш start левее other.start — берём наш start,
+    // иначе непокрытая часть начинается там, где other закончился.
+    final uncStart = start.isBefore(other.start) ? start : other.end;
+    // Непокрытый конец: если наш end правее other.end — берём наш end,
+    // иначе непокрытая часть заканчивается там, где other начался.
+    final uncEnd = end.isAfter(other.end) ? end : other.start;
 
-    // Если второй интервал начался позже первого, значит остался «хвост» в начале
-    final leftUncovered = start.isBefore(other.start);
-    // Если второй интервал закончился раньше первого, значит остался «хвост» в конце
-    final rightUncovered = end.isAfter(other.end);
+    // Защита от некорректного диапазона
+    if (!uncStart.isBefore(uncEnd)) return null;
 
-    final DateTime newStart = leftUncovered ? start : other.end;
-    final DateTime newEnd = rightUncovered ? end : other.start;
-
-    return DateTimeRange(start: newStart, end: newEnd);
+    return DateTimeRange(start: uncStart, end: uncEnd);
   }
 }
 

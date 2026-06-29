@@ -23,7 +23,7 @@ class TimeNav extends StatelessWidget implements PreferredSizeWidget {
               onPressed: () async {
                 final res = await showDatePicker(
                   context: context,
-                  firstDate: end.subtract(Duration(days: 999)),
+                  firstDate: end.subtract(const Duration(days: 999)),
                   lastDate: end,
                   currentDate: start,
                 );
@@ -39,8 +39,8 @@ class TimeNav extends StatelessWidget implements PreferredSizeWidget {
               onPressed: () async {
                 final res = await showDatePicker(
                   context: context,
-                  firstDate: end.subtract(Duration(days: 999)),
-                  lastDate: end,
+                  firstDate: start,
+                  lastDate: DateTime.now(),
                   currentDate: end,
                 );
                 if (res != null && context.mounted) {

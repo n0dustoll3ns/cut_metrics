@@ -61,6 +61,9 @@ class ViewModel extends ChangeNotifier {
   // Загруженный диапазон (чтобы не перезапрашивать то, что уже есть)
   DateTimeRange? _loadedRange;
 
+  // Если пока шла загрузка был запущен новый _load(), устаревший результат отбрасывается.
+  int _loadGeneration = 0;
+
   ViewModel({required HealthRepository repository, HealthDataProcessor? processor})
     : repo = repository,
       _processor = processor ?? HealthDataProcessor() {
@@ -70,7 +73,7 @@ class ViewModel extends ChangeNotifier {
   // ─── Публичный API ──────────────────────────────────────────────────────────
 
   /// Устанавливает новый диапазон дат.
-  /// Если [start] >= [end], вторая дата сдвигается на неделю вперёд.
+  /// Если [start] >= [end], вторая дата сдвигается на неделю вперёд/назад.
   Future<void> setDate({DateTime? start, DateTime? end}) async {
     if (start != null) _start = start;
     if (end != null) _end = end;
@@ -106,6 +109,9 @@ class ViewModel extends ChangeNotifier {
   }
 
   Future<void> _load() async {
+    // Любой более новый вызов _load() увеличит счётчик, и мы поймём, что устарели.
+    final generation = ++_loadGeneration;
+
     _isLoading = true;
     _error = null;
     notifyListeners();
@@ -115,21 +121,30 @@ class ViewModel extends ChangeNotifier {
 
       if (interval != null) {
         final granted = await repo.checkAndRequestPermissions(_allTypes);
+
+        // Проверяем актуальность после await
+        if (generation != _loadGeneration) return;
+
         if (!granted) {
           _error = 'Permission denied or SDK unavailable';
           return;
         }
 
-        // Параллельная загрузка всех типов
+        // Параллельная загрузка всех четырёх типов.
         final results = await Future.wait([
           repo.fetchRawData(types: _weightTypes, startDate: interval.start, endDate: interval.end),
           repo.fetchRawData(types: _stepsTypes, startDate: interval.start, endDate: interval.end),
           repo.fetchRawData(types: _sleepTypes, startDate: interval.start, endDate: interval.end),
+          repo.fetchRawData(types: _nutritionTypes, startDate: interval.start, endDate: interval.end),
         ]);
+
+        // Проверяем актуальность после await (запросы могли занять время)
+        if (generation != _loadGeneration) return;
 
         _processor.mergeWeightInto(_weightCache, results[0]);
         _processor.mergeStepsInto(_stepsCache, results[1]);
         _processor.mergeSleepInto(_sleepCache, results[2], interval.start, interval.end);
+        _processor.mergeNutritionInto(_nutritionCache, results[3]);
 
         // Расширяем известный загруженный диапазон
         _loadedRange = _mergeRanges(_loadedRange, interval);
@@ -140,11 +155,15 @@ class ViewModel extends ChangeNotifier {
 
       _refreshChartData();
     } catch (e) {
+      if (generation != _loadGeneration) return;
       _error = 'Failed to load: $e';
       debugPrint('ViewModel error: $e');
     } finally {
-      _isLoading = false;
-      notifyListeners();
+      // Обновляем UI только если это актуальное поколение запроса
+      if (generation == _loadGeneration) {
+        _isLoading = false;
+        notifyListeners();
+      }
     }
   }
 

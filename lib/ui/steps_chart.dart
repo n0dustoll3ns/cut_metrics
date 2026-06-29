@@ -15,9 +15,9 @@ class StepsChart extends StatelessWidget {
 
     if (isLoading) {
       return Card(
-        margin: EdgeInsets.all(8),
+        margin: const EdgeInsets.all(8),
         color: Colors.grey[900],
-        child: Padding(
+        child: const Padding(
           padding: EdgeInsets.all(40),
           child: Center(child: CircularProgressIndicator()),
         ),
@@ -28,11 +28,11 @@ class StepsChart extends StatelessWidget {
 
     if (data.isEmpty) {
       return Card(
-        margin: EdgeInsets.all(8),
+        margin: const EdgeInsets.all(8),
         color: Colors.grey[900],
-        child: Padding(
+        child: const Padding(
           padding: EdgeInsets.all(40),
-          child: Center(child: Center(child: Text('Data is empty'))),
+          child: Center(child: Text('Data is empty')),
         ),
       );
     }
@@ -74,7 +74,6 @@ class StepsChart extends StatelessWidget {
                       strokeWidth: 1.5,
                     ),
                   ),
-                  // alignment: BarChartAlignment.end
                   titlesData: FlTitlesData(
                     leftTitles: AxisTitles(
                       sideTitles: SideTitles(

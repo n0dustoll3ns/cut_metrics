@@ -1,10 +1,10 @@
 import 'package:cut_metrics/view_model.dart';
 import 'package:cut_metrics/ui/steps_chart.dart';
+import 'package:cut_metrics/ui/nutrition_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:cut_metrics/domain/weight.dart';
-import 'package:cut_metrics/domain/nutrition.dart';
 import 'package:cut_metrics/domain.dart';
 
 class DashboardView extends StatelessWidget {
@@ -16,8 +16,8 @@ class DashboardView extends StatelessWidget {
       child: Column(
         children: [
           SizedBox(height: 380, child: StepsChart()),
+          SizedBox(height: 380, child: NutritionChart()),
           _buildWeightChart(),
-          _buildEnergyBalanceChart(),
           _buildSleepChart(),
         ],
       ),
@@ -124,91 +124,6 @@ class DashboardView extends StatelessWidget {
     );
   }
 
-  Widget _buildEnergyBalanceChart() {
-    return Builder(
-      builder: (context) {
-        final isLoading = context.select((ViewModel vm) => vm.isLoading);
-        final data = context.select((ViewModel vm) => vm.nutritionData);
-
-        return _ChartCard(
-          title: 'Energy Balance',
-          isLoading: isLoading,
-          isEmpty: data.isEmpty,
-          legend: const [
-            LegendItem(color: Color(0xFF4A5DCB), label: 'Protein'),
-            LegendItem(color: Color(0xFFF9C620), label: 'Fats'),
-            LegendItem(color: Color(0xFF8E423E), label: 'Carbs'),
-            LegendItem(color: Color(0xFF2196F3), label: 'Basal'),
-            LegendItem(color: Color(0xFF4CAF50), label: 'Activity'),
-          ],
-          child: _buildEnergyBalanceBarChart(data),
-        );
-      },
-    );
-  }
-
-  Widget _buildEnergyBalanceBarChart(List<NutritionDay> data) {
-    return BarChart(
-      BarChartData(
-        gridData: FlGridData(
-          show: true,
-          drawVerticalLine: false,
-          horizontalInterval: 500,
-          getDrawingHorizontalLine: (value) => FlLine(color: Colors.white24, strokeWidth: 1),
-        ),
-        titlesData: FlTitlesData(
-          leftTitles: AxisTitles(
-            sideTitles: SideTitles(
-              showTitles: true,
-              reservedSize: 40,
-              getTitlesWidget: (value, meta) => Text(
-                value.toInt().toString(),
-                style: const TextStyle(color: Colors.white54, fontSize: 10),
-              ),
-            ),
-          ),
-          bottomTitles: AxisTitles(
-            sideTitles: SideTitles(
-              showTitles: true,
-              reservedSize: 30,
-              interval: 1,
-              getTitlesWidget: (value, meta) {
-                if (value.toInt() >= data.length) return const Text('');
-                final date = data[value.toInt()].date;
-                return Text(
-                  '${date.value.day}.${date.value.month}',
-                  style: const TextStyle(color: Colors.white54, fontSize: 10),
-                );
-              },
-            ),
-          ),
-          topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-        ),
-        borderData: FlBorderData(show: false),
-        barGroups: data.asMap().entries.map((entry) {
-          final index = entry.key;
-          final day = entry.value;
-          return BarChartGroupData(
-            x: index,
-            barRods: [
-              BarChartRodData(
-                toY: day.calories,
-                color: Colors.blue,
-                width: 12,
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(4),
-                  topRight: Radius.circular(4),
-                ),
-              ),
-            ],
-            barsSpace: 4,
-          );
-        }).toList(),
-      ),
-    );
-  }
-
   Widget _buildSleepChart() {
     return Builder(
       builder: (context) {
@@ -310,7 +225,7 @@ class DashboardView extends StatelessWidget {
 }
 
 // РЕФАКТОРИНГ: общий виджет карточки-графика, устранён copy-paste loading/empty state.
-// Все три графика (weight, energy, sleep) используют его вместо дублирующегося кода.
+// Графики weight и sleep используют его вместо дублирующегося кода.
 class _ChartCard extends StatelessWidget {
   final String title;
   final bool isLoading;

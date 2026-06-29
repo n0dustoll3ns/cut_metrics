@@ -43,7 +43,8 @@ main.dart
 
 **Кеши** (всё загруженное, не только текущий диапазон):
 
-- `_weightCache`, `_emaCache`, `_nutritionCache`, `_sleepCache`, `_stepsCache` — `Map<DateKey, T>`
+- `_weightCache`, `_emaCache`, `_nutritionSessionsCache`, `_sleepCache`, `_stepsCache` — `Map<DateKey, T>`
+  - `_nutritionSessionsCache` — хранит дедуплицированные кластеры (приёмы пищи) типа `List<MealSession>`, агрегация в `NutritionDay` происходит "на лету" в `_refreshChartData()`
 
 **Ключевая логика:**
 
@@ -81,7 +82,11 @@ main.dart
 - `mergeWeightInto()` — last-wins: сортировка по времени, перезапись при дублях за день
 - `computeEma(cache, period)` — EMA по всему кешу весов
 - `mergeStepsInto()` — суммирование за день
-- `mergeNutritionInto()` — первое вхождение за день (skip duplicates)
+- `mergeNutritionInto()` — дедупликация и агрегация питания:
+  1. `_convertToEntries()` — извлечение макросов и `sourceId`, фильтрация мусора (нули)
+  2. `_clusterEntries()` — группировка точек в приёмы пищи (`_MealSession`): один источник + интервал ≤ 30 мин (`_mealGapMinutes`)
+  3. `_deduplicateSessions()` — fuzzy matching между кластерами: окно ±30 мин (`_timeWindowMinutes`), допуск по калориям/макросам; приоритет источников (`_sourcePriorities`)
+  4. `aggregateNutritionDay()` — суммирование валидных кластеров в `NutritionDay`
 - `mergeSleepInto()` — делегирует в `SleepAnalyzer`, `putIfAbsent` в кеш
 
 ### `lib/domain/date_extension.dart`

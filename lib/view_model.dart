@@ -47,9 +47,10 @@ class ViewModel extends ChangeNotifier {
   // Кеши обработанных данных (всё загруженное, не только видимый диапазон)
   final Map<DateKey, WeightDay> _weightCache = {};
   Map<DateKey, WeightDay> _emaCache = {};
-  final Map<DateKey, NutritionDay> _nutritionCache = {};
   final Map<DateKey, SleepDay> _sleepCache = {};
   final Map<DateKey, StepsDay> _stepsCache = {};
+  // Кеш питания теперь хранит дедуплицированные кластеры (приёмы пищи)
+  final Map<DateKey, List<MealSession>> _nutritionSessionsCache = {};
 
   // Данные для текущего выбранного диапазона (идут в UI)
   List<WeightDay> _weightData = [];
@@ -144,7 +145,7 @@ class ViewModel extends ChangeNotifier {
         _processor.mergeWeightInto(_weightCache, results[0]);
         _processor.mergeStepsInto(_stepsCache, results[1]);
         _processor.mergeSleepInto(_sleepCache, results[2], interval.start, interval.end);
-        _processor.mergeNutritionInto(_nutritionCache, results[3]);
+        _processor.mergeNutritionInto(_nutritionSessionsCache, results[3]);
 
         // Расширяем известный загруженный диапазон
         _loadedRange = _mergeRanges(_loadedRange, interval);
@@ -175,7 +176,17 @@ class ViewModel extends ChangeNotifier {
 
     _weightData = fromCache(_weightCache, (a, b) => a.date.compareTo(b.date));
     _emaData = fromCache(_emaCache, (a, b) => a.date.compareTo(b.date));
-    _nutritionData = fromCache(_nutritionCache, (a, b) => a.date.compareTo(b.date));
+
+    // Агрегируем сессии питания в NutritionDay на лету
+    final nutritionDays = <NutritionDay>[];
+    for (final entry in _nutritionSessionsCache.entries) {
+      if (inRange(entry.key)) {
+        nutritionDays.add(_processor.aggregateNutritionDay(entry.key, entry.value));
+      }
+    }
+    nutritionDays.sort((a, b) => a.date.compareTo(b.date));
+    _nutritionData = nutritionDays;
+
     _sleepData = fromCache(_sleepCache, (a, b) => a.date.compareTo(b.date));
     _stepsData = fromCache(_stepsCache, (a, b) => a.date.compareTo(b.date));
   }

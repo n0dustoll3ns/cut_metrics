@@ -52,6 +52,9 @@ class ViewModel extends ChangeNotifier {
   // Кеш питания теперь хранит дедуплицированные кластеры (приёмы пищи)
   final Map<DateKey, List<MealSession>> _nutritionSessionsCache = {};
 
+  // Накопленные сырые точки (для логирования)
+  final List<HealthDataPoint> _rawLog = [];
+
   // Данные для текущего выбранного диапазона (идут в UI)
   List<WeightDay> _weightData = [];
   List<WeightDay> _emaData = [];
@@ -147,6 +150,9 @@ class ViewModel extends ChangeNotifier {
         _processor.mergeSleepInto(_sleepCache, results[2], interval.start, interval.end);
         _processor.mergeNutritionInto(_nutritionSessionsCache, results[3]);
 
+        // Накапливаем сырые точки для логирования (с дедупликацией)
+        _mergeRawLog(results.expand((list) => list));
+
         // Расширяем известный загруженный диапазон
         _loadedRange = _mergeRanges(_loadedRange, interval);
       }
@@ -198,5 +204,180 @@ class ViewModel extends ChangeNotifier {
       start: existing.start.isBefore(next.start) ? existing.start : next.start,
       end: existing.end.isAfter(next.end) ? existing.end : next.end,
     );
+  }
+
+  // ─── Логирование ────────────────────────────────────────────────────────────
+
+  /// Добавляет сырые точки в лог с дедупликацией.
+  /// Дедупликация: по uuid (если непустой), иначе по (type, dateFrom, dateTo, value).
+  void _mergeRawLog(Iterable<HealthDataPoint> points) {
+    final existing = <String>{};
+    final existingKeys = <String>{};
+
+    for (final p in _rawLog) {
+      existing.add(p.uuid);
+      existingKeys.add(_rawPointKey(p));
+    }
+
+    for (final p in points) {
+      final uuid = p.uuid;
+      final key = _rawPointKey(p);
+      if (uuid.isNotEmpty && existing.contains(uuid)) continue;
+      if (uuid.isEmpty && existingKeys.contains(key)) continue;
+      _rawLog.add(p);
+      existing.add(uuid);
+      existingKeys.add(key);
+    }
+  }
+
+  /// Ключ дедупликации для точки без uuid.
+  String _rawPointKey(HealthDataPoint p) =>
+      '${p.type}|${p.dateFrom.toIso8601String()}|${p.dateTo.toIso8601String()}|${p.value}';
+
+  /// Форматирует DateTime как `yyyy-MM-dd`.
+  String _fmtDate(DateTime d) =>
+      '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
+  /// Форматирует DateTime как `yyyy-MM-dd HH:mm`.
+  String _fmtDateTime(DateTime d) =>
+      '${_fmtDate(d)} ${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
+
+  /// Разделитель таблицы.
+  String _divider(int width) => '─' * width;
+
+  /// Строит текстовый лог в табличном формате для каждого типа данных.
+  /// Возвращает Map: имя файла -> содержимое.
+  Map<String, String> buildLogs() {
+    return {
+      'raw_weight.txt': _buildRawWeightLog(),
+      'raw_steps.txt': _buildRawStepsLog(),
+      'raw_sleep.txt': _buildRawSleepLog(),
+      'raw_nutrition.txt': _buildRawNutritionLog(),
+      'weight.txt': _buildWeightLog(),
+      'ema.txt': _buildEmaLog(),
+      'sleep.txt': _buildSleepLog(),
+      'steps.txt': _buildStepsLog(),
+      'nutrition.txt': _buildNutritionLog(),
+    };
+  }
+
+  String _buildRawWeightLog() {
+    final points = _rawLog.where((p) => p.type == HealthDataType.WEIGHT).toList()
+      ..sort((a, b) => a.dateFrom.compareTo(b.dateFrom));
+    final header = '📅 Date & Time         ⚖️ Weight (kg)  Source';
+    final sep = _divider(60);
+    final rows = points.map((p) {
+      final w = (p.value as NumericHealthValue).numericValue.toDouble();
+      return '   ${_fmtDateTime(p.dateFrom).padRight(19)}  ${w.toStringAsFixed(1).padLeft(12)}  ${p.sourceId}';
+    }).join('\n');
+    return '$header\n$sep\n${rows.isEmpty ? '(no data)' : rows}';
+  }
+
+  String _buildRawStepsLog() {
+    final points = _rawLog.where((p) => p.type == HealthDataType.STEPS).toList()
+      ..sort((a, b) => a.dateFrom.compareTo(b.dateFrom));
+    final header = '📅 Date & Time         👟 Steps       Source';
+    final sep = _divider(55);
+    final rows = points.map((p) {
+      final s = (p.value as NumericHealthValue).numericValue.toInt();
+      return '   ${_fmtDateTime(p.dateFrom).padRight(19)}  ${s.toString().padLeft(10)}  ${p.sourceId}';
+    }).join('\n');
+    return '$header\n$sep\n${rows.isEmpty ? '(no data)' : rows}';
+  }
+
+  String _buildRawSleepLog() {
+    final points = _rawLog
+        .where((p) => _sleepTypes.contains(p.type))
+        .toList()
+      ..sort((a, b) => a.dateFrom.compareTo(b.dateFrom));
+    final header = '📅 Date & Time         😴 Type        Minutes  Source';
+    final sep = _divider(65);
+    final rows = points.map((p) {
+      final m = (p.value as NumericHealthValue).numericValue.toDouble();
+      final typeStr = p.type.name.replaceAll('SLEEP_', '');
+      return '   ${_fmtDateTime(p.dateFrom).padRight(19)}  ${typeStr.padRight(11)}  ${m.toStringAsFixed(0).padLeft(7)}  ${p.sourceId}';
+    }).join('\n');
+    return '$header\n$sep\n${rows.isEmpty ? '(no data)' : rows}';
+  }
+
+  String _buildRawNutritionLog() {
+    final points = _rawLog.where((p) => p.type == HealthDataType.NUTRITION).toList()
+      ..sort((a, b) => a.dateFrom.compareTo(b.dateFrom));
+    final header = '📅 Date & Time         🍔 Cal    🥩 Prot(g)  🧈 Fat(g)  🍞 Carbs(g)  Source';
+    final sep = _divider(85);
+    final rows = points.map((p) {
+      final v = p.value as NutritionHealthValue;
+      final cal = v.calories?.toDouble() ?? 0;
+      final prot = v.protein?.toDouble() ?? 0;
+      final fat = v.fat?.toDouble() ?? 0;
+      final carbs = v.carbs?.toDouble() ?? 0;
+      return '   ${_fmtDateTime(p.dateFrom).padRight(19)}  '
+          '${cal.toStringAsFixed(0).padLeft(7)}  '
+          '${prot.toStringAsFixed(0).padLeft(10)}  '
+          '${fat.toStringAsFixed(0).padLeft(8)}  '
+          '${carbs.toStringAsFixed(0).padLeft(10)}  '
+          '${p.sourceId}';
+    }).join('\n');
+    return '$header\n$sep\n${rows.isEmpty ? '(no data)' : rows}';
+  }
+
+  String _buildWeightLog() {
+    final data = _weightCache.values.toList()..sort((a, b) => a.date.compareTo(b.date));
+    final header = '📅 Date            ⚖️ Weight (kg)';
+    final sep = _divider(35);
+    final rows = data.map((d) {
+      return '   ${_fmtDate(d.date.value).padRight(14)}  ${d.weight.toStringAsFixed(1).padLeft(12)}';
+    }).join('\n');
+    return '$header\n$sep\n${rows.isEmpty ? '(no data)' : rows}';
+  }
+
+  String _buildEmaLog() {
+    final data = _emaCache.values.toList()..sort((a, b) => a.date.compareTo(b.date));
+    final header = '📅 Date            📈 EMA (kg)';
+    final sep = _divider(32);
+    final rows = data.map((d) {
+      return '   ${_fmtDate(d.date.value).padRight(14)}  ${d.weight.toStringAsFixed(1).padLeft(10)}';
+    }).join('\n');
+    return '$header\n$sep\n${rows.isEmpty ? '(no data)' : rows}';
+  }
+
+  String _buildSleepLog() {
+    final data = _sleepCache.values.toList()..sort((a, b) => a.date.compareTo(b.date));
+    final header = '📅 Date            😴 Deep(h)  Light(h)  REM(h)  Total(h)';
+    final sep = _divider(55);
+    final rows = data.map((d) {
+      return '   ${_fmtDate(d.date.value).padRight(14)}  '
+          '${d.deep.toStringAsFixed(1).padLeft(7)}  '
+          '${d.light.toStringAsFixed(1).padLeft(8)}  '
+          '${d.rem.toStringAsFixed(1).padLeft(6)}  '
+          '${d.total.toStringAsFixed(1).padLeft(7)}';
+    }).join('\n');
+    return '$header\n$sep\n${rows.isEmpty ? '(no data)' : rows}';
+  }
+
+  String _buildStepsLog() {
+    final data = _stepsCache.values.toList()..sort((a, b) => a.date.compareTo(b.date));
+    final header = '📅 Date            👟 Steps';
+    final sep = _divider(28);
+    final rows = data.map((d) {
+      return '   ${_fmtDate(d.date.value).padRight(14)}  ${d.steps.toString().padLeft(10)}';
+    }).join('\n');
+    return '$header\n$sep\n${rows.isEmpty ? '(no data)' : rows}';
+  }
+
+  String _buildNutritionLog() {
+    final entries = _nutritionSessionsCache.entries.toList()
+      ..sort((a, b) => a.key.compareTo(b.key));
+    final header = '📅 Date            🍔 Cal    🥩 Prot(g)  🧈 Fat(g)  🍞 Carbs(g)';
+    final sep = _divider(65);
+    final rows = entries.map((e) {
+      final day = _processor.aggregateNutritionDay(e.key, e.value);
+      return '   ${_fmtDate(e.key.value).padRight(14)}  '
+          '${day.calories.toStringAsFixed(0).padLeft(7)}  '
+          '${day.protein.toStringAsFixed(0).padLeft(10)}  '
+          '${day.fat.toStringAsFixed(0).padLeft(8)}  '
+          '${day.carbs.toStringAsFixed(0).padLeft(10)}';
+    }).join('\n');
+    return '$header\n$sep\n${rows.isEmpty ? '(no data)' : rows}';
   }
 }

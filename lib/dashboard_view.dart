@@ -105,7 +105,10 @@ class DashboardView extends StatelessWidget {
             belowBarData: BarAreaData(
               show: true,
               gradient: LinearGradient(
-                colors: [const Color(0xFF4CAF50).withOpacity(0.3), const Color(0xFF4CAF50).withOpacity(0.0)],
+                colors: [
+                  const Color(0xFF4CAF50).withValues(alpha: 0.3),
+                  const Color(0xFF4CAF50).withValues(alpha: 0.0),
+                ],
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
               ),
@@ -159,10 +162,8 @@ class DashboardView extends StatelessWidget {
             sideTitles: SideTitles(
               showTitles: true,
               reservedSize: 30,
-              getTitlesWidget: (value, meta) => Text(
-                '${value.toInt()}h',
-                style: const TextStyle(color: Colors.white54, fontSize: 10),
-              ),
+              getTitlesWidget: (value, meta) =>
+                  Text('${value.toInt()}h', style: const TextStyle(color: Colors.white54, fontSize: 10)),
             ),
           ),
           bottomTitles: AxisTitles(
@@ -272,7 +273,9 @@ class _ChartCard extends StatelessWidget {
             SizedBox(
               height: 200,
               child: isEmpty
-                  ? const Center(child: Text('No data', style: TextStyle(color: Colors.white54)))
+                  ? const Center(
+                      child: Text('No data', style: TextStyle(color: Colors.white54)),
+                    )
                   : child,
             ),
             if (legend != null) ...[

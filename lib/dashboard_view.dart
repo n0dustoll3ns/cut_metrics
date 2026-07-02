@@ -80,6 +80,7 @@ class DashboardView extends StatelessWidget {
               getTitlesWidget: (value, meta) {
                 if (value.toInt() >= data.length) return const Text('');
                 final date = data[value.toInt()].date;
+
                 return Text(
                   '${date.value.day}.${date.value.month}',
                   style: const TextStyle(color: Colors.white54, fontSize: 10),
@@ -188,36 +189,27 @@ class DashboardView extends StatelessWidget {
         barGroups: data.asMap().entries.map((entry) {
           final index = entry.key;
           final day = entry.value;
+
           return BarChartGroupData(
             x: index,
             barRods: [
               BarChartRodData(
-                toY: day.deep,
-                color: const Color(0xFF1A237E),
-                width: 16,
-                borderRadius: const BorderRadius.only(
-                  bottomLeft: Radius.circular(4),
-                  bottomRight: Radius.circular(4),
-                ),
-              ),
-              BarChartRodData(
-                toY: day.deep + day.light,
-                color: const Color(0xFF3F51B5),
-                width: 16,
-                fromY: day.deep,
-              ),
-              BarChartRodData(
                 toY: day.total,
-                color: const Color(0xFF9FA8DA),
                 width: 16,
-                fromY: day.deep + day.light,
                 borderRadius: const BorderRadius.only(
                   topLeft: Radius.circular(4),
                   topRight: Radius.circular(4),
+                  bottomLeft: Radius.circular(4),
+                  bottomRight: Radius.circular(4),
                 ),
+
+                rodStackItems: [
+                  BarChartRodStackItem(0, day.deep, const Color(0xFF1A237E)),
+                  BarChartRodStackItem(day.deep, day.deep + day.light, const Color(0xFF3F51B5)),
+                  BarChartRodStackItem(day.deep + day.light, day.total, const Color(0xFF9FA8DA)),
+                ],
               ),
             ],
-            barsSpace: 4,
           );
         }).toList(),
       ),
@@ -225,8 +217,6 @@ class DashboardView extends StatelessWidget {
   }
 }
 
-// РЕФАКТОРИНГ: общий виджет карточки-графика, устранён copy-paste loading/empty state.
-// Графики weight и sleep используют его вместо дублирующегося кода.
 class _ChartCard extends StatelessWidget {
   final String title;
   final bool isLoading;
@@ -241,7 +231,6 @@ class _ChartCard extends StatelessWidget {
     required this.child,
     this.legend,
   });
-
   @override
   Widget build(BuildContext context) {
     if (isLoading) {

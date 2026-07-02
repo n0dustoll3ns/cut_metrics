@@ -61,11 +61,7 @@ class NutritionChart extends StatelessWidget {
           children: [
             const Text(
               'Macronutrients',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-              ),
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
             ),
             Expanded(
               child: BarChart(
@@ -77,10 +73,8 @@ class NutritionChart extends StatelessWidget {
                     drawHorizontalLine: true,
                     checkToShowHorizontalLine: (value) => value % 50 == 0,
                     horizontalInterval: 50,
-                    getDrawingHorizontalLine: (value) => const FlLine(
-                      color: Colors.white24,
-                      strokeWidth: 1.5,
-                    ),
+                    getDrawingHorizontalLine: (value) =>
+                        const FlLine(color: Colors.white24, strokeWidth: 1.5),
                   ),
                   titlesData: FlTitlesData(
                     leftTitles: AxisTitles(
@@ -91,9 +85,7 @@ class NutritionChart extends StatelessWidget {
                         getTitlesWidget: (value, meta) => Text(
                           '${value.toInt()}g',
                           style: TextStyle(
-                            color: value < (maxY * .999)
-                                ? Colors.white54
-                                : Colors.transparent,
+                            color: value < (maxY * .999) ? Colors.white54 : Colors.transparent,
                             fontSize: 10,
                           ),
                         ),
@@ -111,62 +103,42 @@ class NutritionChart extends StatelessWidget {
                           return Text(
                             '${date.value.day}\n${getMonthTitle(date.value.month)}',
                             textAlign: TextAlign.center,
-                            style: const TextStyle(
-                              color: Colors.white54,
-                              fontSize: 10,
-                            ),
+                            style: const TextStyle(color: Colors.white54, fontSize: 10),
                           );
                         },
                       ),
                     ),
-                    topTitles: const AxisTitles(
-                      sideTitles: SideTitles(showTitles: false),
-                    ),
-                    rightTitles: const AxisTitles(
-                      sideTitles: SideTitles(showTitles: false),
-                    ),
+                    topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                    rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
                   ),
                   borderData: FlBorderData(show: false),
-                  barGroups: data
-                      .asMap()
-                      .entries
-                      .map((entry) {
-                        final day = entry.value;
-                        return BarChartGroupData(
-                          x: entry.key,
-                          barRods: [
-                            // Белки — нижний сегмент.
-                            BarChartRodData(
-                              toY: day.protein,
-                              color: _proteinColor,
-                              width: 15,
-                              borderRadius: const BorderRadius.only(
-                                bottomLeft: Radius.circular(3),
-                                bottomRight: Radius.circular(3),
-                              ),
-                            ),
-                            // Жиры — средний сегмент.
-                            BarChartRodData(
-                              toY: day.protein + day.fat,
-                              fromY: day.protein,
-                              color: _fatColor,
-                              width: 15,
-                            ),
-                            // Углеводы — верхний сегмент.
-                            BarChartRodData(
-                              toY: day.totalGrams,
-                              fromY: day.protein + day.fat,
-                              color: _carbsColor,
-                              width: 15,
-                              borderRadius: const BorderRadius.only(
-                                topLeft: Radius.circular(3),
-                                topRight: Radius.circular(3),
-                              ),
-                            ),
+                  barGroups: data.asMap().entries.map((entry) {
+                    final day = entry.value;
+                    return BarChartGroupData(
+                      x: entry.key,
+                      barRods: [
+                        // Один столбец с тремя сегментами, сложенными в стек
+                        BarChartRodData(
+                          toY: day.totalGrams,
+                          width: 15,
+                          borderRadius: const BorderRadius.only(
+                            topLeft: Radius.circular(3),
+                            topRight: Radius.circular(3),
+                            bottomLeft: Radius.circular(3),
+                            bottomRight: Radius.circular(3),
+                          ),
+                          rodStackItems: [
+                            // Белки — нижний сегмент
+                            BarChartRodStackItem(0, day.protein, _proteinColor),
+                            // Жиры — средний сегмент
+                            BarChartRodStackItem(day.protein, day.protein + day.fat, _fatColor),
+                            // Углеводы — верхний сегмент
+                            BarChartRodStackItem(day.protein + day.fat, day.totalGrams, _carbsColor),
                           ],
-                        );
-                      })
-                      .toList(),
+                        ),
+                      ],
+                    );
+                  }).toList(),
                 ),
               ),
             ),

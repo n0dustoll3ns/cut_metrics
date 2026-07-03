@@ -3,15 +3,22 @@ import 'package:health/health.dart';
 import '../domain.dart';
 
 // РЕФАКТОРИНГ: поля сделаны final, мутация заменена copyWith-паттерном
+// Добавлен sourceId для приоритизации источников
 class _SleepInterval {
   final DateTime start;
   final DateTime end;
   final HealthDataType type;
+  final String sourceId;
 
-  const _SleepInterval({required this.start, required this.end, required this.type});
+  const _SleepInterval({
+    required this.start,
+    required this.end,
+    required this.type,
+    required this.sourceId,
+  });
 
   _SleepInterval withEnd(DateTime newEnd) =>
-      _SleepInterval(start: start, end: newEnd, type: type);
+      _SleepInterval(start: start, end: newEnd, type: type, sourceId: sourceId);
 }
 
 class SleepAnalyzer {
@@ -26,15 +33,24 @@ class SleepAnalyzer {
     required List<HealthDataPoint> rawPoints,
     required int daysToAnalyze,
     required DateTime now,
+    List<String> sourcePriorities = const [],
   }) {
+    // 0. Фильтруем: оставляем только точки из лучшего источника за ночь
+    final filteredPoints = _filterByTopSource(rawPoints, sourcePriorities);
+
     // 1. Фильтрация и конвертация в интервалы
-    final intervals = rawPoints
+    final intervals = filteredPoints
         .where(
           (point) =>
               point.value is NumericHealthValue &&
               (point.value as NumericHealthValue).numericValue > 0,
         )
-        .map((point) => _SleepInterval(start: point.dateFrom, end: point.dateTo, type: point.type))
+        .map((point) => _SleepInterval(
+              start: point.dateFrom,
+              end: point.dateTo,
+              type: point.type,
+              sourceId: point.sourceId,
+            ))
         .toList();
 
     // 2. Сортировка
@@ -45,6 +61,59 @@ class SleepAnalyzer {
 
     // 4. Агрегация по дням
     return _aggregateByDay(processed, daysToAnalyze, now);
+  }
+
+  /// Фильтрует сырые точки: оставляет только лучший источник за каждую ночь.
+  /// "Ночью" считается период сна — группируем по дате сна (по start с правилом "после 12:00 = следующий день").
+  List<HealthDataPoint> _filterByTopSource(
+    List<HealthDataPoint> points,
+    List<String> sourcePriorities,
+  ) {
+    if (sourcePriorities.isEmpty) return points;
+
+    // Группируем точки по "дню сна" → по источнику
+    final bySleepDay = <DateKey, Map<String, List<HealthDataPoint>>>{};
+    for (final p in points) {
+      final sleepDay = _getSleepDay(p.dateFrom);
+      final src = p.sourceId;
+      bySleepDay.putIfAbsent(sleepDay, () => {}).putIfAbsent(src, () => []).add(p);
+    }
+
+    final result = <HealthDataPoint>[];
+    for (final sourcesMap in bySleepDay.values) {
+      if (sourcesMap.length <= 1) {
+        result.addAll(sourcesMap.values.first);
+        continue;
+      }
+      // Несколько источников — выбираем лучший
+      String? bestSource;
+      int bestPrio = sourcePriorities.length + 1;
+      for (final src in sourcesMap.keys) {
+        final prio = _getSourcePriority(src, sourcePriorities);
+        if (prio < bestPrio) {
+          bestSource = src;
+          bestPrio = prio;
+        }
+      }
+      result.addAll(sourcesMap[bestSource]!);
+    }
+    return result;
+  }
+
+  /// Определяет "день сна": если интервал начался после 12:00, то это ночь следующего дня.
+  DateKey _getSleepDay(DateTime start) {
+    DateTime targetDate = start;
+    if (start.hour >= 12) {
+      targetDate = start.add(const Duration(days: 1));
+    }
+    return DateKey(targetDate);
+  }
+
+  /// Возвращает приоритет источника: 0 = наивысший.
+  int _getSourcePriority(String? source, List<String> sourcePriorities) {
+    if (source == null || sourcePriorities.isEmpty) return 0;
+    final idx = sourcePriorities.indexOf(source);
+    return idx == -1 ? sourcePriorities.length : idx;
   }
 
   List<_SleepInterval> _mergeIntervals(List<_SleepInterval> intervals) {

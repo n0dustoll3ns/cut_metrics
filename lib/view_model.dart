@@ -1,10 +1,12 @@
 import 'package:collection/collection.dart';
 import 'package:cut_metrics/domain/date_extension.dart';
+import 'package:cut_metrics/domain/metric_type.dart';
 import 'package:cut_metrics/domain/processer.dart';
 import 'package:cut_metrics/domain/weight.dart';
 import 'package:cut_metrics/domain/nutrition.dart';
 import 'package:cut_metrics/domain.dart';
 import 'package:cut_metrics/repo/health.dart';
+import 'package:cut_metrics/services/source_priorities.dart';
 import 'package:flutter/material.dart';
 import 'package:health/health.dart';
 
@@ -42,6 +44,12 @@ class ViewModel extends ChangeNotifier {
   List<String> get sleepSources => _sleepSources;
   List<String> get stepsSources => _stepsSources;
 
+  /// Приоритеты источников для каждой метрики (индекс 0 = наивысший).
+  List<String> getWeightSourcePriorities() => _sourcePriorities[MetricType.weight]!;
+  List<String> getStepsSourcePriorities() => _sourcePriorities[MetricType.steps]!;
+  List<String> getSleepSourcePriorities() => _sourcePriorities[MetricType.sleep]!;
+  List<String> getNutritionSourcePriorities() => _sourcePriorities[MetricType.nutrition]!;
+
   // ─── Приватное состояние ────────────────────────────────────────────────────
 
   DateTime _start = DateTime.now().subtract(const Duration(days: 7));
@@ -57,7 +65,7 @@ class ViewModel extends ChangeNotifier {
   // Кеш питания теперь хранит дедуплицированные кластеры (приёмы пищи)
   final Map<DateKey, List<MealSession>> _nutritionSessionsCache = {};
 
-  // Накопленные сырые точки (для логирования)
+  // Накопленные сырые точки (для логирования и репроцессинга)
   final List<HealthDataPoint> _rawLog = [];
 
   // Данные об источниках
@@ -65,6 +73,11 @@ class ViewModel extends ChangeNotifier {
   List<String> _nutritionSources = [];
   List<String> _sleepSources = [];
   List<String> _stepsSources = [];
+
+  // Приоритеты источников (пользовательские настройки)
+  // Индекс 0 = наивысший приоритет
+  final Map<MetricType, List<String>> _sourcePriorities = {for (final m in MetricType.values) m: <String>[]};
+  final SourcePrioritiesService _prioritiesService = SourcePrioritiesService();
 
   // Данные для текущего выбранного диапазона (идут в UI)
   List<WeightDay> _weightData = [];
@@ -82,7 +95,16 @@ class ViewModel extends ChangeNotifier {
   ViewModel({required HealthRepository repository, HealthDataProcessor? processor})
     : repo = repository,
       _processor = processor ?? HealthDataProcessor() {
-    _load();
+    _init();
+  }
+
+  Future<void> _init() async {
+    // Загружаем сохранённые приоритеты источников
+    final saved = await _prioritiesService.loadAll();
+    for (final entry in saved.entries) {
+      _sourcePriorities[entry.key] = entry.value;
+    }
+    await _load();
   }
 
   // ─── Публичный API ──────────────────────────────────────────────────────────
@@ -107,6 +129,15 @@ class ViewModel extends ChangeNotifier {
     await _load();
   }
 
+  /// Устанавливает новые приоритеты источников для метрики.
+  /// Сохраняет в SharedPreferences, затем полностью пересчитывает все кеши
+  /// из накопленных сырых данных (_rawLog).
+  Future<void> setSourcePriorities(MetricType metric, List<String> sourceIds) async {
+    _sourcePriorities[metric] = List<String>.from(sourceIds);
+    await _prioritiesService.save(metric, _sourcePriorities[metric]!);
+    await _reprocessAll();
+  }
+
   // ─── Приватные методы ───────────────────────────────────────────────────────
 
   /// Определяет, какой участок ещё не загружен.
@@ -121,6 +152,47 @@ class ViewModel extends ChangeNotifier {
     if (days >= 20) return 10;
     if (days >= 10) return 5;
     return 3;
+  }
+
+  /// Извлекает уникальные sourceId из загруженных точек по типам метрик.
+  /// Новые источники добавляются в конец списка приоритетов (низший приоритет).
+  void _discoverSources(
+    List<HealthDataPoint> weightPoints,
+    List<HealthDataPoint> stepsPoints,
+    List<HealthDataPoint> sleepPoints,
+    List<HealthDataPoint> nutritionPoints,
+  ) {
+    // Извлекаем уникальные sourceId для каждого типа
+    _weightSources = _extractUniqueSourceIds(weightPoints, _weightSources);
+    _stepsSources = _extractUniqueSourceIds(stepsPoints, _stepsSources);
+    _sleepSources = _extractUniqueSourceIds(sleepPoints, _sleepSources);
+    _nutritionSources = _extractUniqueSourceIds(nutritionPoints, _nutritionSources);
+
+    // Добавляем новые источники в конец списка приоритетов (низший приоритет)
+    _ensureSourcesInPriorities(MetricType.weight, _weightSources);
+    _ensureSourcesInPriorities(MetricType.steps, _stepsSources);
+    _ensureSourcesInPriorities(MetricType.sleep, _sleepSources);
+    _ensureSourcesInPriorities(MetricType.nutrition, _nutritionSources);
+  }
+
+  /// Извлекает уникальные sourceId из точек и объединяет с существующим списком.
+  List<String> _extractUniqueSourceIds(List<HealthDataPoint> points, List<String> existing) {
+    final result = <String>{...existing};
+    for (final p in points) {
+      if (p.sourceName.isNotEmpty) result.add(p.sourceName);
+    }
+    return result.toList();
+  }
+
+  /// Гарантирует, что все известные источники присутствуют в списке приоритетов.
+  /// Новые источники добавляются в конец (низший приоритет).
+  void _ensureSourcesInPriorities(MetricType metric, List<String> sources) {
+    final priorities = _sourcePriorities[metric]!;
+    for (final src in sources) {
+      if (!priorities.contains(src)) {
+        priorities.add(src);
+      }
+    }
   }
 
   Future<void> _load() async {
@@ -156,10 +228,23 @@ class ViewModel extends ChangeNotifier {
         // Проверяем актуальность после await (запросы могли занять время)
         if (generation != _loadGeneration) return;
 
-        _processor.mergeWeightInto(_weightCache, results[0], _weightSources);
-        _processor.mergeStepsInto(_stepsCache, results[1], _stepsSources);
-        _processor.mergeSleepInto(_sleepCache, results[2], interval.start, interval.end, _sleepSources);
-        _processor.mergeNutritionInto(_nutritionSessionsCache, results[3], _nutritionSources);
+        // Обновляем список известных источников
+        _discoverSources(results[0], results[1], results[2], results[3]);
+
+        _processor.mergeWeightInto(_weightCache, results[0], _sourcePriorities[MetricType.weight]!);
+        _processor.mergeStepsInto(_stepsCache, results[1], _sourcePriorities[MetricType.steps]!);
+        _processor.mergeSleepInto(
+          _sleepCache,
+          results[2],
+          interval.start,
+          interval.end,
+          _sourcePriorities[MetricType.sleep]!,
+        );
+        _processor.mergeNutritionInto(
+          _nutritionSessionsCache,
+          results[3],
+          _sourcePriorities[MetricType.nutrition]!,
+        );
 
         // Накапливаем сырые точки для логирования (с дедупликацией)
         _mergeRawLog(results.expand((list) => list));
@@ -182,6 +267,57 @@ class ViewModel extends ChangeNotifier {
         _isLoading = false;
         notifyListeners();
       }
+    }
+  }
+
+  /// Полный пересчёт всех кешей из накопленных сырых данных (_rawLog).
+  /// Вызывается при изменении приоритетов источников.
+  Future<void> _reprocessAll() async {
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      // Очищаем обработанные кеши
+      _weightCache.clear();
+      _emaCache.clear();
+      _sleepCache.clear();
+      _stepsCache.clear();
+      _nutritionSessionsCache.clear();
+
+      // Разделяем сырые точки по типам
+      final weightPoints = _rawLog.where((p) => p.type == HealthDataType.WEIGHT).toList();
+      final stepsPoints = _rawLog.where((p) => p.type == HealthDataType.STEPS).toList();
+      final sleepPoints = _rawLog.where((p) => _sleepTypes.contains(p.type)).toList();
+      final nutritionPoints = _rawLog.where((p) => p.type == HealthDataType.NUTRITION).toList();
+
+      // Пересчитываем с новыми приоритетами
+      if (_loadedRange != null) {
+        _processor.mergeWeightInto(_weightCache, weightPoints, _sourcePriorities[MetricType.weight]!);
+        _processor.mergeStepsInto(_stepsCache, stepsPoints, _sourcePriorities[MetricType.steps]!);
+        _processor.mergeSleepInto(
+          _sleepCache,
+          sleepPoints,
+          _loadedRange!.start,
+          _loadedRange!.end,
+          _sourcePriorities[MetricType.sleep]!,
+        );
+        _processor.mergeNutritionInto(
+          _nutritionSessionsCache,
+          nutritionPoints,
+          _sourcePriorities[MetricType.nutrition]!,
+        );
+      }
+
+      // EMA всегда пересчитывается по актуальному кешу
+      _emaCache = _processor.computeEma(_weightCache, _emaPeriod);
+
+      _refreshChartData();
+    } catch (e) {
+      _error = 'Failed to reprocess: $e';
+      debugPrint('ViewModel reprocess error: $e');
+    } finally {
+      _isLoading = false;
+      notifyListeners();
     }
   }
 

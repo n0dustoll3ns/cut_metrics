@@ -79,15 +79,16 @@ main.dart
 
 ### `lib/domain/processer.dart` — `HealthDataProcessor`
 
-- `mergeWeightInto()` — last-wins: сортировка по времени, перезапись при дублях за день
+- `filterByTopSource()` — фильтрация: оставляет только лучший источник за каждый день (индекс 0 = наивысший приоритет)
+- `getSourcePriority()` — возвращает приоритет (0 = наивысший), неизвестные → низший
+- `mergeWeightInto()` — `filterByTopSource` → last-wins по времени
 - `computeEma(cache, period)` — EMA по всему кешу весов
-- `mergeStepsInto()` — суммирование за день
-- `mergeNutritionInto()` — дедупликация и агрегация питания:
+- `mergeStepsInto()` — `filterByTopSource` → суммирование за день
+- `mergeNutritionInto()` — `filterByTopSource` → кластеризация:
   1. `_convertToEntries()` — извлечение макросов и `sourceId`, фильтрация мусора (нули)
   2. `_clusterEntries()` — группировка точек в приёмы пищи (`_MealSession`): один источник + интервал ≤ 30 мин (`_mealGapMinutes`)
-  3. `_deduplicateSessions()` — fuzzy matching между кластерами: окно ±30 мин (`_timeWindowMinutes`), допуск по калориям/макросам; приоритет источников (`_sourcePriorities`)
-  4. `aggregateNutritionDay()` — суммирование валидных кластеров в `NutritionDay`
-- `mergeSleepInto()` — делегирует в `SleepAnalyzer`, `putIfAbsent` в кеш
+  3. `aggregateNutritionDay()` — суммирование кластеров в `NutritionDay`
+- `mergeSleepInto()` — делегирует в `SleepAnalyzer` (с передачей `sourcePriorities`), `putIfAbsent` в кеш
 
 ### `lib/domain/date_extension.dart`
 
@@ -139,6 +140,7 @@ main.dart
 | `fl_chart`   | `LineChart`, `BarChart`                                                                                    |
 | `collection` | `.sorted()` на списках                                                                                     |
 | `intl`       | `DateFormat.yMd()`                                                                                         |
+| `shared_preferences` | Персистентное хранение приоритетов источников                                               |
 
 ---
 
@@ -151,6 +153,37 @@ _nutritionTypes = [NUTRITION]
 _stepsTypes    = [STEPS]
 _allTypes      = все вышеперечисленные (для запроса разрешений)
 ```
+
+---
+
+## Приоритеты источников данных
+
+Приложение позволяет настроить приоритеты источников для каждой метрики (вес, шаги, сон, питание). Это полезно, когда данные поступают из нескольких приложений/устройств.
+
+### Как это работает
+
+- Для каждого дня и каждой метрики выбирается **один источник** — самый приоритетный из тех, у которых есть данные за этот день
+- Индекс 0 в списке = наивысший приоритет (верх списка)
+- Настройки сохраняются между запусками (SharedPreferences)
+- Кнопка настройки (иконка `tune`) находится в AppBar
+
+### Логика по метрикам
+
+| Метрика | Логика |
+|---------|--------|
+| Вес | Точка из лучшего источника, при нескольких за день — последняя по времени |
+| Шаги | Сумма шагов только из лучшего источника за день |
+| Сон | Интервалы только из лучшего источника за ночь |
+| Питание | Кластеризация приёмов пищи только из лучшего источника за день |
+
+### Архитектура
+
+- `lib/domain/metric_type.dart` — enum `MetricType` (weight, steps, sleep, nutrition)
+- `lib/services/source_priorities.dart` — `SourcePrioritiesService` (загрузка/сохранение в SharedPreferences)
+- `lib/domain/processer.dart` — `filterByTopSource()` фильтрует точки перед агрегацией
+- `lib/domain/sleep.dart` — `_filterByTopSource()` фильтрует по "дню сна"
+- `lib/ui/source_priority_settings.dart` — диалог с `ReorderableListView`
+- `lib/view_model.dart` — `setSourcePriorities()` пересчитывает все кеши из `_rawLog`
 
 ---
 

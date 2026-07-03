@@ -9,6 +9,55 @@ import 'package:cut_metrics/domain.dart';
 /// Слой бизнес-логики: агрегирует сырые точки в модели для графиков.
 /// Не знает об UI, не хранит состояние.
 class HealthDataProcessor {
+  // ─── Приоритет источников ────────────────────────────────────────────────────
+
+  /// Возвращает приоритет источника: 0 = наивысший.
+  /// Неизвестный источник получает низший приоритет (length списка).
+  /// Если список приоритетов пуст — все источники равны (возврат 0).
+  int getSourcePriority(String? source, List<String> sourcePriorities) {
+    if (source == null || sourcePriorities.isEmpty) return 0;
+    final idx = sourcePriorities.indexOf(source);
+    return idx == -1 ? sourcePriorities.length : idx;
+  }
+
+  /// Для каждого дня оставляет только точки из источника с наивысшим приоритетом.
+  /// Если приоритеты пусты — возвращает все точки без изменений.
+  List<HealthDataPoint> filterByTopSource(
+    List<HealthDataPoint> points,
+    List<String> sourcePriorities,
+  ) {
+    if (sourcePriorities.isEmpty) return points;
+
+    // Группируем точки по дню → по источнику
+    final byDay = <DateKey, Map<String, List<HealthDataPoint>>>{};
+    for (final p in points) {
+      final key = DateKey(p.dateFrom);
+      final src = p.sourceId;
+      byDay.putIfAbsent(key, () => {}).putIfAbsent(src, () => []).add(p);
+    }
+
+    final result = <HealthDataPoint>[];
+    for (final sourcesMap in byDay.values) {
+      if (sourcesMap.length <= 1) {
+        // Один источник за день — берём все его точки
+        result.addAll(sourcesMap.values.first);
+        continue;
+      }
+      // Несколько источников — выбираем лучший
+      String? bestSource;
+      int bestPrio = sourcePriorities.length + 1;
+      for (final src in sourcesMap.keys) {
+        final prio = getSourcePriority(src, sourcePriorities);
+        if (prio < bestPrio) {
+          bestSource = src;
+          bestPrio = prio;
+        }
+      }
+      result.addAll(sourcesMap[bestSource]!);
+    }
+    return result;
+  }
+
   // ─── Вес ────────────────────────────────────────────────────────────────────
 
   /// Добавляет новые точки веса в кеш.
@@ -19,8 +68,10 @@ class HealthDataProcessor {
     List<HealthDataPoint> points,
     List<String> sourcePriorities,
   ) {
+    // Фильтруем: один (лучший) источник на каждый день
+    final filtered = filterByTopSource(points, sourcePriorities);
     // Сортируем по времени, чтобы последнее измерение дня перезаписало предыдущее
-    final sorted = [...points]..sort((a, b) => a.dateFrom.compareTo(b.dateFrom));
+    final sorted = [...filtered]..sort((a, b) => a.dateFrom.compareTo(b.dateFrom));
     for (final p in sorted) {
       final key = DateKey(p.dateFrom);
       final v = p.value;
@@ -57,7 +108,9 @@ class HealthDataProcessor {
     List<HealthDataPoint> points,
     List<String> sourcePriorities,
   ) {
-    for (final p in points) {
+    // Фильтруем: один (лучший) источник на каждый день
+    final filtered = filterByTopSource(points, sourcePriorities);
+    for (final p in filtered) {
       final key = DateKey(p.dateFrom);
       final v = p.value;
       if (v is NumericHealthValue) {
@@ -160,51 +213,7 @@ class HealthDataProcessor {
     return sessions;
   }
 
-  /// Дедупликация кластеров (приёмов пищи).
-  List<MealSession> _deduplicateSessions(List<MealSession> sessions, List<String> sourcePriorities) {
-    if (sessions.isEmpty) return [];
-
-    // Сортируем по приоритету источника (по убыванию), затем по времени
-    sessions.sort((a, b) {
-      final prioA = _getSourcePriority(a.sourceBundleId, sourcePriorities);
-      final prioB = _getSourcePriority(b.sourceBundleId, sourcePriorities);
-      if (prioA != prioB) return prioB.compareTo(prioA);
-      return a.startTime.compareTo(b.startTime);
-    });
-
-    final accepted = <MealSession>[];
-
-    bool isDuplicate(MealSession a, MealSession b) {
-      final timeDiff = a.startTime.difference(b.startTime).inMinutes.abs();
-      if (timeDiff > _timeWindowMinutes) return false;
-
-      final calDiff = (a.calories - b.calories).abs();
-      final maxCal = a.calories > b.calories ? a.calories : b.calories;
-      final calTolerance = (maxCal * _caloriesTolerancePercent).clamp(0.0, _caloriesToleranceAbsolute);
-      if (calDiff > calTolerance) return false;
-
-      // Проверяем макросы (хотя бы один должен совпадать)
-      bool macroClose(double m1, double m2) {
-        if (m1 == 0 && m2 == 0) return true;
-        final maxM = m1 > m2 ? m1 : m2;
-        if (maxM == 0) return false;
-        return (m1 - m2).abs() / maxM <= _macroTolerancePercent;
-      }
-
-      return macroClose(a.protein, b.protein) || macroClose(a.fat, b.fat) || macroClose(a.carbs, b.carbs);
-    }
-
-    for (final session in sessions) {
-      final isDub = accepted.any((acc) => isDuplicate(session, acc));
-      if (!isDub) {
-        accepted.add(session);
-      }
-    }
-
-    return accepted;
-  }
-
-  /// Агрегация дедуплицированных кластеров в NutritionDay.
+  /// Агрегация кластеров в NutritionDay.
   NutritionDay aggregateNutritionDay(
     DateKey date,
     List<MealSession> sessions,
@@ -219,23 +228,12 @@ class HealthDataProcessor {
     return NutritionDay(date: date, calories: totalCal, protein: totalProt, fat: totalFat, carbs: totalCarbs);
   }
 
-  /// Пороги для fuzzy matching
-  static const _timeWindowMinutes = 30;
-  static const _caloriesTolerancePercent = 0.20;
-  static const _caloriesToleranceAbsolute = 50.0;
-  static const _macroTolerancePercent = 0.30;
+  /// Порог для fuzzy matching (больше не используется для cross-source dedup,
+  /// но может пригодиться для внутриисточниковой дедупликации).
   static const _mealGapMinutes = 30; // Максимальный интервал между продуктами в одном приёме пищи
 
-  int _getSourcePriority(String? source, List<String> sourcePriorities) {
-    if (source == null) return 0;
-    try {
-      return sourcePriorities.indexOf(source);
-    } catch (_) {
-      return 1;
-    }
-  }
-
-  /// Обновляет кеш сырых точек питания и проводит дедупликацию.
+  /// Обновляет кеш сырых точек питания.
+  /// Фильтрует по лучшему источнику за день, затем кластеризует.
   void mergeNutritionInto(
     Map<DateKey, List<MealSession>> cache,
     List<HealthDataPoint> points,
@@ -250,17 +248,16 @@ class HealthDataProcessor {
 
     for (final entry in byDay.entries) {
       final dayKey = entry.key;
+      // 0. Фильтруем: один (лучший) источник за день
+      final filteredPoints = filterByTopSource(entry.value, sourcePriorities);
       // 1. Конвертация
-      final newEntries = _convertToEntries(entry.value);
+      final newEntries = _convertToEntries(filteredPoints);
       // 2. Кластеризация новых точек
       final newSessions = _clusterEntries(newEntries);
 
-      // Сливаем с существующими в кеше
-      final existingSessions = cache[dayKey] ?? [];
-      final allSessions = [...existingSessions, ...newSessions];
-
-      // 3. Дедупликация всех кластеров за день
-      cache[dayKey] = _deduplicateSessions(allSessions, sourcePriorities);
+      // Сливаем с существующими в кеше и перезаписываем
+      // (т.к. теперь все сессии из одного источника, cross-source dedup не нужен)
+      cache[dayKey] = newSessions;
     }
   }
 
@@ -279,6 +276,7 @@ class HealthDataProcessor {
       rawPoints: points,
       daysToAnalyze: rangeEnd.difference(rangeStart).inDays,
       now: rangeEnd,
+      sourcePriorities: sourcePriorities,
     );
     for (final day in days) {
       cache.putIfAbsent(day.date, () => day);

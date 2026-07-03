@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:cut_metrics/repo/health.dart';
+import 'package:cut_metrics/ui/source_priority_settings.dart';
 import 'package:cut_metrics/ui/time_nav.dart';
 import 'package:external_path/external_path.dart';
 
@@ -34,10 +35,27 @@ class AppView extends StatelessWidget {
       providers: [ChangeNotifierProvider(create: (_) => ViewModel(repository: HealthRepository()))],
       builder: (context, _) {
         return Scaffold(
-          appBar: AppBar(title: TimeNav(), actions: const [_ExportLogsButton()]),
+          appBar: AppBar(
+            title: TimeNav(),
+            actions: const [_SourcePriorityButton(), _ExportLogsButton()],
+          ),
           body: const DashboardView(),
         );
       },
+    );
+  }
+}
+
+/// Кнопка настройки приоритетов источников в AppBar.
+class _SourcePriorityButton extends StatelessWidget {
+  const _SourcePriorityButton();
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      icon: const Icon(Icons.tune),
+      tooltip: 'Приоритеты источников',
+      onPressed: () => showSourcePriorityDialog(context),
     );
   }
 }

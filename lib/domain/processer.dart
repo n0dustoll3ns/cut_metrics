@@ -14,7 +14,11 @@ class HealthDataProcessor {
   /// Добавляет новые точки веса в кеш.
   /// РЕФАКТОРИНГ: если за день несколько измерений — берём последнее по времени
   /// (а не первое пришедшее, как раньше через containsKey-continue).
-  void mergeWeightInto(Map<DateKey, WeightDay> cache, List<HealthDataPoint> points) {
+  void mergeWeightInto(
+    Map<DateKey, WeightDay> cache,
+    List<HealthDataPoint> points,
+    List<String> sourcePriorities,
+  ) {
     // Сортируем по времени, чтобы последнее измерение дня перезаписало предыдущее
     final sorted = [...points]..sort((a, b) => a.dateFrom.compareTo(b.dateFrom));
     for (final p in sorted) {
@@ -48,7 +52,11 @@ class HealthDataProcessor {
   // ─── Шаги ───────────────────────────────────────────────────────────────────
 
   /// Добавляет новые точки шагов в существующий кеш (суммирует за день).
-  void mergeStepsInto(Map<DateKey, StepsDay> cache, List<HealthDataPoint> points) {
+  void mergeStepsInto(
+    Map<DateKey, StepsDay> cache,
+    List<HealthDataPoint> points,
+    List<String> sourcePriorities,
+  ) {
     for (final p in points) {
       final key = DateKey(p.dateFrom);
       final v = p.value;
@@ -153,13 +161,13 @@ class HealthDataProcessor {
   }
 
   /// Дедупликация кластеров (приёмов пищи).
-  List<MealSession> _deduplicateSessions(List<MealSession> sessions) {
+  List<MealSession> _deduplicateSessions(List<MealSession> sessions, List<String> sourcePriorities) {
     if (sessions.isEmpty) return [];
 
     // Сортируем по приоритету источника (по убыванию), затем по времени
     sessions.sort((a, b) {
-      final prioA = _getSourcePriority(a.sourceBundleId);
-      final prioB = _getSourcePriority(b.sourceBundleId);
+      final prioA = _getSourcePriority(a.sourceBundleId, sourcePriorities);
+      final prioB = _getSourcePriority(b.sourceBundleId, sourcePriorities);
       if (prioA != prioB) return prioB.compareTo(prioA);
       return a.startTime.compareTo(b.startTime);
     });
@@ -197,7 +205,10 @@ class HealthDataProcessor {
   }
 
   /// Агрегация дедуплицированных кластеров в NutritionDay.
-  NutritionDay aggregateNutritionDay(DateKey date, List<MealSession> sessions) {
+  NutritionDay aggregateNutritionDay(
+    DateKey date,
+    List<MealSession> sessions,
+  ) {
     double totalCal = 0, totalProt = 0, totalFat = 0, totalCarbs = 0;
     for (final s in sessions) {
       totalCal += s.calories;
@@ -215,22 +226,21 @@ class HealthDataProcessor {
   static const _macroTolerancePercent = 0.30;
   static const _mealGapMinutes = 30; // Максимальный интервал между продуктами в одном приёме пищи
 
-  /// Приоритеты источников (чем больше — тем выше)
-  static const _sourcePriorities = {
-    'com.myfitnesspal': 10,
-    'com.fatsecret': 8,
-    'com.yazio': 8,
-    'com.apple.health': 5,
-    'com.samsung.health': 4,
-  };
-
-  int _getSourcePriority(String? source) {
+  int _getSourcePriority(String? source, List<String> sourcePriorities) {
     if (source == null) return 0;
-    return _sourcePriorities[source] ?? 1;
+    try {
+      return sourcePriorities.indexOf(source);
+    } catch (_) {
+      return 1;
+    }
   }
 
   /// Обновляет кеш сырых точек питания и проводит дедупликацию.
-  void mergeNutritionInto(Map<DateKey, List<MealSession>> cache, List<HealthDataPoint> points) {
+  void mergeNutritionInto(
+    Map<DateKey, List<MealSession>> cache,
+    List<HealthDataPoint> points,
+    List<String> sourcePriorities,
+  ) {
     // Группируем сырые точки по дням
     final byDay = <DateKey, List<HealthDataPoint>>{};
     for (final p in points) {
@@ -250,7 +260,7 @@ class HealthDataProcessor {
       final allSessions = [...existingSessions, ...newSessions];
 
       // 3. Дедупликация всех кластеров за день
-      cache[dayKey] = _deduplicateSessions(allSessions);
+      cache[dayKey] = _deduplicateSessions(allSessions, sourcePriorities);
     }
   }
 
@@ -262,6 +272,7 @@ class HealthDataProcessor {
     List<HealthDataPoint> points,
     DateTime rangeStart,
     DateTime rangeEnd,
+    List<String> sourcePriorities,
   ) {
     final analyzer = SleepAnalyzer();
     final days = analyzer.processSleepData(

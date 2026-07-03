@@ -2,11 +2,12 @@ import 'dart:io';
 
 import 'package:cut_metrics/repo/health.dart';
 import 'package:cut_metrics/ui/time_nav.dart';
+import 'package:external_path/external_path.dart';
 
 import 'package:flutter/material.dart';
 import 'package:cut_metrics/dashboard_view.dart';
 import 'package:cut_metrics/view_model.dart';
-import 'package:path_provider/path_provider.dart';
+
 import 'package:provider/provider.dart';
 
 // РЕФАКТОРИНГ: флаг переключения между реальным и mock-репозиторием.
@@ -30,19 +31,10 @@ class AppView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MultiProvider(
-      providers: [
-        ChangeNotifierProvider(
-          create: (_) => ViewModel(
-            repository: HealthRepository(),
-          ),
-        ),
-      ],
+      providers: [ChangeNotifierProvider(create: (_) => ViewModel(repository: HealthRepository()))],
       builder: (context, _) {
         return Scaffold(
-          appBar: AppBar(
-            title: TimeNav(),
-            actions: const [_ExportLogsButton()],
-          ),
+          appBar: AppBar(title: TimeNav(), actions: const [_ExportLogsButton()]),
           body: const DashboardView(),
         );
       },
@@ -73,17 +65,10 @@ class _ExportLogsButton extends StatelessWidget {
       final logs = vm.buildLogs();
 
       // Папка для логов: Download/cut_metrics/<timestamp>/
-      Directory? baseDir;
-      try {
-        baseDir = await getDownloadsDirectory();
-      } catch (_) {
-        baseDir = await getExternalStorageDirectory();
-      }
+      final baseDir = await _getPublicLogsDirectory();
 
       if (baseDir == null) {
-        messenger.showSnackBar(
-          const SnackBar(content: Text('❌ Не удалось найти папку для записи')),
-        );
+        messenger.showSnackBar(const SnackBar(content: Text('❌ Не удалось найти папку для записи')));
         return;
       }
 
@@ -109,13 +94,38 @@ class _ExportLogsButton extends StatelessWidget {
         file.writeAsStringSync(entry.value);
       }
 
-      messenger.showSnackBar(
-        SnackBar(content: Text('✅ ${logs.length} файлов сохранено в:\n${subDir.path}')),
-      );
+      messenger.showSnackBar(SnackBar(content: Text('✅ ${logs.length} файлов сохранено в:\n${subDir.path}')));
     } catch (e) {
-      messenger.showSnackBar(
-        SnackBar(content: Text('❌ Ошибка экспорта: $e')),
-      );
+      messenger.showSnackBar(SnackBar(content: Text('❌ Ошибка экспорта: $e')));
     }
+  }
+
+  Future<Directory?> _getPublicLogsDirectory() async {
+    String? path = '';
+
+    try {
+      // Получаем прямой путь к системной папке "Documents"
+      // (обычно это /storage/emulated/0/Documents)
+      path = await ExternalPath.getExternalStoragePublicDirectory(ExternalPath.DIRECTORY_DOCUMENTS);
+    } catch (_) {}
+
+    if (path == null) {
+      try {
+        // Если что-то пошло не так, откатываемся на загрузки
+        path = await ExternalPath.getExternalStoragePublicDirectory(ExternalPath.DIRECTORY_DOWNLOAD);
+      } catch (_) {}
+    }
+
+    if (path == null) return null;
+
+    // Создаем внутри нашей папки Documents подпапку для своего приложения,
+    // чтобы не мусорить в корне
+    final appLogsDir = Directory('$path/CutMetricsLogs');
+
+    if (!await appLogsDir.exists()) {
+      await appLogsDir.create(recursive: true);
+    }
+
+    return appLogsDir;
   }
 }

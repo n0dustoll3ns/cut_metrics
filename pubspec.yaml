@@ -17,6 +17,7 @@ dependencies:
     sdk: flutter
   intl: ^0.20.2
   equatable: ^2.0.8
+  external_path: ^2.2.0
 
 dev_dependencies:
   flutter_test:

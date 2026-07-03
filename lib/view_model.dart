@@ -37,6 +37,11 @@ class ViewModel extends ChangeNotifier {
   List<SleepDay> get sleepData => _sleepData;
   List<StepsDay> get stepsData => _stepsData;
 
+  List<String> get weightSources => _weightSources;
+  List<String> get nutritionSources => _nutritionSources;
+  List<String> get sleepSources => _sleepSources;
+  List<String> get stepsSources => _stepsSources;
+
   // ─── Приватное состояние ────────────────────────────────────────────────────
 
   DateTime _start = DateTime.now().subtract(const Duration(days: 7));
@@ -54,6 +59,12 @@ class ViewModel extends ChangeNotifier {
 
   // Накопленные сырые точки (для логирования)
   final List<HealthDataPoint> _rawLog = [];
+
+  // Данные об источниках
+  List<String> _weightSources = [];
+  List<String> _nutritionSources = [];
+  List<String> _sleepSources = [];
+  List<String> _stepsSources = [];
 
   // Данные для текущего выбранного диапазона (идут в UI)
   List<WeightDay> _weightData = [];
@@ -145,10 +156,10 @@ class ViewModel extends ChangeNotifier {
         // Проверяем актуальность после await (запросы могли занять время)
         if (generation != _loadGeneration) return;
 
-        _processor.mergeWeightInto(_weightCache, results[0]);
-        _processor.mergeStepsInto(_stepsCache, results[1]);
-        _processor.mergeSleepInto(_sleepCache, results[2], interval.start, interval.end);
-        _processor.mergeNutritionInto(_nutritionSessionsCache, results[3]);
+        _processor.mergeWeightInto(_weightCache, results[0], _weightSources);
+        _processor.mergeStepsInto(_stepsCache, results[1], _stepsSources);
+        _processor.mergeSleepInto(_sleepCache, results[2], interval.start, interval.end, _sleepSources);
+        _processor.mergeNutritionInto(_nutritionSessionsCache, results[3], _nutritionSources);
 
         // Накапливаем сырые точки для логирования (с дедупликацией)
         _mergeRawLog(results.expand((list) => list));
@@ -266,10 +277,12 @@ class ViewModel extends ChangeNotifier {
       ..sort((a, b) => a.dateFrom.compareTo(b.dateFrom));
     final header = '📅 Date & Time         ⚖️ Weight (kg)  Source';
     final sep = _divider(60);
-    final rows = points.map((p) {
-      final w = (p.value as NumericHealthValue).numericValue.toDouble();
-      return '   ${_fmtDateTime(p.dateFrom).padRight(19)}  ${w.toStringAsFixed(1).padLeft(12)}  ${p.sourceId}';
-    }).join('\n');
+    final rows = points
+        .map((p) {
+          final w = (p.value as NumericHealthValue).numericValue.toDouble();
+          return '   ${_fmtDateTime(p.dateFrom).padRight(19)}  ${w.toStringAsFixed(1).padLeft(12)}  ${p.sourceName}';
+        })
+        .join('\n');
     return '$header\n$sep\n${rows.isEmpty ? '(no data)' : rows}';
   }
 
@@ -278,25 +291,27 @@ class ViewModel extends ChangeNotifier {
       ..sort((a, b) => a.dateFrom.compareTo(b.dateFrom));
     final header = '📅 Date & Time         👟 Steps       Source';
     final sep = _divider(55);
-    final rows = points.map((p) {
-      final s = (p.value as NumericHealthValue).numericValue.toInt();
-      return '   ${_fmtDateTime(p.dateFrom).padRight(19)}  ${s.toString().padLeft(10)}  ${p.sourceId}';
-    }).join('\n');
+    final rows = points
+        .map((p) {
+          final s = (p.value as NumericHealthValue).numericValue.toInt();
+          return '   ${_fmtDateTime(p.dateFrom).padRight(19)}  ${s.toString().padLeft(10)}  ${p.sourceName}';
+        })
+        .join('\n');
     return '$header\n$sep\n${rows.isEmpty ? '(no data)' : rows}';
   }
 
   String _buildRawSleepLog() {
-    final points = _rawLog
-        .where((p) => _sleepTypes.contains(p.type))
-        .toList()
+    final points = _rawLog.where((p) => _sleepTypes.contains(p.type)).toList()
       ..sort((a, b) => a.dateFrom.compareTo(b.dateFrom));
     final header = '📅 Date & Time         😴 Type        Minutes  Source';
     final sep = _divider(65);
-    final rows = points.map((p) {
-      final m = (p.value as NumericHealthValue).numericValue.toDouble();
-      final typeStr = p.type.name.replaceAll('SLEEP_', '');
-      return '   ${_fmtDateTime(p.dateFrom).padRight(19)}  ${typeStr.padRight(11)}  ${m.toStringAsFixed(0).padLeft(7)}  ${p.sourceId}';
-    }).join('\n');
+    final rows = points
+        .map((p) {
+          final m = (p.value as NumericHealthValue).numericValue.toDouble();
+          final typeStr = p.type.name.replaceAll('SLEEP_', '');
+          return '   ${_fmtDateTime(p.dateFrom).padRight(19)}  ${typeStr.padRight(11)}  ${m.toStringAsFixed(0).padLeft(7)}  ${p.sourceName}';
+        })
+        .join('\n');
     return '$header\n$sep\n${rows.isEmpty ? '(no data)' : rows}';
   }
 
@@ -305,19 +320,21 @@ class ViewModel extends ChangeNotifier {
       ..sort((a, b) => a.dateFrom.compareTo(b.dateFrom));
     final header = '📅 Date & Time         🍔 Cal    🥩 Prot(g)  🧈 Fat(g)  🍞 Carbs(g)  Source';
     final sep = _divider(85);
-    final rows = points.map((p) {
-      final v = p.value as NutritionHealthValue;
-      final cal = v.calories?.toDouble() ?? 0;
-      final prot = v.protein?.toDouble() ?? 0;
-      final fat = v.fat?.toDouble() ?? 0;
-      final carbs = v.carbs?.toDouble() ?? 0;
-      return '   ${_fmtDateTime(p.dateFrom).padRight(19)}  '
-          '${cal.toStringAsFixed(0).padLeft(7)}  '
-          '${prot.toStringAsFixed(0).padLeft(10)}  '
-          '${fat.toStringAsFixed(0).padLeft(8)}  '
-          '${carbs.toStringAsFixed(0).padLeft(10)}  '
-          '${p.sourceId}';
-    }).join('\n');
+    final rows = points
+        .map((p) {
+          final v = p.value as NutritionHealthValue;
+          final cal = v.calories?.toDouble() ?? 0;
+          final prot = v.protein?.toDouble() ?? 0;
+          final fat = v.fat?.toDouble() ?? 0;
+          final carbs = v.carbs?.toDouble() ?? 0;
+          return '   ${_fmtDateTime(p.dateFrom).padRight(19)}  '
+              '${cal.toStringAsFixed(0).padLeft(7)}  '
+              '${prot.toStringAsFixed(0).padLeft(10)}  '
+              '${fat.toStringAsFixed(0).padLeft(8)}  '
+              '${carbs.toStringAsFixed(0).padLeft(10)}  '
+              '${p.sourceName}';
+        })
+        .join('\n');
     return '$header\n$sep\n${rows.isEmpty ? '(no data)' : rows}';
   }
 
@@ -325,9 +342,11 @@ class ViewModel extends ChangeNotifier {
     final data = _weightCache.values.toList()..sort((a, b) => a.date.compareTo(b.date));
     final header = '📅 Date            ⚖️ Weight (kg)';
     final sep = _divider(35);
-    final rows = data.map((d) {
-      return '   ${_fmtDate(d.date.value).padRight(14)}  ${d.weight.toStringAsFixed(1).padLeft(12)}';
-    }).join('\n');
+    final rows = data
+        .map((d) {
+          return '   ${_fmtDate(d.date.value).padRight(14)}  ${d.weight.toStringAsFixed(1).padLeft(12)}';
+        })
+        .join('\n');
     return '$header\n$sep\n${rows.isEmpty ? '(no data)' : rows}';
   }
 
@@ -335,9 +354,11 @@ class ViewModel extends ChangeNotifier {
     final data = _emaCache.values.toList()..sort((a, b) => a.date.compareTo(b.date));
     final header = '📅 Date            📈 EMA (kg)';
     final sep = _divider(32);
-    final rows = data.map((d) {
-      return '   ${_fmtDate(d.date.value).padRight(14)}  ${d.weight.toStringAsFixed(1).padLeft(10)}';
-    }).join('\n');
+    final rows = data
+        .map((d) {
+          return '   ${_fmtDate(d.date.value).padRight(14)}  ${d.weight.toStringAsFixed(1).padLeft(10)}';
+        })
+        .join('\n');
     return '$header\n$sep\n${rows.isEmpty ? '(no data)' : rows}';
   }
 
@@ -345,13 +366,15 @@ class ViewModel extends ChangeNotifier {
     final data = _sleepCache.values.toList()..sort((a, b) => a.date.compareTo(b.date));
     final header = '📅 Date            😴 Deep(h)  Light(h)  REM(h)  Total(h)';
     final sep = _divider(55);
-    final rows = data.map((d) {
-      return '   ${_fmtDate(d.date.value).padRight(14)}  '
-          '${d.deep.toStringAsFixed(1).padLeft(7)}  '
-          '${d.light.toStringAsFixed(1).padLeft(8)}  '
-          '${d.rem.toStringAsFixed(1).padLeft(6)}  '
-          '${d.total.toStringAsFixed(1).padLeft(7)}';
-    }).join('\n');
+    final rows = data
+        .map((d) {
+          return '   ${_fmtDate(d.date.value).padRight(14)}  '
+              '${d.deep.toStringAsFixed(1).padLeft(7)}  '
+              '${d.light.toStringAsFixed(1).padLeft(8)}  '
+              '${d.rem.toStringAsFixed(1).padLeft(6)}  '
+              '${d.total.toStringAsFixed(1).padLeft(7)}';
+        })
+        .join('\n');
     return '$header\n$sep\n${rows.isEmpty ? '(no data)' : rows}';
   }
 
@@ -359,25 +382,28 @@ class ViewModel extends ChangeNotifier {
     final data = _stepsCache.values.toList()..sort((a, b) => a.date.compareTo(b.date));
     final header = '📅 Date            👟 Steps';
     final sep = _divider(28);
-    final rows = data.map((d) {
-      return '   ${_fmtDate(d.date.value).padRight(14)}  ${d.steps.toString().padLeft(10)}';
-    }).join('\n');
+    final rows = data
+        .map((d) {
+          return '   ${_fmtDate(d.date.value).padRight(14)}  ${d.steps.toString().padLeft(10)}';
+        })
+        .join('\n');
     return '$header\n$sep\n${rows.isEmpty ? '(no data)' : rows}';
   }
 
   String _buildNutritionLog() {
-    final entries = _nutritionSessionsCache.entries.toList()
-      ..sort((a, b) => a.key.compareTo(b.key));
+    final entries = _nutritionSessionsCache.entries.toList()..sort((a, b) => a.key.compareTo(b.key));
     final header = '📅 Date            🍔 Cal    🥩 Prot(g)  🧈 Fat(g)  🍞 Carbs(g)';
     final sep = _divider(65);
-    final rows = entries.map((e) {
-      final day = _processor.aggregateNutritionDay(e.key, e.value);
-      return '   ${_fmtDate(e.key.value).padRight(14)}  '
-          '${day.calories.toStringAsFixed(0).padLeft(7)}  '
-          '${day.protein.toStringAsFixed(0).padLeft(10)}  '
-          '${day.fat.toStringAsFixed(0).padLeft(8)}  '
-          '${day.carbs.toStringAsFixed(0).padLeft(10)}';
-    }).join('\n');
+    final rows = entries
+        .map((e) {
+          final day = _processor.aggregateNutritionDay(e.key, e.value);
+          return '   ${_fmtDate(e.key.value).padRight(14)}  '
+              '${day.calories.toStringAsFixed(0).padLeft(7)}  '
+              '${day.protein.toStringAsFixed(0).padLeft(10)}  '
+              '${day.fat.toStringAsFixed(0).padLeft(8)}  '
+              '${day.carbs.toStringAsFixed(0).padLeft(10)}';
+        })
+        .join('\n');
     return '$header\n$sep\n${rows.isEmpty ? '(no data)' : rows}';
   }
 }

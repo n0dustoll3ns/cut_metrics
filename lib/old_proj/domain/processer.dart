@@ -1,10 +1,10 @@
 import 'package:equatable/equatable.dart';
 import 'package:health/health.dart';
-import 'package:cut_metrics/domain/date_extension.dart';
-import 'package:cut_metrics/domain/weight.dart';
-import 'package:cut_metrics/domain/sleep.dart';
-import 'package:cut_metrics/domain/nutrition.dart';
-import 'package:cut_metrics/domain.dart';
+import 'package:cut_metrics/old_proj/domain/date_extension.dart';
+import 'package:cut_metrics/old_proj/domain/weight.dart';
+import 'package:cut_metrics/old_proj/domain/sleep.dart';
+import 'package:cut_metrics/old_proj/domain/nutrition.dart';
+import 'package:cut_metrics/old_proj/domain.dart';
 
 /// Слой бизнес-логики: агрегирует сырые точки в модели для графиков.
 /// Не знает об UI, не хранит состояние.

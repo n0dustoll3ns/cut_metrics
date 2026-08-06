@@ -1,5 +1,5 @@
-import 'package:cut_metrics/domain/metric_type.dart';
-import 'package:cut_metrics/view_model.dart';
+import 'package:cut_metrics/old_proj/domain/metric_type.dart';
+import 'package:cut_metrics/old_proj/view_model.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 

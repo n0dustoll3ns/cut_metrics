@@ -1,7 +1,7 @@
 import 'dart:math';
 
-import 'package:cut_metrics/domain.dart';
-import 'package:cut_metrics/view_model.dart';
+import 'package:cut_metrics/old_proj/domain.dart';
+import 'package:cut_metrics/old_proj/view_model.dart';
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:provider/provider.dart';

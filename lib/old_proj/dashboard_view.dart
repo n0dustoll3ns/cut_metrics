@@ -1,11 +1,11 @@
-import 'package:cut_metrics/view_model.dart';
-import 'package:cut_metrics/ui/steps_chart.dart';
-import 'package:cut_metrics/ui/nutrition_chart.dart';
+import 'package:cut_metrics/old_proj/view_model.dart';
+import 'package:cut_metrics/old_proj/ui/steps_chart.dart';
+import 'package:cut_metrics/old_proj/ui/nutrition_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:fl_chart/fl_chart.dart';
-import 'package:cut_metrics/domain/weight.dart';
-import 'package:cut_metrics/domain.dart';
+import 'package:cut_metrics/old_proj/domain/weight.dart';
+import 'package:cut_metrics/old_proj/domain.dart';
 
 class DashboardView extends StatelessWidget {
   const DashboardView({super.key});

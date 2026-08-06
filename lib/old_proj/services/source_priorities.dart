@@ -1,6 +1,6 @@
 import 'dart:convert';
 
-import 'package:cut_metrics/domain/metric_type.dart';
+import 'package:cut_metrics/old_proj/domain/metric_type.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 

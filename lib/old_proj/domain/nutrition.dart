@@ -1,5 +1,5 @@
 // Модель данных для дня питания
-import 'package:cut_metrics/domain/date_extension.dart';
+import 'package:cut_metrics/old_proj/domain/date_extension.dart';
 
 class NutritionDay {
   final DateKey date;

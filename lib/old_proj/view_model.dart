@@ -1,12 +1,12 @@
 import 'package:collection/collection.dart';
-import 'package:cut_metrics/domain/date_extension.dart';
-import 'package:cut_metrics/domain/metric_type.dart';
-import 'package:cut_metrics/domain/processer.dart';
-import 'package:cut_metrics/domain/weight.dart';
-import 'package:cut_metrics/domain/nutrition.dart';
-import 'package:cut_metrics/domain.dart';
-import 'package:cut_metrics/repo/health.dart';
-import 'package:cut_metrics/services/source_priorities.dart';
+import 'package:cut_metrics/old_proj/domain/date_extension.dart';
+import 'package:cut_metrics/old_proj/domain/metric_type.dart';
+import 'package:cut_metrics/old_proj/domain/processer.dart';
+import 'package:cut_metrics/old_proj/domain/weight.dart';
+import 'package:cut_metrics/old_proj/domain/nutrition.dart';
+import 'package:cut_metrics/old_proj/domain.dart';
+import 'package:cut_metrics/old_proj/repo/health.dart';
+import 'package:cut_metrics/old_proj/services/source_priorities.dart';
 import 'package:flutter/material.dart';
 import 'package:health/health.dart';
 

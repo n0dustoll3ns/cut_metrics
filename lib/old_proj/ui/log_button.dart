@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'package:cut_metrics/view_model.dart';
+import 'package:cut_metrics/old_proj/view_model.dart';
 import 'package:external_path/external_path.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';

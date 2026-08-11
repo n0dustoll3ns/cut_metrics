@@ -11,12 +11,26 @@
 резолюция источников (`HealthDataProcessor`), контракт репозитория, `MockHealthRepository`,
 25 тестов — все зелёные, `flutter analyze` чист.
 
+**Фаза 2 завершена** (2026-08-11): реализация `HealthRepositoryImpl` поверх пакета `health`,
+`checkAndRequestPermissions`, обновлённые permissions в `AndroidManifest.xml`, `DateKey.startOfDay`/`endOfDay`,
+дополненный `MockHealthRepository` с `recordingMethod`, 13 новых тестов (всего 38 — все зелёные).
+
+## ⚠️ Ожидает проверки на устройстве (Фаза 2, Definition of Done)
+
+Три технических риска из `techContext.md`, которые нельзя проверить юнит-тестами:
+1. **`sourceId`** — равен ли package name приложения (используется в `hasManualRecord`).
+2. **`getTotalStepsInInterval`** — использует ли нативный `aggregate()` с приоритетом источников
+   (используется в `aggregateExternalSteps`).
+3. **`delete()`** — ограничен ли только записями своего приложения (используется в `deleteManualRecord`).
+
+Код написан согласно спеке. Проверка выполняется пользователем на эмуляторе/устройстве
+с Health Connect Toolbox. Компиляция и отсутствие ошибок = подтверждение.
+
 ## Следующий шаг
 
-Фаза 2 (`docs/phase2_repository_write_spec.md`) — реализация `HealthRepository`:
-чтение/запись в Health Connect, `hasManualRecord`, `writeManualRecord`,
-`deleteManualRecord`, `aggregateExternalSteps`. Контракт зафиксирован в Фазе 1
-(`lib/repo/health_repository.dart`).
+Фаза 3 (`docs/phase3_confirmation_ux_spec.md`) — UX-поток подтверждения значения:
+5 состояний (`loading` / `missing` / `autoUnconfirmed` / `manualEntryActive` / `manualConfirmed`),
+точка входа через тап по графику, блокировка только карточки метрики при `missing`.
 
 ## Созданные файлы Фазы 1
 
@@ -29,6 +43,18 @@
 - `lib/repo/health_repository.dart` — абстрактный контракт
 - `lib/repo/mock_health_repository.dart` — мок для тестов
 - `test/domain/health_data_processor_test.dart` — 25 тестов
+
+## Созданные файлы Фазы 2
+
+- `lib/repo/health_repository_impl.dart` — `HealthRepositoryImpl` (чтение/запись в Health Connect)
+- `lib/repo/health_permissions.dart` — `checkAndRequestPermissions`, `kHealthDataTypes`, `kHealthDataAccess`
+- `test/domain/phase2_repository_test.dart` — 13 тестов (recordingMethod, write/delete для шагов, DateKey)
+
+## Изменённые файлы Фазы 2
+
+- `lib/domain/date_key.dart` — добавлены `startOfDay` / `endOfDay`
+- `lib/repo/mock_health_repository.dart` — `recordingMethod` в mock-точках, геттер `points`
+- `android/app/src/main/AndroidManifest.xml` — `WRITE_WEIGHT`, `WRITE_STEPS` permissions
 
 ## Явно вне скоупа прямо сейчас
 

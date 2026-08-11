@@ -14,14 +14,18 @@ const kExternalSourceId = 'com.google.android.apps.fitness';
 /// В отличие от реального репозитория, хранит данные в памяти и позволяет
 /// тестам напрямую управлять содержимым через методы `add*`.
 ///
-/// Ключевое: генерирует записи с разным `sourceId` (пакет приложения / внешние),
-/// что необходимо для тестирования резолюции приоритета источников.
+/// Ключевое: генерирует записи с разным `sourceId` (пакет приложения / внешние)
+/// и разным `recordingMethod` (manual / automatic), что необходимо для
+/// тестирования резолюции приоритета источников (Фаза 2, секция 5).
 class MockHealthRepository implements HealthRepository {
   /// Идентификатор пакета приложения — определяет Tier 1.
   final String appPackageId;
 
   /// Внутреннее хранилище всех точек данных.
   final List<HealthDataPoint> _points = [];
+
+  /// Доступ только для чтения к внутреннему хранилищу (для тестов).
+  List<HealthDataPoint> get points => List.unmodifiable(_points);
 
   /// Переопределённые результаты `aggregateExternalSteps` для тестов.
   ///
@@ -38,22 +42,26 @@ class MockHealthRepository implements HealthRepository {
 
   /// Добавляет внешнюю запись веса (Tier 2).
   void addExternalWeight(DateTime date, double weight, {String? sourceId}) {
-    addPoint(_makeWeightPoint(date, weight, sourceId ?? kExternalSourceId));
+    addPoint(
+      _makeWeightPoint(date, weight, sourceId ?? kExternalSourceId, RecordingMethod.automatic),
+    );
   }
 
   /// Добавляет ручную запись веса (Tier 1).
   void addManualWeight(DateTime date, double weight) {
-    addPoint(_makeWeightPoint(date, weight, appPackageId));
+    addPoint(_makeWeightPoint(date, weight, appPackageId, RecordingMethod.manual));
   }
 
   /// Добавляет внешнюю запись шагов (Tier 2).
   void addExternalSteps(DateTime date, int steps, {String? sourceId}) {
-    addPoint(_makeStepsPoint(date, steps, sourceId ?? kExternalSourceId));
+    addPoint(
+      _makeStepsPoint(date, steps, sourceId ?? kExternalSourceId, RecordingMethod.automatic),
+    );
   }
 
   /// Добавляет ручную запись шагов (Tier 1).
   void addManualSteps(DateTime date, int steps) {
-    addPoint(_makeStepsPoint(date, steps, appPackageId));
+    addPoint(_makeStepsPoint(date, steps, appPackageId, RecordingMethod.manual));
   }
 
   /// Переопределяет результат `aggregateExternalSteps` для конкретной даты.
@@ -151,15 +159,27 @@ class MockHealthRepository implements HealthRepository {
     MetricType.steps => HealthDataType.STEPS,
   };
 
-  HealthDataPoint _makePoint(DateTime date, HealthDataType type, num value, String sourceId) {
+  HealthDataPoint _makePoint(
+    DateTime date,
+    HealthDataType type,
+    num value,
+    String sourceId, {
+    RecordingMethod recordingMethod = RecordingMethod.manual,
+  }) {
     return switch (type) {
-      HealthDataType.WEIGHT => _makeWeightPoint(date, value.toDouble(), sourceId),
-      HealthDataType.STEPS => _makeStepsPoint(date, value.toInt(), sourceId),
+      HealthDataType.WEIGHT =>
+        _makeWeightPoint(date, value.toDouble(), sourceId, recordingMethod),
+      HealthDataType.STEPS => _makeStepsPoint(date, value.toInt(), sourceId, recordingMethod),
       _ => throw ArgumentError('Unsupported type for mock: $type'),
     };
   }
 
-  HealthDataPoint _makeWeightPoint(DateTime date, double weight, String sourceId) {
+  HealthDataPoint _makeWeightPoint(
+    DateTime date,
+    double weight,
+    String sourceId,
+    RecordingMethod recordingMethod,
+  ) {
     final dayStart = DateTime(date.year, date.month, date.day);
     final dayEnd = dayStart.add(const Duration(hours: 23, minutes: 59));
     return HealthDataPoint(
@@ -173,10 +193,16 @@ class MockHealthRepository implements HealthRepository {
       dateTo: dayEnd,
       type: HealthDataType.WEIGHT,
       unit: HealthDataUnit.KILOGRAM,
+      recordingMethod: recordingMethod,
     );
   }
 
-  HealthDataPoint _makeStepsPoint(DateTime date, int steps, String sourceId) {
+  HealthDataPoint _makeStepsPoint(
+    DateTime date,
+    int steps,
+    String sourceId,
+    RecordingMethod recordingMethod,
+  ) {
     final dayStart = DateTime(date.year, date.month, date.day);
     final dayEnd = dayStart.add(const Duration(hours: 23, minutes: 59));
     return HealthDataPoint(
@@ -190,6 +216,7 @@ class MockHealthRepository implements HealthRepository {
       dateTo: dayEnd,
       type: HealthDataType.STEPS,
       unit: HealthDataUnit.COUNT,
+      recordingMethod: recordingMethod,
     );
   }
 }

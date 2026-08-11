@@ -59,6 +59,11 @@ class DashboardViewModel extends ChangeNotifier {
   String? _error;
 
   // Кеши обработанных данных (все загруженные, не только видимый диапазон).
+  //
+  // ⚠️ Сессионные in-memory кеши — НЕ персистентные. При каждом cold start
+  // (перезапуск приложения) очищаются и заполняются заново из Health Connect
+  // в [load]. Осознанное решение (Фаза 4) — локальная БД не используется,
+  // Health Connect остаётся единственным источником истины.
   final Map<DateKey, WeightDay> _weightCache = {};
   final Map<DateKey, StepsDay> _stepsCache = {};
   Map<DateKey, WeightDay> _emaCache = {};
@@ -127,13 +132,10 @@ class DashboardViewModel extends ChangeNotifier {
         endDate: _end,
       );
 
-      // Агрегация шагов по каждой дате в диапазоне (нативный aggregate()).
-      final aggregatedByDate = <DateKey, int>{};
-      for (var d = 0; d <= _end.difference(_start).inDays; d++) {
-        final date = DateKey(_start.add(Duration(days: d)));
-        final agg = await _repo.aggregateExternalSteps(date);
-        if (agg != null && agg > 0) aggregatedByDate[date] = agg;
-      }
+      // Агрегация шагов за весь диапазон одним запросом (Фаза 4, DoD 3).
+      // Ранее был цикл из N вызовов aggregateExternalSteps по одному на день —
+      // теперь один батчевый вызов к Health Connect.
+      final aggregatedByDate = await _repo.aggregateExternalStepsForRange(_start, _end);
 
       // Резолюция приоритета источников (Tier 1 → Tier 2).
       final weightResolved = _processor.resolveWeightForAllDates(weightPoints);

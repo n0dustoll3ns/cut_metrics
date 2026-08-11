@@ -110,6 +110,37 @@ class HealthRepositoryImpl implements HealthRepository {
     return health.getTotalStepsInInterval(date.startOfDay, date.endOfDay);
   }
 
+  @override
+  Future<Map<DateKey, int>> aggregateExternalStepsForRange(
+    DateTime startDate,
+    DateTime endDate,
+  ) async {
+    // Один запрос к Health Connect на весь диапазон с бакетами по дням
+    // (interval = 1440 минут = 1 сутки). Фаза 4, DoD 3 — не более 1–2 вызовов
+    // на метрику при загрузке диапазона.
+    //
+    // ⚠️ Технический риск (см. techContext.md): неизвестно, использует ли
+    // getHealthIntervalDataFromTypes тот же нативный aggregate() с приоритетом
+    // источников, что и getTotalStepsInInterval. Подлежит проверке на устройстве.
+    final points = await health.getHealthIntervalDataFromTypes(
+      startDate: startDate,
+      endDate: endDate,
+      types: const [HealthDataType.STEPS],
+      interval: 1440,
+    );
+
+    final result = <DateKey, int>{};
+    for (final p in points) {
+      if (p.value is NumericHealthValue) {
+        final steps = (p.value as NumericHealthValue).numericValue.toInt();
+        if (steps > 0) {
+          result[DateKey(p.dateFrom)] = steps;
+        }
+      }
+    }
+    return result;
+  }
+
   // ─── Вспомогательные методы ─────────────────────────────────────────────────
 
   HealthDataType _toHealthDataType(MetricType type) => switch (type) {

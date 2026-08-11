@@ -146,4 +146,47 @@ void main() {
       expect(vm.cancelManualValue, isA<Function>());
     });
   });
+
+  group('Batch steps aggregation (Phase 4, DoD 3)', () {
+    test('load() uses one aggregateExternalStepsForRange call, not N per-day calls', () async {
+      await setupViewModel(externalWeights: [80, 79, 78, 77, 76]);
+
+      // Добавляем внешние шаги на несколько дней.
+      final now = DateTime.now();
+      for (var i = 0; i < 5; i++) {
+        final date = now.subtract(Duration(days: 4 - i));
+        repo.addExternalSteps(date, 1000 * (i + 1));
+      }
+
+      // Перезагружаем ViewModel.
+      repo.aggregateExternalStepsForRangeCallCount = 0;
+      repo.aggregateExternalStepsCallCount = 0;
+      vm = DashboardViewModel(
+        repository: repo,
+        processor: processor,
+        autoLoad: false,
+      );
+      await vm.load();
+
+      // Батчевый вызов должен быть вызван ровно 1 раз.
+      expect(repo.aggregateExternalStepsForRangeCallCount, 1);
+      // Покдневный aggregateExternalSteps не должен вызываться напрямую из load().
+      expect(repo.aggregateExternalStepsCallCount, 0);
+    });
+
+    test('load() makes exactly 2 fetchRawData calls (weight + steps)', () async {
+      await setupViewModel(externalWeights: [80, 79, 78]);
+
+      repo.fetchRawDataCallCount = 0;
+      vm = DashboardViewModel(
+        repository: repo,
+        processor: processor,
+        autoLoad: false,
+      );
+      await vm.load();
+
+      // Один вызов для WEIGHT + один для STEPS = 2.
+      expect(repo.fetchRawDataCallCount, 2);
+    });
+  });
 }

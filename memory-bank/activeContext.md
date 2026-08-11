@@ -21,22 +21,30 @@
 экраны Today/Dashboard. Дизайн-токены из дизайн-системы, `google_fonts` (Space Grotesk/Inter/Space Mono).
 9 новых тестов (всего 47 — все зелёные), `flutter analyze` чист (2 info, 0 errors).
 
-## ⚠️ Ожидает проверки на устройстве (Фаза 2, Definition of Done)
+**Фаза 4 завершена** (2026-08-11): "Без локального кэша". Главное изменение — батчевая
+агрегация шагов (`aggregateExternalStepsForRange`) вместо цикла из N вызовов по одному на
+день. Подтверждено: нет записи данных на диск, кеши сессионные (документировано в коде),
+резолюция батчевая (тесты проверяют: 1 вызов `aggregateExternalStepsForRange` + 2
+`fetchRawData` при `load()`). 2 новых теста (всего 49 — все зелёные), `flutter analyze` чист (2 info, 0 errors).
 
-Три технических риска из `techContext.md`, которые нельзя проверить юнит-тестами:
+## ⚠️ Ожидает проверки на устройстве (Фаза 2+4, Definition of Done)
+
+Четыре технических риска из `techContext.md`, которые нельзя проверить юнит-тестами:
 1. **`sourceId`** — равен ли package name приложения (используется в `hasManualRecord`).
 2. **`getTotalStepsInInterval`** — использует ли нативный `aggregate()` с приоритетом источников
    (используется в `aggregateExternalSteps`).
 3. **`delete()`** — ограничен ли только записями своего приложения (используется в `deleteManualRecord`).
+4. **`getHealthIntervalDataFromTypes`** (Фаза 4) — использует ли тот же нативный `aggregate()` с
+   приоритетом источников, что и `getTotalStepsInInterval` (используется в `aggregateExternalStepsForRange`).
 
 Код написан согласно спеке. Проверка выполняется пользователем на эмуляторе/устройстве
 с Health Connect Toolbox. Компиляция и отсутствие ошибок = подтверждение.
 
 ## Следующий шаг
 
-Фаза 4 (`docs/phase4_no_cache_spec_v2.md`) — без локального кэша. Полный пересчёт из Health Connect
-при каждой загрузке (уже реализовано в ViewModel), без drift/sqlite/Hive. In-memory сессионный кеш
-остаётся (оптимизация в рамках запуска).
+Фаза 5 (`docs/phase5_recommendation_and_indicator_spec.md`) — RecommendationEngine и индикатор
+источника. Чистый Dart-класс: темп изменения веса (%/нед), статус (в темпе / медленно / быстро),
+рекомендация по калориям. UI-индикатор источника (manual/external) на карточках.
 
 ## Созданные файлы Фазы 1
 
@@ -79,6 +87,14 @@
 - `lib/domain/health_data_processor.dart` — добавлен `computeEma` (перенос из старого кода)
 - `lib/main.dart` — Provider-инжекция, тема, нижняя навигация (Today/Dashboard)
 - `pubspec.yaml` — добавлен `google_fonts`
+
+## Изменённые файлы Фазы 4
+
+- `lib/repo/health_repository.dart` — добавлен `aggregateExternalStepsForRange` в контракт
+- `lib/repo/health_repository_impl.dart` — реализация через `getHealthIntervalDataFromTypes(interval: 1440)`
+- `lib/repo/mock_health_repository.dart` — `aggregateExternalStepsForRange`, счётчики вызовов, `_resolveAggregatedSteps`
+- `lib/viewmodel/dashboard_view_model.dart` — цикл N вызовов заменён на один батчевый, документация кешей
+- `test/viewmodel/dashboard_view_model_test.dart` — 2 новых теста (батчевый вызов, количество fetchRawData)
 
 ## Явно вне скоупа прямо сейчас
 

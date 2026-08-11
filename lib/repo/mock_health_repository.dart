@@ -21,6 +21,11 @@ class MockHealthRepository implements HealthRepository {
   /// Идентификатор пакета приложения — определяет Tier 1.
   final String appPackageId;
 
+  /// Счётчики вызовов методов (для тестов Фазы 4, DoD 3).
+  int fetchRawDataCallCount = 0;
+  int aggregateExternalStepsCallCount = 0;
+  int aggregateExternalStepsForRangeCallCount = 0;
+
   /// Внутреннее хранилище всех точек данных.
   final List<HealthDataPoint> _points = [];
 
@@ -113,6 +118,7 @@ class MockHealthRepository implements HealthRepository {
     required DateTime startDate,
     required DateTime endDate,
   }) async {
+    fetchRawDataCallCount++;
     return _points.where((p) {
       if (!types.contains(p.type)) return false;
       final dayStart = DateTime(p.dateFrom.year, p.dateFrom.month, p.dateFrom.day);
@@ -124,16 +130,51 @@ class MockHealthRepository implements HealthRepository {
 
   @override
   Future<int?> aggregateExternalSteps(DateKey date) async {
-    // Если тест задал override — возвращаем его.
+    aggregateExternalStepsCallCount++;
+    return _resolveAggregatedSteps(date);
+  }
+
+  @override
+  Future<Map<DateKey, int>> aggregateExternalStepsForRange(
+    DateTime startDate,
+    DateTime endDate,
+  ) async {
+    aggregateExternalStepsForRangeCallCount++;
+    final result = <DateKey, int>{};
+
+    // Итерируем по дням, используя общую логику резолюции (_resolveAggregatedSteps)
+    // напрямую, а не через aggregateExternalSteps — чтобы не увеличивать
+    // счётчик подневных вызовов. В реальном репозитории это один батчевый запрос.
+    final start = DateKey(startDate);
+    final end = DateKey(endDate);
+    final dayCount = end.value.difference(start.value).inDays;
+
+    for (var d = 0; d <= dayCount; d++) {
+      final date = DateKey(start.value.add(Duration(days: d)));
+      final agg = await _resolveAggregatedSteps(date);
+      if (agg != null && agg > 0) result[date] = agg;
+    }
+
+    return result;
+  }
+
+  // ─── Вспомогательные методы ─────────────────────────────────────────────────
+
+  /// Общая логика резолюции агрегированных внешних шагов для даты.
+  ///
+  /// 1. Если тест задал override для даты — возвращает его (или null если <= 0).
+  /// 2. Иначе — авто-расчёт: суммирование внешних записей шагов за день.
+  ///
+  /// ⚠️ В реальном Health Connect `aggregate()` резолвит приоритет источников
+  /// и не суммирует. Для тестов предпочтительнее `setAggregateExternalSteps`.
+  /// Этот метод не инкрементит счётчики вызовов — это ответственность
+  /// публичных методов [aggregateExternalSteps] / [aggregateExternalStepsForRange].
+  Future<int?> _resolveAggregatedSteps(DateKey date) async {
     if (_aggregateStepsOverride.containsKey(date)) {
       final v = _aggregateStepsOverride[date]!;
       return v > 0 ? v : null;
     }
 
-    // Авто-расчёт: суммируем все внешние записи шагов за день.
-    // ⚠️ В реальном Health Connect aggregate() резолвит приоритет источников
-    // и не суммирует. Это поведение проверяется пользователем на устройстве
-    // (см. techContext.md). Для юнит-тестов резолюции override предпочтительнее.
     final externalPoints = _points.where(
       (p) =>
           p.type == HealthDataType.STEPS &&
@@ -151,8 +192,6 @@ class MockHealthRepository implements HealthRepository {
     }
     return total > 0 ? total : null;
   }
-
-  // ─── Вспомогательные методы ─────────────────────────────────────────────────
 
   HealthDataType _toHealthDataType(MetricType type) => switch (type) {
     MetricType.weight => HealthDataType.WEIGHT,

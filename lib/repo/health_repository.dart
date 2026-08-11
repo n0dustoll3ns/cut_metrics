@@ -43,5 +43,20 @@ abstract class HealthRepository {
   /// задвоения при нескольких внешних источниках.
   ///
   /// Возвращает `null` или `0`, если данных нет.
+  ///
+  /// Используется в [_reloadDate] для обновления одной даты после submit/cancel.
   Future<int?> aggregateExternalSteps(DateKey date);
+
+  /// Агрегированные шаги за диапазон дат одним запросом (Фаза 4, DoD 3).
+  ///
+  /// Батчевый аналог [aggregateExternalSteps] — один вызов к Health Connect
+  /// на весь диапазон вместо N вызовов по одному на каждый день. Используется
+  /// при [DashboardViewModel.load] для холодного старта.
+  ///
+  /// Возвращает Map с агрегированными значениями для каждой даты, где есть
+  /// ненулевой результат.
+  Future<Map<DateKey, int>> aggregateExternalStepsForRange(
+    DateTime startDate,
+    DateTime endDate,
+  );
 }

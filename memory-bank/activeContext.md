@@ -15,6 +15,12 @@
 `checkAndRequestPermissions`, обновлённые permissions в `AndroidManifest.xml`, `DateKey.startOfDay`/`endOfDay`,
 дополненный `MockHealthRepository` с `recordingMethod`, 13 новых тестов (всего 38 — все зелёные).
 
+**Фаза 3 завершена** (2026-08-11): UX-поток подтверждения значения. Создан первый UI-слой:
+`DashboardViewModel` (ChangeNotifier, кеши, EMA, submit/cancel/getResolvedValue), графики
+(`fl_chart` — LineChart веса+EMA, BarChart шагов), карточка метрики (5 состояний),
+экраны Today/Dashboard. Дизайн-токены из дизайн-системы, `google_fonts` (Space Grotesk/Inter/Space Mono).
+9 новых тестов (всего 47 — все зелёные), `flutter analyze` чист (2 info, 0 errors).
+
 ## ⚠️ Ожидает проверки на устройстве (Фаза 2, Definition of Done)
 
 Три технических риска из `techContext.md`, которые нельзя проверить юнит-тестами:
@@ -28,9 +34,9 @@
 
 ## Следующий шаг
 
-Фаза 3 (`docs/phase3_confirmation_ux_spec.md`) — UX-поток подтверждения значения:
-5 состояний (`loading` / `missing` / `autoUnconfirmed` / `manualEntryActive` / `manualConfirmed`),
-точка входа через тап по графику, блокировка только карточки метрики при `missing`.
+Фаза 4 (`docs/phase4_no_cache_spec_v2.md`) — без локального кэша. Полный пересчёт из Health Connect
+при каждой загрузке (уже реализовано в ViewModel), без drift/sqlite/Hive. In-memory сессионный кеш
+остаётся (оптимизация в рамках запуска).
 
 ## Созданные файлы Фазы 1
 
@@ -55,6 +61,24 @@
 - `lib/domain/date_key.dart` — добавлены `startOfDay` / `endOfDay`
 - `lib/repo/mock_health_repository.dart` — `recordingMethod` в mock-точках, геттер `points`
 - `android/app/src/main/AndroidManifest.xml` — `WRITE_WEIGHT`, `WRITE_STEPS` permissions
+
+## Созданные файлы Фазы 3
+
+- `lib/viewmodel/dashboard_view_model.dart` — `DashboardViewModel` + `ResolvedValue`
+- `lib/ui/theme.dart` — дизайн-токены (CMColors, CMRadius, CMSpacing, CMFonts), `cmTheme()`
+- `lib/ui/metric_card_state.dart` — enum `MetricCardState`, `baseStateFromValue`
+- `lib/ui/metric_card.dart` — `MetricCard` (5 состояний, StatefulWidget)
+- `lib/ui/weight_chart.dart` — `WeightChart` (LineChart веса+EMA), `ChartCard`
+- `lib/ui/steps_chart.dart` — `StepsChart` (BarChart шагов)
+- `lib/ui/dashboard_view.dart` — `DashboardView` (графики + карточка по тапу)
+- `lib/ui/today_screen.dart` — `TodayScreen` (инлайн карточки веса и шагов)
+- `test/viewmodel/dashboard_view_model_test.dart` — 9 тестов
+
+## Изменённые файлы Фазы 3
+
+- `lib/domain/health_data_processor.dart` — добавлен `computeEma` (перенос из старого кода)
+- `lib/main.dart` — Provider-инжекция, тема, нижняя навигация (Today/Dashboard)
+- `pubspec.yaml` — добавлен `google_fonts`
 
 ## Явно вне скоупа прямо сейчас
 

@@ -19,6 +19,7 @@ dependencies:
   intl: ^0.20.2
   equatable: ^2.0.8
   external_path: ^2.2.0
+  google_fonts: ^8.2.1
 
 dev_dependencies:
   flutter_test:

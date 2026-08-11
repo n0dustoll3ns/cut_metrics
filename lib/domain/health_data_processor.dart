@@ -151,6 +151,39 @@ class HealthDataProcessor {
     return result;
   }
 
+  // ─── EMA (экспоненциальное сглаживание) ──────────────────────────────────────
+
+  /// Пересчитывает EMA по всему кешу весов и возвращает новый кеш EMA.
+  ///
+  /// Алгоритм: стандартная EMA с множителем `2 / (period + 1)`.
+  /// Первая точка инициализируется самим значением веса, далее каждая
+  /// следующая точка: `ema = (weight - prevEma) * multiplier + prevEma`.
+  ///
+  /// Период [period] определяет сглаживание: больше период — сильнее сглаживание.
+  /// EMA-точки не имеют отношения к приоритету источников, поэтому `source`
+  /// устанавливается в [DataSource.external] (значение не используется потребителем).
+  ///
+  /// ⚠️ Полный пересчёт при каждом вызове — известный TODO по производительности
+  /// при данных за год+, принимается как есть (см. `systemPatterns.md`).
+  Map<DateKey, WeightDay> computeEma(Map<DateKey, WeightDay> weightCache, int period) {
+    if (weightCache.isEmpty) return {};
+
+    final sorted = weightCache.values.toList()..sort((a, b) => a.date.compareTo(b.date));
+
+    final multiplier = 2 / (period + 1);
+    double ema = sorted.first.weight;
+
+    final result = <WeightDay>[
+      WeightDay(date: sorted.first.date, weight: ema, source: DataSource.external),
+    ];
+    for (int i = 1; i < sorted.length; i++) {
+      ema = (sorted[i].weight - ema) * multiplier + ema;
+      result.add(WeightDay(date: sorted[i].date, weight: ema, source: DataSource.external));
+    }
+
+    return Map.fromEntries(result.map((e) => MapEntry(e.date, e)));
+  }
+
   // ─── Вспомогательные методы ─────────────────────────────────────────────────
 
   /// Возвращает точку с последним `dateFrom` (last-wins).

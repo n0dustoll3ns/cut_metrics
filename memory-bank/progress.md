@@ -14,6 +14,7 @@
 - ✅ Реализация Фазы 2 (2026-08-11) — `HealthRepositoryImpl`, `checkAndRequestPermissions`, `DateKey.startOfDay`/`endOfDay`, `MockHealthRepository` с `recordingMethod`, 13 новых тестов (всего 38)
 - ✅ Реализация Фазы 3 (2026-08-11) — `DashboardViewModel`, UI-слой (графики fl_chart, карточка метрики 5 состояний, экраны Today/Dashboard), дизайн-система (токены, google_fonts), `computeEma`, 9 новых тестов (всего 47)
 - ✅ Реализация Фазы 4 (2026-08-11) — батчевая агрегация шагов (`aggregateExternalStepsForRange` через `getHealthIntervalDataFromTypes`), документация сессионности кешей, 2 новых теста (всего 49)
+- ✅ Починен `flutter build apk` (2026-08-18) — падал из-за OutOfMemoryException в `update_engine_version.ps1` (общая RDP-машина, Gradle просил `-Xmx8G`); в `android/gradle.properties` занижены JVM-аппетиты Gradle (`-Xmx3G`, metaspace 1G, `workers.max=2`), APK собирается (`app-release.apk`, ~49 МБ)
 
 ## В работе / предстоит
 

@@ -27,6 +27,13 @@
 резолюция батчевая (тесты проверяют: 1 вызов `aggregateExternalStepsForRange` + 2
 `fetchRawData` при `load()`). 2 новых теста (всего 49 — все зелёные), `flutter analyze` чист (2 info, 0 errors).
 
+**Сборка APK починена** (2026-08-18): `flutter build apk` падал с
+`System.OutOfMemoryException` в `flutter\bin\internal\update_engine_version.ps1`
+("Unable to determine engine version") — на общей RDP-машине исчерпывался commit-лимит,
+Gradle был настроен на `-Xmx8G`/metaspace 4G. В `android/gradle.properties` занижены
+JVM-аппетиты (`-Xmx3G`, metaspace 1G, `workers.max=2`). APK собирается:
+`build\app\outputs\flutter-apk\app-release.apk` (~49 МБ). Подробности — `techContext.md`.
+
 ## ⚠️ Ожидает проверки на устройстве (Фаза 2+4, Definition of Done)
 
 Четыре технических риска из `techContext.md`, которые нельзя проверить юнит-тестами:

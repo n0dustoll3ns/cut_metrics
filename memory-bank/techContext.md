@@ -11,6 +11,16 @@
 
 Полная карта файлов и структуры — `docs/cut_metrics_project_map.md`.
 
+## Ограничения сборочной машины (важно для сборки)
+
+Рабочая машина — общая (RDP): ~24 ГБ RAM + pagefile 32 ГБ, свободный commit-лимит в рабочее
+время может падать до ~1–2 ГБ. Поэтому в `android/gradle.properties` занижены JVM-аппетиты
+Gradle (`-Xmx3G`, `MaxMetaspaceSize=1G`, `workers.max=2`). Значения из шаблона (`-Xmx8G`,
+metaspace 4G) исчерпывали память: `flutter build apk` падал с `System.OutOfMemoryException`
+в `flutter\bin\internal\update_engine_version.ps1` ("Unable to determine engine version") →
+`:app:compileFlutterBuildRelease` failed. Починено 2026-08-18, сборка успешна
+(`build\app\outputs\flutter-apk\app-release.apk`, ~49 МБ).
+
 ## Дизайн-система
 
 Токены и компоненты — `docs/cutmetrics-design-system.html` (открыть в браузере или прочитать как

@@ -144,6 +144,21 @@ main.dart
 
 ---
 
+## Сборка APK
+
+`flutter build apk` → `build\app\outputs\flutter-apk\app-release.apk` (~49 МБ).
+
+⚠️ Ограничение сборочной машины (общая RDP, ~24 ГБ RAM + pagefile 32 ГБ): в
+`android/gradle.properties` намеренно занижены JVM-аппетиты Gradle
+(`-Xmx3G`, `MaxMetaspaceSize=1G`, `workers.max=2`). Шаблонные значения (`-Xmx8G`,
+metaspace 4G) исчерпывали commit-лимит памяти — сборка падала с
+`System.OutOfMemoryException` в `flutter\bin\internal\update_engine_version.ps1`
+("Unable to determine engine version") и ошибкой `:app:compileFlutterBuildRelease`
+(починено 2026-08-18). Не возвращать большие значения без проверки свободной памяти
+(`wmic OS get FreeVirtualMemory`).
+
+---
+
 ## Типы данных Health Connect
 
 ```dart

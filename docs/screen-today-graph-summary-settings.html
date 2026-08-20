@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cut Metrics — Сегодня / Саммари</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Space+Mono:wght@400;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#F3F5F6; --ink:#14171A; --noise:#9CA3AF; --signal:#2A5DB0;
+    --steady:#1F9D6C; --alert:#B23A2E;
+    --surface-0:#FFFFFF; --surface-1:#F3F5F6; --surface-2:#E7EAEC;
+    --outline:#D7DBDE; --outline-strong:#C2C7CC; --ink-muted:#4B5259;
+    --signal-hover:#234C8D; --signal-press:#1D3F73;
+    --f-display:'Space Grotesk', sans-serif; --f-body:'Inter', sans-serif; --f-mono:'Space Mono', monospace;
+    --sp-1:4px; --sp-2:8px; --sp-3:12px; --sp-4:16px; --sp-6:24px; --sp-8:32px; --sp-12:48px;
+    --r-sm:6px; --r-md:10px; --r-lg:16px; --r-xl:20px;
+    --shadow-1:0 1px 2px rgba(20,23,26,.06), 0 1px 1px rgba(20,23,26,.05);
+    --shadow-2:0 10px 30px rgba(20,23,26,.14);
+    --focus-ring:0 0 0 3px rgba(42,93,176,.35);
+  }
+  *{box-sizing:border-box;}
+  body{margin:0; background:var(--bg); color:var(--ink); font-family:var(--f-body); -webkit-font-smoothing:antialiased;}
+
+  .page-wrap{max-width:1080px; margin:0 auto; padding:var(--sp-12) var(--sp-6) var(--sp-12);}
+  .kicker{font-family:var(--f-mono); font-size:12px; letter-spacing:.08em; color:var(--noise); text-transform:uppercase; margin:0 0 var(--sp-2);}
+  h1.title{font-family:var(--f-body); font-weight:600; font-size:26px; margin:0 0 var(--sp-2);}
+  .lede{color:var(--ink-muted); max-width:640px; font-size:15px; margin:0 0 var(--sp-8);}
+
+  .workspace{display:flex; gap:var(--sp-12); align-items:flex-start; flex-wrap:wrap;}
+
+  /* ---------- Phone frame ---------- */
+  .phone-frame{
+    width:min(380px, 92vw); flex-shrink:0; background:var(--ink); border-radius:44px;
+    padding:14px; box-shadow:var(--shadow-2);
+  }
+  .phone-notch{width:100px; height:22px; background:var(--ink); border-radius:0 0 16px 16px; margin:0 auto; position:relative; z-index:2;}
+  .phone-notch::after{content:''; position:absolute; left:50%; top:6px; transform:translateX(-50%); width:8px; height:8px; border-radius:50%; background:#333;}
+  .phone-screen{
+    background:var(--bg); border-radius:32px; overflow:hidden; margin-top:-22px;
+    display:flex; flex-direction:column; height:760px; position:relative;
+  }
+  .panel{display:none; flex:1; overflow-y:auto; padding:var(--sp-6) var(--sp-4) var(--sp-8);}
+  .panel.active{display:block;}
+
+  /* ---------- Bottom nav ---------- */
+  .bottom-nav{
+    display:flex; border-top:1px solid var(--outline); background:var(--surface-0);
+    padding:10px 4px calc(10px + env(safe-area-inset-bottom, 0px));
+  }
+  .nav-item{
+    flex:1; background:none; border:none; display:flex; flex-direction:column; align-items:center; gap:4px;
+    color:var(--noise); font-family:var(--f-body); font-size:11px; font-weight:600; padding:6px 2px; cursor:pointer; border-radius:var(--r-sm);
+  }
+  .nav-item svg{width:20px; height:20px; stroke:currentColor;}
+  .nav-item.active{color:var(--ink);}
+  .nav-item:focus-visible{outline:none; box-shadow:var(--focus-ring);}
+
+  /* ---------- Today screen ---------- */
+  .date-caption{font-family:var(--f-mono); font-size:12px; letter-spacing:.06em; color:var(--noise); text-transform:uppercase; margin-bottom:var(--sp-4);}
+  .big-metric{font-family:var(--f-display); font-weight:600; font-size:60px; line-height:1; letter-spacing:-0.02em; font-variant-numeric:tabular-nums; color:var(--ink);}
+  .big-metric-unit{font-family:var(--f-mono); font-size:12px; letter-spacing:.05em; text-transform:uppercase; color:var(--noise); margin-top:6px;}
+  .raw-today{font-family:var(--f-body); font-size:13px; color:var(--ink-muted); margin-top:var(--sp-3);}
+  .raw-today b{color:var(--noise); font-weight:600;}
+
+  .chart-block{margin-top:var(--sp-8);}
+  .chart-labels{display:flex; justify-content:space-between; font-family:var(--f-mono); font-size:11px; color:var(--noise); letter-spacing:.04em; margin-top:6px;}
+  .dot{fill:var(--noise); opacity:.6;}
+  .anim .dot{animation:popDot .4s ease forwards; opacity:0;}
+  @keyframes popDot{ to{opacity:.6;} }
+  .trend-path{fill:none; stroke:var(--signal); stroke-linecap:round; stroke-linejoin:round;}
+  .anim .trend-path{stroke-dasharray:900; stroke-dashoffset:900; animation:drawLine 1s .3s cubic-bezier(.4,0,.2,1) forwards;}
+  @keyframes drawLine{ to{stroke-dashoffset:0;} }
+  @media (prefers-reduced-motion:reduce){
+    .anim .dot{animation:none; opacity:.6;}
+    .anim .trend-path{animation:none; stroke-dashoffset:0;}
+  }
+
+  .btn{font-family:var(--f-body); font-weight:600; font-size:15px; border-radius:var(--r-md); padding:14px 20px; border:1px solid transparent; cursor:pointer; width:100%; margin-top:var(--sp-8);}
+  .btn:focus-visible{outline:none; box-shadow:var(--focus-ring);}
+  .btn-primary{background:var(--signal); color:#fff;}
+  .btn-primary:hover{background:var(--signal-hover);}
+  .btn-primary:active{background:var(--signal-press);}
+
+  /* ---------- Summary screen ---------- */
+  .summary-mark{display:flex; align-items:center; gap:10px; margin-bottom:var(--sp-1);}
+  .status-row{display:flex; align-items:center; gap:10px; margin-top:var(--sp-6);}
+  .status-dot{width:14px; height:14px; border-radius:50%; flex-shrink:0;}
+  .status-heading{font-family:var(--f-body); font-weight:600; font-size:24px; color:var(--ink);}
+
+  .pace-row{display:flex; align-items:baseline; gap:12px; margin-top:var(--sp-4);}
+  .pace-value{font-family:var(--f-display); font-weight:600; font-size:44px; letter-spacing:-0.01em; font-variant-numeric:tabular-nums; color:var(--signal);}
+  .pace-kg{font-family:var(--f-body); font-size:14px; color:var(--ink-muted);}
+
+  .conclusion{font-size:15px; color:var(--ink); margin-top:var(--sp-4); line-height:1.5;}
+
+  .divider{border:none; border-top:1px solid var(--outline); margin:var(--sp-6) 0;}
+  .rec-label{font-family:var(--f-mono); font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:var(--noise); margin-bottom:var(--sp-2);}
+  .rec-text{font-size:15px; color:var(--ink); line-height:1.5;}
+
+  .placeholder-panel{display:flex; align-items:center; justify-content:center; height:100%; text-align:center; padding:var(--sp-8);}
+  .placeholder-panel span{font-family:var(--f-mono); font-size:12px; color:var(--noise); letter-spacing:.03em; line-height:1.6;}
+
+  /* ---------- Trend screen ---------- */
+  .segmented{display:flex; background:var(--surface-2); border-radius:var(--r-md); padding:4px; gap:4px; margin:var(--sp-2) 0 0;}
+  .segmented button{flex:1; border:none; background:none; font-family:var(--f-body); font-weight:600; font-size:13px; padding:10px 4px; border-radius:6px; color:var(--ink-muted); cursor:pointer;}
+  .segmented button.active{background:var(--surface-0); color:var(--ink); box-shadow:var(--shadow-1);}
+  .segmented button:focus-visible{outline:none; box-shadow:var(--focus-ring);}
+
+  .metrics-section{margin-top:var(--sp-8);}
+  .metrics-caption{font-family:var(--f-mono); font-size:11px; letter-spacing:.05em; text-transform:uppercase; color:var(--noise); margin:0 0 var(--sp-2);}
+  .metric-row{display:flex; justify-content:space-between; align-items:baseline; padding:var(--sp-3) 0; border-bottom:1px solid var(--outline);}
+  .metric-row:last-child{border-bottom:none;}
+  .metric-label{font-family:var(--f-mono); font-size:12px; letter-spacing:.04em; text-transform:uppercase; color:var(--noise);}
+  .metric-value{font-family:var(--f-display); font-weight:600; font-size:24px; font-variant-numeric:tabular-nums; color:var(--ink);}
+  .metric-value small{font-family:var(--f-mono); font-size:12px; font-weight:400; color:var(--ink-muted); margin-left:4px;}
+
+  /* ---------- Settings screen ---------- */
+  .settings-block{margin-bottom:var(--sp-8);}
+  .settings-caption{font-family:var(--f-mono); font-size:11px; letter-spacing:.05em; text-transform:uppercase; color:var(--noise); margin:0 0 var(--sp-3);}
+
+  .stepper{display:flex; align-items:center; gap:var(--sp-4); background:var(--surface-0); border:1px solid var(--outline-strong); border-radius:var(--r-md); padding:var(--sp-2) var(--sp-3); width:fit-content;}
+  .stepper button{width:32px; height:32px; border-radius:var(--r-sm); border:1px solid var(--outline-strong); background:var(--surface-1); color:var(--ink); font-family:var(--f-body); font-weight:600; font-size:16px; cursor:pointer;}
+  .stepper button:focus-visible{outline:none; box-shadow:var(--focus-ring);}
+  .stepper span{font-family:var(--f-display); font-weight:600; font-size:20px; font-variant-numeric:tabular-nums; min-width:52px; text-align:center;}
+  .stepper-unit{font-family:var(--f-mono); font-size:12px; color:var(--noise);}
+
+  .pace-display{display:flex; align-items:baseline; gap:8px;}
+  .pace-slider-value{font-family:var(--f-display); font-weight:600; font-size:28px; font-variant-numeric:tabular-nums; color:var(--signal);}
+  .pace-slider-unit{font-family:var(--f-body); font-size:13px; color:var(--ink-muted);}
+
+  .range-slider{-webkit-appearance:none; appearance:none; width:100%; height:4px; border-radius:2px; margin:var(--sp-4) 0 var(--sp-2); background:var(--outline); cursor:pointer;}
+  .range-slider::-webkit-slider-thumb{-webkit-appearance:none; appearance:none; width:20px; height:20px; border-radius:50%; background:var(--signal); border:3px solid var(--surface-0); box-shadow:var(--shadow-1);}
+  .range-slider::-moz-range-thumb{width:20px; height:20px; border-radius:50%; background:var(--signal); border:3px solid var(--surface-0); box-shadow:var(--shadow-1);}
+  .range-slider:focus-visible{outline:none;}
+  .range-slider:focus-visible::-webkit-slider-thumb{box-shadow:var(--focus-ring);}
+  .range-labels{display:flex; justify-content:space-between; font-family:var(--f-mono); font-size:11px; color:var(--noise);}
+
+  .settings-row{display:flex; justify-content:space-between; align-items:center; padding:var(--sp-3) 0; border-bottom:1px solid var(--outline); gap:var(--sp-3);}
+  .settings-row:last-child{border-bottom:none;}
+  .settings-row-title{font-size:14px; font-weight:600; color:var(--ink);}
+  .settings-row-sub{font-family:var(--f-mono); font-size:11px; color:var(--noise); margin-top:2px;}
+  .status-dot-sm{width:8px; height:8px; border-radius:50%; flex-shrink:0;}
+  .btn-text{background:none; border:none; font-family:var(--f-body); font-weight:600; font-size:13px; color:var(--ink-muted); cursor:pointer; padding:6px 4px; white-space:nowrap;}
+  .btn-text:hover{color:var(--ink);}
+  .btn-text:focus-visible{outline:none; box-shadow:var(--focus-ring);}
+
+  /* ---------- Annotations ---------- */
+  .annotations{flex:1; min-width:280px; max-width:400px;}
+  .annotations h3{font-size:14px; margin:0 0 var(--sp-4); font-family:var(--f-mono); letter-spacing:.05em; text-transform:uppercase; color:var(--noise);}
+  .note{display:flex; gap:12px; margin-bottom:var(--sp-4); padding-bottom:var(--sp-4); border-bottom:1px solid var(--outline);}
+  .note:last-child{border-bottom:none;}
+  .note-mark{width:6px; height:6px; border-radius:50%; background:var(--signal); margin-top:8px; flex-shrink:0;}
+  .note p{margin:0; font-size:13.5px; color:var(--ink-muted); line-height:1.55;}
+
+  .demo-tool{
+    margin-top:var(--sp-8); padding:var(--sp-4); border:1px dashed var(--outline-strong); border-radius:var(--r-md);
+    background:var(--surface-2);
+  }
+  .demo-tool-label{font-family:var(--f-mono); font-size:11px; color:var(--ink-muted); letter-spacing:.03em; margin-bottom:var(--sp-2); display:block;}
+  .demo-toggle{
+    font-family:var(--f-mono); font-size:12px; background:var(--surface-0); border:1px solid var(--outline-strong);
+    color:var(--ink); padding:8px 14px; border-radius:var(--r-sm); cursor:pointer;
+  }
+  .demo-toggle:hover{background:var(--surface-1);}
+  .demo-toggle:focus-visible{outline:none; box-shadow:var(--focus-ring);}
+</style>
+</head>
+<body>
+<div class="page-wrap">
+  <p class="kicker">Экраны — этап 4</p>
+  <h1 class="title">Сегодня, Саммари, Тренд и Настройки</h1>
+  <p class="lede">Все четыре вкладки нижней навигации теперь спроектированы. Онбординг и paywall — отдельные экраны вне вкладок, следующий шаг. Тумблер справа — служебный, для показа обоих статусов саммари внутри одного макета; в реальном интерфейсе его нет.</p>
+
+  <div class="workspace">
+
+    <div class="phone-frame">
+      <div class="phone-notch"></div>
+      <div class="phone-screen">
+
+        <!-- TODAY -->
+        <div class="panel active" id="panel-today">
+          <p class="date-caption">Сегодня · 24 июл</p>
+          <div class="big-metric" id="bigMetric">—</div>
+          <p class="big-metric-unit">кг · сглаженный вес</p>
+          <p class="raw-today">Сырое значение сегодня: <b id="rawToday">—</b> кг</p>
+
+          <div class="chart-block">
+            <div id="todayChart"></div>
+            <div class="chart-labels">
+              <span>25 ИЮН</span>
+              <span>24 ИЮЛ</span>
+            </div>
+          </div>
+
+          <button class="btn btn-primary" onclick="showPanel('summary')">Открыть саммари</button>
+        </div>
+
+        <!-- SUMMARY -->
+        <div class="panel" id="panel-summary">
+          <p class="date-caption">17 ИЮЛ — 24 ИЮЛ</p>
+          <div class="summary-mark">
+            <svg width="72" height="20" viewBox="0 0 160 48">
+              <circle style="fill:var(--noise);opacity:.6" cx="8" cy="20" r="2.4"/><circle style="fill:var(--noise);opacity:.6" cx="35" cy="12" r="2.6"/>
+              <circle style="fill:var(--noise);opacity:.6" cx="70" cy="26" r="2.2"/><circle style="fill:var(--noise);opacity:.6" cx="105" cy="16" r="2.6"/>
+              <circle style="fill:var(--noise);opacity:.6" cx="135" cy="30" r="2.2"/>
+              <path style="fill:none;stroke:var(--signal);stroke-width:3.5;stroke-linecap:round" d="M6,18 C40,22 75,26 110,30 C125,32 138,34 150,38"/>
+            </svg>
+            <h1 class="title" style="margin:0;">Саммари</h1>
+          </div>
+
+          <div class="status-row">
+            <span class="status-dot" id="statusDot" style="background:var(--steady)"></span>
+            <span class="status-heading" id="statusHeading">В темпе</span>
+          </div>
+
+          <div class="pace-row">
+            <span class="pace-value" id="paceValue">−0.6%</span>
+            <span class="pace-kg" id="paceKg">−0.5 кг за неделю</span>
+          </div>
+
+          <p class="conclusion" id="conclusionText">Вес снижается стабильно, в пределах целевого темпа.</p>
+
+          <hr class="divider">
+          <p class="rec-label">Рекомендация на следующую неделю</p>
+          <p class="rec-text" id="recText">Оставь текущую калорийность без изменений — точности данных уже достаточно, чтобы доверять тренду.</p>
+        </div>
+
+        <!-- TREND -->
+        <div class="panel" id="panel-trend">
+          <h1 class="title" style="margin-bottom:0;">Тренд</h1>
+
+          <div class="segmented">
+            <button id="seg-week" onclick="setPeriod('week')">Неделя</button>
+            <button id="seg-month" class="active" onclick="setPeriod('month')">Месяц</button>
+            <button id="seg-all" onclick="setPeriod('all')">Весь срок</button>
+          </div>
+
+          <div class="chart-block">
+            <div id="trendChart"></div>
+            <div class="chart-labels">
+              <span id="trendLabelStart">25 ИЮН</span>
+              <span id="trendLabelEnd">24 ИЮЛ</span>
+            </div>
+          </div>
+
+          <div class="metrics-section">
+            <p class="metrics-caption">Среднесуточные показатели за период</p>
+            <div class="metric-row">
+              <span class="metric-label">Сон</span>
+              <span class="metric-value" id="metricSleep">7.3<small>ч</small></span>
+            </div>
+            <div class="metric-row">
+              <span class="metric-label">Шаги</span>
+              <span class="metric-value" id="metricSteps">9 140</span>
+            </div>
+            <div class="metric-row">
+              <span class="metric-label">Активность</span>
+              <span class="metric-value" id="metricActivity">45<small>мин</small></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- SETTINGS -->
+        <div class="panel" id="panel-settings">
+          <h1 class="title">Настройки</h1>
+
+          <section class="settings-block">
+            <p class="settings-caption">Цель</p>
+            <label class="field-label" style="font-family:var(--f-mono); font-size:11px; letter-spacing:.05em; text-transform:uppercase; color:var(--noise); display:block; margin-bottom:8px;">Целевой вес</label>
+            <div class="stepper">
+              <button onclick="stepGoal(-0.5)" aria-label="Уменьшить">−</button>
+              <span id="goalValue">75.0</span>
+              <button onclick="stepGoal(0.5)" aria-label="Увеличить">+</button>
+              <span class="stepper-unit">кг</span>
+            </div>
+          </section>
+
+          <section class="settings-block">
+            <p class="settings-caption">Темп изменения веса</p>
+            <div class="pace-display">
+              <span class="pace-slider-value" id="paceSliderValue">0.6%</span>
+              <span class="pace-slider-unit">в неделю</span>
+            </div>
+            <input type="range" min="0.3" max="1.4" step="0.1" value="0.6" id="paceSlider" class="range-slider" oninput="updatePaceSlider(this.value)">
+            <div class="range-labels"><span>0.3%</span><span>1.4%</span></div>
+          </section>
+
+          <section class="settings-block">
+            <p class="settings-caption">Подписка</p>
+            <div class="settings-row">
+              <div>
+                <div class="settings-row-title">Годовой план</div>
+                <div class="settings-row-sub">Активна до 12 авг 2027</div>
+              </div>
+              <button class="btn-text">Управлять</button>
+            </div>
+          </section>
+
+          <section class="settings-block">
+            <p class="settings-caption">Health-сервис</p>
+            <div class="settings-row">
+              <div style="display:flex; align-items:center; gap:10px;">
+                <span class="status-dot-sm" style="background:var(--steady)"></span>
+                <div>
+                  <div class="settings-row-title">Health Connect подключен</div>
+                  <div class="settings-row-sub">Синхронизация: сегодня, 08:14</div>
+                </div>
+              </div>
+              <button class="btn-text">Отключить</button>
+            </div>
+          </section>
+        </div>
+
+        <nav class="bottom-nav">
+          <button class="nav-item active" id="nav-today" onclick="showPanel('today')">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="2.2" fill="currentColor" stroke="none"/></svg>
+            Сегодня
+          </button>
+          <button class="nav-item" id="nav-trend" onclick="showPanel('trend')">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><circle cx="4" cy="16" r="1.4" fill="currentColor" stroke="none"/><circle cx="10" cy="10" r="1.4" fill="currentColor" stroke="none"/><circle cx="16" cy="14" r="1.4" fill="currentColor" stroke="none"/><path d="M4,16 C8,13 12,9 16,14 C18,16.5 19,17 21,15"/></svg>
+            Тренд
+          </button>
+          <button class="nav-item" id="nav-summary" onclick="showPanel('summary')">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><rect x="5" y="4" width="14" height="16" rx="2"/><line x1="8" y1="9" x2="16" y2="9"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="13" y2="17"/></svg>
+            Саммари
+          </button>
+          <button class="nav-item" id="nav-settings" onclick="showPanel('settings')">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><line x1="4" y1="7" x2="20" y2="7"/><circle cx="9" cy="7" r="2" fill="var(--surface-0)"/><line x1="4" y1="12" x2="20" y2="12"/><circle cx="15" cy="12" r="2" fill="var(--surface-0)"/><line x1="4" y1="17" x2="20" y2="17"/><circle cx="11" cy="17" r="2" fill="var(--surface-0)"/></svg>
+            Настройки
+          </button>
+        </nav>
+
+      </div>
+    </div>
+
+    <aside class="annotations">
+      <h3>Ключевые решения</h3>
+      <div class="note"><span class="note-mark"></span><p>Вес на «Сегодня» доминирует размером (60px), а не цветом — остаётся в Deep Ink. Cobalt зарезервирован только под тренд-линию, основную кнопку и число в саммари — как явно указано в разделе 4 ТЗ.</p></div>
+      <div class="note"><span class="note-mark"></span><p>Сырые точки на графике — приглушённый Noise Grey, тоньше и без анимации выделения; линия тренда толще и рисуется поверх. Никаких сеток, теней или заливок — только данные (раздел 7).</p></div>
+      <div class="note"><span class="note-mark"></span><p>Статус саммари считывается за секунду: точка-индикатор несёт цвет, а текст статуса остаётся Deep Ink — так статус не зависит только от восприятия цвета.</p></div>
+      <div class="note"><span class="note-mark"></span><p>Рекомендация — одно-два предложения без вводных фраз, визуально отделена линией — читается как отдельный пункт отчёта, а не хвост абзаца.</p></div>
+      <div class="note"><span class="note-mark"></span><p>Кнопка «Открыть саммари» и заголовок экрана «Саммари» — одна формулировка на всём пути, как требует раздел 8 ТЗ.</p></div>
+      <div class="note"><span class="note-mark"></span><p>График «Сегодня» использует те же принципы сглаживания (EMA), что и HealthDataProcessor в коде — большое число на экране это и есть последняя точка сглаженной линии.</p></div>
+      <div class="note"><span class="note-mark"></span><p>«Тренд» переключает период тем же переиспользуемым чарт-компонентом (раздел 10 ТЗ) — меняются только данные, не сама визуализация.</p></div>
+      <div class="note"><span class="note-mark"></span><p>Сон / шаги / активность — значения в Deep Ink, не Cobalt: акцент остаётся только за весом. Это второстепенные метрики экрана (раздел 5, пункт 3).</p></div>
+      <div class="note"><span class="note-mark"></span><p>На «Весь срок» (180 дней) сырые точки прорежены — иначе на ширине экрана они слипаются в сплошную полосу и сами становятся визуальным шумом, а не фоном для сигнала.</p></div>
+      <div class="note"><span class="note-mark"></span><p>Настройки применяются мгновенно, без кнопки «Сохранить» — лишний тап-подтверждение противоречит принципу «минимум действий, максимум готового результата» (раздел 3 ТЗ).</p></div>
+      <div class="note"><span class="note-mark"></span><p>Слайдер темпа закрашен Cobalt — это тот же «темп», что позже становится числом в саммари. Кнопка «Отключить» рядом с Health-сервисом остаётся нейтральной: Alert Rust зарезервирован строго под отклонение темпа, а не под любые осторожные действия.</p></div>
+
+      <div class="demo-tool">
+        <span class="demo-tool-label">Служебный тумблер (не часть интерфейса)</span>
+        <button class="demo-toggle" onclick="toggleStatus()">Показать статус «Слишком быстро»</button>
+      </div>
+    </aside>
+
+  </div>
+</div>
+
+<script>
+  function showPanel(name){
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    document.getElementById('panel-' + name).classList.add('active');
+    document.getElementById('nav-' + name).classList.add('active');
+  }
+
+  // ---------- Seeded random + EMA chart (mirrors HealthDataProcessor smoothing) ----------
+  function mulberry32(seed){
+    return function(){
+      seed |= 0; seed = seed + 0x6D2B79F5 | 0;
+      let t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+      t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+      return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    };
+  }
+  function smoothPath(points){
+    if(points.length < 2) return '';
+    let d = 'M' + points[0][0].toFixed(1) + ',' + points[0][1].toFixed(1);
+    for(let i=0;i<points.length-1;i++){
+      const p0 = points[i-1] || points[i];
+      const p1 = points[i];
+      const p2 = points[i+1];
+      const p3 = points[i+2] || p2;
+      const c1x = p1[0] + (p2[0]-p0[0])/6, c1y = p1[1] + (p2[1]-p0[1])/6;
+      const c2x = p2[0] - (p3[0]-p1[0])/6, c2y = p2[1] - (p3[1]-p1[1])/6;
+      d += ' C' + c1x.toFixed(1) + ',' + c1y.toFixed(1) + ' ' + c2x.toFixed(1) + ',' + c2y.toFixed(1) + ' ' + p2[0].toFixed(1) + ',' + p2[1].toFixed(1);
+    }
+    return d;
+  }
+  function renderChart(containerId, opts){
+    const width = opts.width || 336, height = opts.height || 150, days = opts.days;
+    const rand = mulberry32(opts.seed);
+    const raw = [];
+    for(let i=0;i<days;i++){ raw.push(opts.start + opts.slope*i + (rand()-0.5)*opts.noiseAmp*2); }
+    const alpha = 0.25;
+    const ema = [raw[0]];
+    for(let i=1;i<days;i++){ ema.push(alpha*raw[i] + (1-alpha)*ema[i-1]); }
+
+    const min = Math.min.apply(null, raw.concat(ema)) - 0.3;
+    const max = Math.max.apply(null, raw.concat(ema)) + 0.3;
+    const padX = 4, padY = 10;
+    const xStep = (width - padX*2) / (days-1);
+    const yFor = v => padY + (height - padY*2) * (1 - (v-min)/(max-min));
+
+    // Thin out raw dots on long ranges so the chart stays legible, not noisy
+    const dotR = days > 60 ? 1.6 : (days > 20 ? 2.6 : 3.2);
+    const dotStep = days > 60 ? Math.ceil(days/60) : 1;
+    let dots = '';
+    for(let i=0;i<days;i+=dotStep){
+      const x = padX + i*xStep, y = yFor(raw[i]);
+      dots += '<circle class="dot" cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" r="' + dotR + '" style="animation-delay:' + (i*0.008).toFixed(2) + 's"/>';
+    }
+    const emaPoints = ema.map((v,i)=>[padX+i*xStep, yFor(v)]);
+    const linePath = smoothPath(emaPoints);
+    const last = emaPoints[emaPoints.length-1];
+
+    document.getElementById(containerId).innerHTML =
+      '<svg class="anim" width="' + width + '" height="' + height + '" viewBox="0 0 ' + width + ' ' + height + '">' +
+      dots +
+      '<path class="trend-path" stroke-width="3" d="' + linePath + '"/>' +
+      '<circle cx="' + last[0].toFixed(1) + '" cy="' + last[1].toFixed(1) + '" r="4.5" fill="var(--signal)"/>' +
+      '</svg>';
+
+    return { raw, ema };
+  }
+
+  function renderTodayChart(){
+    const result = renderChart('todayChart', {days:30, start:80.5, slope:-0.0724, noiseAmp:0.45, seed:11});
+    document.getElementById('bigMetric').textContent = result.ema[result.ema.length-1].toFixed(1);
+    document.getElementById('rawToday').textContent = result.raw[result.raw.length-1].toFixed(1);
+  }
+  renderTodayChart();
+
+  // ---------- Trend screen: same chart component, different period ----------
+  const periodConfigs = {
+    week:  { days:7,   start:78.9, slope:-0.0430, noiseAmp:0.35, seed:3,  labelStart:'17 ИЮЛ', labelEnd:'24 ИЮЛ', sleep:7.1, steps:8620, activity:38 },
+    month: { days:30,  start:80.5, slope:-0.0724, noiseAmp:0.45, seed:11, labelStart:'25 ИЮН', labelEnd:'24 ИЮЛ', sleep:7.3, steps:9140, activity:45 },
+    all:   { days:180, start:86.0, slope:-0.0430, noiseAmp:0.55, seed:22, labelStart:'26 ЯНВ', labelEnd:'24 ИЮЛ', sleep:7.0, steps:8890, activity:41 }
+  };
+
+  function setPeriod(key){
+    const cfg = periodConfigs[key];
+    document.querySelectorAll('.segmented button').forEach(b => b.classList.remove('active'));
+    document.getElementById('seg-' + key).classList.add('active');
+
+    renderChart('trendChart', cfg);
+    document.getElementById('trendLabelStart').textContent = cfg.labelStart;
+    document.getElementById('trendLabelEnd').textContent = cfg.labelEnd;
+    document.getElementById('metricSleep').innerHTML = cfg.sleep.toFixed(1) + '<small>ч</small>';
+    document.getElementById('metricSteps').textContent = cfg.steps.toLocaleString('ru-RU');
+    document.getElementById('metricActivity').innerHTML = cfg.activity + '<small>мин</small>';
+  }
+  setPeriod('month');
+
+  // ---------- Settings screen controls ----------
+  let goalWeight = 75.0;
+  function stepGoal(delta){
+    goalWeight = Math.round((goalWeight + delta) * 10) / 10;
+    goalWeight = Math.max(40, Math.min(150, goalWeight));
+    document.getElementById('goalValue').textContent = goalWeight.toFixed(1);
+  }
+  function updatePaceSlider(val){
+    const v = parseFloat(val);
+    document.getElementById('paceSliderValue').textContent = v.toFixed(1) + '%';
+    const pct = (v - 0.3) / (1.4 - 0.3) * 100;
+    document.getElementById('paceSlider').style.background =
+      'linear-gradient(to right, var(--signal) ' + pct + '%, var(--outline) ' + pct + '%)';
+  }
+  updatePaceSlider(document.getElementById('paceSlider').value);
+
+  // ---------- Demo-only status toggle ----------
+  let alertShown = false;
+  function toggleStatus(){
+    alertShown = !alertShown;
+    const dot = document.getElementById('statusDot');
+    const heading = document.getElementById('statusHeading');
+    const pace = document.getElementById('paceValue');
+    const kg = document.getElementById('paceKg');
+    const conclusion = document.getElementById('conclusionText');
+    const rec = document.getElementById('recText');
+    const btn = document.querySelector('.demo-toggle');
+
+    if(alertShown){
+      dot.style.background = 'var(--alert)';
+      heading.textContent = 'Слишком быстро';
+      pace.textContent = '−1.6%';
+      kg.textContent = '−1.1 кг за неделю';
+      conclusion.textContent = 'Темп выше целевого диапазона (0.3–1.4%) — риск потери мышечной массы.';
+      rec.textContent = 'Добавь ~150–200 ккал в сутки, чтобы вернуться в целевой темп.';
+      btn.textContent = 'Показать статус «В темпе»';
+    } else {
+      dot.style.background = 'var(--steady)';
+      heading.textContent = 'В темпе';
+      pace.textContent = '−0.6%';
+      kg.textContent = '−0.5 кг за неделю';
+      conclusion.textContent = 'Вес снижается стабильно, в пределах целевого темпа.';
+      rec.textContent = 'Оставь текущую калорийность без изменений — точности данных уже достаточно, чтобы доверять тренду.';
+      btn.textContent = 'Показать статус «Слишком быстро»';
+    }
+  }
+
+  // ---------- Deep link support (e.g. paywall "Закрыть" / "Перейти к саммари") ----------
+  if(location.hash === '#summary'){ showPanel('summary'); }
+</script>
+</body>
+</html>

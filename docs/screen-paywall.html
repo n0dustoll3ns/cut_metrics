@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cut Metrics — Paywall</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Space+Mono:wght@400;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#F3F5F6; --ink:#14171A; --noise:#9CA3AF; --signal:#2A5DB0;
+    --steady:#1F9D6C; --alert:#B23A2E;
+    --surface-0:#FFFFFF; --surface-1:#F3F5F6; --surface-2:#E7EAEC;
+    --outline:#D7DBDE; --outline-strong:#C2C7CC; --ink-muted:#4B5259;
+    --signal-hover:#234C8D; --signal-press:#1D3F73; --signal-tint:#E7EEF8;
+    --f-display:'Space Grotesk', sans-serif; --f-body:'Inter', sans-serif; --f-mono:'Space Mono', monospace;
+    --sp-2:8px; --sp-3:12px; --sp-4:16px; --sp-6:24px; --sp-8:32px; --sp-12:48px;
+    --r-sm:6px; --r-md:10px; --r-lg:16px;
+    --shadow-1:0 1px 2px rgba(20,23,26,.06), 0 1px 1px rgba(20,23,26,.05);
+    --shadow-2:0 10px 30px rgba(20,23,26,.14);
+    --focus-ring:0 0 0 3px rgba(42,93,176,.35);
+  }
+  *{box-sizing:border-box;}
+  body{margin:0; background:var(--bg); color:var(--ink); font-family:var(--f-body); -webkit-font-smoothing:antialiased;}
+
+  .page-wrap{max-width:1080px; margin:0 auto; padding:var(--sp-12) var(--sp-6) var(--sp-12);}
+  .kicker{font-family:var(--f-mono); font-size:12px; letter-spacing:.08em; color:var(--noise); text-transform:uppercase; margin:0 0 var(--sp-2);}
+  h1.title{font-family:var(--f-body); font-weight:600; font-size:26px; margin:0 0 var(--sp-2);}
+  .lede{color:var(--ink-muted); max-width:640px; font-size:15px; margin:0 0 var(--sp-8);}
+
+  .workspace{display:flex; gap:var(--sp-12); align-items:flex-start; flex-wrap:wrap;}
+
+  .phone-frame{width:min(380px, 92vw); flex-shrink:0; background:var(--ink); border-radius:44px; padding:14px; box-shadow:var(--shadow-2);}
+  .phone-notch{width:100px; height:22px; background:var(--ink); border-radius:0 0 16px 16px; margin:0 auto; position:relative; z-index:2;}
+  .phone-notch::after{content:''; position:absolute; left:50%; top:6px; transform:translateX(-50%); width:8px; height:8px; border-radius:50%; background:#333;}
+  .phone-screen{background:var(--bg); border-radius:32px; overflow-y:auto; margin-top:-22px; height:760px; position:relative; padding:20px 20px 28px;}
+
+  .pw-close{position:absolute; top:16px; right:16px; width:32px; height:32px; border-radius:50%; border:none; background:var(--surface-2); color:var(--ink-muted); font-size:16px; cursor:pointer; line-height:1;}
+  .pw-close:hover{background:var(--surface-1); color:var(--ink);}
+  .pw-close:focus-visible{outline:none; box-shadow:var(--focus-ring);}
+
+  .pw-mark{display:flex; align-items:center; gap:10px; margin:36px 0 4px;}
+
+  .pw-section{margin-top:var(--sp-6);}
+  .pw-section-title{font-weight:600; font-size:16px; margin:0 0 var(--sp-4);}
+
+  .pw-stats{display:flex; gap:var(--sp-2);}
+  .pw-stat{flex:1; text-align:center; background:var(--surface-0); border:1px solid var(--outline); border-radius:var(--r-md); padding:var(--sp-3) 4px;}
+  .pw-stat-value{font-family:var(--f-display); font-weight:600; font-size:22px; font-variant-numeric:tabular-nums; color:var(--ink);}
+  .pw-stat-label{font-family:var(--f-mono); font-size:10px; letter-spacing:.03em; text-transform:uppercase; color:var(--noise); margin-top:4px; line-height:1.3;}
+
+  .pw-features{list-style:none; margin:0; padding:0;}
+  .pw-feature-item{display:flex; align-items:baseline; gap:10px; padding:10px 0; border-bottom:1px solid var(--outline); font-size:14px;}
+  .pw-feature-item:last-child{border-bottom:none;}
+  .pw-feature-dash{color:var(--signal); font-weight:700; flex-shrink:0;}
+
+  .pw-plans{display:flex; gap:var(--sp-3); margin-top:var(--sp-3);}
+  .pw-plan-card{flex:1; position:relative; border:2px solid var(--outline-strong); border-radius:var(--r-lg); padding:var(--sp-4) var(--sp-3); background:var(--surface-0); cursor:pointer; text-align:left;}
+  .pw-plan-card.selected{border-color:var(--signal); background:var(--signal-tint);}
+  .pw-plan-card:focus-visible{outline:none; box-shadow:var(--focus-ring);}
+  .pw-plan-badge{position:absolute; top:-11px; left:12px; background:var(--signal); color:#fff; font-family:var(--f-mono); font-size:10px; letter-spacing:.03em; padding:3px 8px; border-radius:999px;}
+  .pw-plan-name{font-weight:600; font-size:14px; margin-bottom:6px;}
+  .pw-plan-price{font-family:var(--f-display); font-weight:600; font-size:22px; font-variant-numeric:tabular-nums;}
+  .pw-plan-sub{font-family:var(--f-mono); font-size:11px; color:var(--noise); margin-top:4px;}
+
+  .btn{font-family:var(--f-body); font-weight:600; font-size:15px; border-radius:var(--r-md); padding:14px 20px; border:1px solid transparent; cursor:pointer; width:100%; display:block; text-align:center; text-decoration:none;}
+  .btn:focus-visible{outline:none; box-shadow:var(--focus-ring);}
+  .btn-primary{background:var(--signal); color:#fff; margin-top:var(--sp-6);}
+  .btn-primary:hover{background:var(--signal-hover);}
+  .btn-primary:active{background:var(--signal-press);}
+  .btn-secondary{background:transparent; color:var(--ink); border-color:var(--outline-strong); margin-top:10px;}
+  .btn-secondary:hover{background:var(--surface-2);}
+
+  .pw-footnote{font-size:12px; color:var(--noise); text-align:center; margin-top:var(--sp-3); line-height:1.5;}
+
+  .dot-mini{fill:var(--noise); opacity:.6;}
+  .trend-mini{fill:none; stroke:var(--signal); stroke-linecap:round;}
+
+  .annotations{flex:1; min-width:280px; max-width:400px;}
+  .annotations h3{font-size:14px; margin:0 0 var(--sp-4); font-family:var(--f-mono); letter-spacing:.05em; text-transform:uppercase; color:var(--noise);}
+  .note{display:flex; gap:12px; margin-bottom:var(--sp-4); padding-bottom:var(--sp-4); border-bottom:1px solid var(--outline);}
+  .note:last-child{border-bottom:none;}
+  .note-mark{width:6px; height:6px; border-radius:50%; background:var(--signal); margin-top:8px; flex-shrink:0;}
+  .note p{margin:0; font-size:13.5px; color:var(--ink-muted); line-height:1.55;}
+</style>
+</head>
+<body>
+<div class="page-wrap">
+  <p class="kicker">Экраны — этап 6</p>
+  <h1 class="title">Paywall</h1>
+  <p class="lede">Последний экран из раздела 5 ТЗ. Открывается при попытке посмотреть саммари после лимита. Без таймеров и давления — сначала показываем, что человек уже получил бесплатно, затем что откроется дальше, потом цену.</p>
+
+  <div class="workspace">
+    <div class="phone-frame">
+      <div class="phone-notch"></div>
+      <div class="phone-screen">
+
+        <button class="pw-close" onclick="location.href='cutmetrics-screens-today-summary.html#summary'" aria-label="Закрыть">×</button>
+
+        <div class="pw-mark">
+          <svg width="64" height="18" viewBox="0 0 160 48">
+            <circle class="dot-mini" cx="8" cy="20" r="2.4"/><circle class="dot-mini" cx="35" cy="12" r="2.6"/>
+            <circle class="dot-mini" cx="70" cy="26" r="2.2"/><circle class="dot-mini" cx="105" cy="16" r="2.6"/>
+            <circle class="dot-mini" cx="135" cy="30" r="2.2"/>
+            <path class="trend-mini" stroke-width="3.5" d="M6,18 C40,22 75,26 110,30 C125,32 138,34 150,38"/>
+          </svg>
+          <h1 class="title" style="margin:0; font-size:20px;">Вот что ты уже отследил</h1>
+        </div>
+
+        <div class="pw-section">
+          <div class="pw-stats">
+            <div class="pw-stat"><div class="pw-stat-value">42</div><div class="pw-stat-label">дня в Cut Metrics</div></div>
+            <div class="pw-stat"><div class="pw-stat-value">6</div><div class="pw-stat-label">саммари построено</div></div>
+            <div class="pw-stat"><div class="pw-stat-value">−3.1</div><div class="pw-stat-label">кг тренда</div></div>
+          </div>
+        </div>
+
+        <div class="pw-section">
+          <p class="pw-section-title">Вот что откроется дальше</p>
+          <ul class="pw-features">
+            <li class="pw-feature-item"><span class="pw-feature-dash">—</span><span>Еженедельные саммари без ограничений</span></li>
+            <li class="pw-feature-item"><span class="pw-feature-dash">—</span><span>Полная история тренда за весь срок</span></li>
+            <li class="pw-feature-item"><span class="pw-feature-dash">—</span><span>Рекомендация по калорийности каждую неделю</span></li>
+          </ul>
+        </div>
+
+        <div class="pw-section">
+          <div class="pw-plans">
+            <button class="pw-plan-card selected" id="plan-year" onclick="selectPlan('year')">
+              <span class="pw-plan-badge">Выгоднее на 33%</span>
+              <div class="pw-plan-name">Год</div>
+              <div class="pw-plan-price">2 400 ₽</div>
+              <div class="pw-plan-sub">≈200 ₽/мес</div>
+            </button>
+            <button class="pw-plan-card" id="plan-month" onclick="selectPlan('month')">
+              <div class="pw-plan-name">Месяц</div>
+              <div class="pw-plan-price">300 ₽</div>
+              <div class="pw-plan-sub">в месяц</div>
+            </button>
+          </div>
+
+          <button class="btn btn-primary" id="pwCta" onclick="subscribe()">Оформить — 2 400 ₽/год</button>
+          <a class="btn btn-secondary" id="pwContinueLink" style="display:none;" href="cutmetrics-screens-today-summary.html#summary">Перейти к саммари</a>
+          <p class="pw-footnote">Отменить можно в любой момент в настройках подписки.</p>
+        </div>
+
+      </div>
+    </div>
+
+    <aside class="annotations">
+      <h3>Ключевые решения</h3>
+      <div class="note"><span class="note-mark"></span><p>Никаких таймеров со страхом или ограничений «осталось 2 минуты» — только факты: что уже отслежено бесплатно и что откроется дальше (раздел 6 ТЗ).</p></div>
+      <div class="note"><span class="note-mark"></span><p>Статистика вверху — реальная история конкретного пользователя, а не абстрактные «тысячи довольных клиентов»: ценность показана через его же данные.</p></div>
+      <div class="note"><span class="note-mark"></span><p>Месячная цена (300 ₽) ровно в 1.5 раза выше месячного эквивалента годовой (200 ₽) — «месяц = год × 150%» из раздела 6 ТЗ, и это явно видно в одном экране, без переключения вкладок.</p></div>
+      <div class="note"><span class="note-mark"></span><p>Бейдж «Выгоднее на 33%» — единственное место, где Cobalt используется как заливка бейджа: он про рекомендуемый выбор, а не про давление.</p></div>
+      <div class="note"><span class="note-mark"></span><p>Кнопка закрытия и «Перейти к саммари» ведут именно на вкладку «Саммари» в основном прототипе — раз paywall открылся из попытки посмотреть саммари, туда и нужно вернуться.</p></div>
+    </aside>
+  </div>
+</div>
+
+<script>
+  let selectedPlan = 'year';
+  const prices = { year: '2 400 ₽/год', month: '300 ₽/мес' };
+
+  function selectPlan(key){
+    selectedPlan = key;
+    document.getElementById('plan-year').classList.toggle('selected', key === 'year');
+    document.getElementById('plan-month').classList.toggle('selected', key === 'month');
+    document.getElementById('pwCta').textContent = 'Оформить — ' + prices[key];
+  }
+
+  function subscribe(){
+    const btn = document.getElementById('pwCta');
+    btn.disabled = true;
+    btn.textContent = 'Оформляем…';
+    setTimeout(() => {
+      btn.textContent = 'Подписка оформлена ✓';
+      btn.style.background = 'var(--steady)';
+      document.getElementById('pwContinueLink').style.display = 'block';
+    }, 900);
+  }
+</script>
+</body>
+</html>

@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cut Metrics — Онбординг</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Space+Mono:wght@400;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#F3F5F6; --ink:#14171A; --noise:#9CA3AF; --signal:#2A5DB0;
+    --steady:#1F9D6C; --alert:#B23A2E;
+    --surface-0:#FFFFFF; --surface-1:#F3F5F6; --surface-2:#E7EAEC;
+    --outline:#D7DBDE; --outline-strong:#C2C7CC; --ink-muted:#4B5259;
+    --signal-hover:#234C8D; --signal-press:#1D3F73;
+    --f-display:'Space Grotesk', sans-serif; --f-body:'Inter', sans-serif; --f-mono:'Space Mono', monospace;
+    --sp-2:8px; --sp-3:12px; --sp-4:16px; --sp-6:24px; --sp-8:32px; --sp-12:48px;
+    --r-sm:6px; --r-md:10px; --r-lg:16px;
+    --shadow-1:0 1px 2px rgba(20,23,26,.06), 0 1px 1px rgba(20,23,26,.05);
+    --shadow-2:0 10px 30px rgba(20,23,26,.14);
+    --focus-ring:0 0 0 3px rgba(42,93,176,.35);
+  }
+  *{box-sizing:border-box;}
+  body{margin:0; background:var(--bg); color:var(--ink); font-family:var(--f-body); -webkit-font-smoothing:antialiased;}
+
+  .page-wrap{max-width:1080px; margin:0 auto; padding:var(--sp-12) var(--sp-6) var(--sp-12);}
+  .kicker{font-family:var(--f-mono); font-size:12px; letter-spacing:.08em; color:var(--noise); text-transform:uppercase; margin:0 0 var(--sp-2);}
+  h1.title{font-family:var(--f-body); font-weight:600; font-size:26px; margin:0 0 var(--sp-2);}
+  .lede{color:var(--ink-muted); max-width:640px; font-size:15px; margin:0 0 var(--sp-8);}
+
+  .workspace{display:flex; gap:var(--sp-12); align-items:flex-start; flex-wrap:wrap;}
+
+  .phone-frame{width:min(380px, 92vw); flex-shrink:0; background:var(--ink); border-radius:44px; padding:14px; box-shadow:var(--shadow-2);}
+  .phone-notch{width:100px; height:22px; background:var(--ink); border-radius:0 0 16px 16px; margin:0 auto; position:relative; z-index:2;}
+  .phone-notch::after{content:''; position:absolute; left:50%; top:6px; transform:translateX(-50%); width:8px; height:8px; border-radius:50%; background:#333;}
+  .phone-screen{background:var(--bg); border-radius:32px; overflow:hidden; margin-top:-22px; height:760px; position:relative;}
+
+  .onb-step{display:none; flex-direction:column; height:100%; padding:28px 22px 26px;}
+  .onb-step.active{display:flex;}
+  .onb-skip{align-self:flex-end; background:none; border:none; font-family:var(--f-mono); font-size:11px; letter-spacing:.04em; text-transform:uppercase; color:var(--noise); cursor:pointer; padding:6px;}
+  .onb-skip:hover{color:var(--ink-muted);}
+  .onb-skip:focus-visible{outline:none; box-shadow:var(--focus-ring); border-radius:4px;}
+  .onb-visual{flex:1; display:flex; align-items:center; justify-content:center;}
+  .onb-visual.dark-stage{background:var(--ink); border-radius:28px; margin:0 4px;}
+  .onb-heading{font-family:var(--f-body); font-weight:600; font-size:23px; line-height:1.3; margin:0 0 10px; text-align:center;}
+  .onb-body{font-size:14.5px; color:var(--ink-muted); text-align:center; line-height:1.55; margin:0 0 26px; padding:0 6px;}
+
+  .onb-dots{display:flex; justify-content:center; gap:8px; margin-bottom:16px;}
+  .onb-dot{width:6px; height:6px; border-radius:50%; background:var(--outline-strong); transition:all .2s ease;}
+  .onb-dot.active{width:20px; border-radius:3px; background:var(--ink);}
+
+  .btn{font-family:var(--f-body); font-weight:600; font-size:15px; border-radius:var(--r-md); padding:14px 20px; border:1px solid transparent; cursor:pointer; width:100%; display:block; text-align:center; text-decoration:none;}
+  .btn:focus-visible{outline:none; box-shadow:var(--focus-ring);}
+  .btn-primary{background:var(--signal); color:#fff;}
+  .btn-primary:hover{background:var(--signal-hover);}
+  .btn-primary:active{background:var(--signal-press);}
+  .btn-primary:disabled{cursor:default;}
+  .btn-secondary{background:transparent; color:var(--ink); border-color:var(--outline-strong); margin-top:10px;}
+  .btn-secondary:hover{background:var(--surface-2);}
+
+  .dot{fill:var(--noise);}
+  .anim .dot{animation:popDot .4s ease forwards; opacity:0;}
+  @keyframes popDot{ to{opacity:.75;} }
+  .trend-path{fill:none; stroke:var(--signal); stroke-linecap:round; stroke-linejoin:round;}
+  .anim .trend-path{stroke-dasharray:900; stroke-dashoffset:900; animation:drawLine 1.1s .4s cubic-bezier(.4,0,.2,1) forwards;}
+  @keyframes drawLine{ to{stroke-dashoffset:0;} }
+  @media (prefers-reduced-motion:reduce){
+    .anim .dot{animation:none; opacity:.75;}
+    .anim .trend-path{animation:none; stroke-dashoffset:0;}
+  }
+
+  .annotations{flex:1; min-width:280px; max-width:400px;}
+  .annotations h3{font-size:14px; margin:0 0 var(--sp-4); font-family:var(--f-mono); letter-spacing:.05em; text-transform:uppercase; color:var(--noise);}
+  .note{display:flex; gap:12px; margin-bottom:var(--sp-4); padding-bottom:var(--sp-4); border-bottom:1px solid var(--outline);}
+  .note:last-child{border-bottom:none;}
+  .note-mark{width:6px; height:6px; border-radius:50%; background:var(--signal); margin-top:8px; flex-shrink:0;}
+  .note p{margin:0; font-size:13.5px; color:var(--ink-muted); line-height:1.55;}
+</style>
+</head>
+<body>
+<div class="page-wrap">
+  <p class="kicker">Экраны — этап 5</p>
+  <h1 class="title">Онбординг</h1>
+  <p class="lede">Три экрана, ни одного вопроса пользователю: боль → механика «шум/сигнал» → подключение Health. Первые два можно пропустить, подключение Health — нет, без него приложение не работает. Финальная кнопка ведёт в уже собранный прототип (Сегодня / Саммари / Тренд / Настройки).</p>
+
+  <div class="workspace">
+    <div class="phone-frame">
+      <div class="phone-notch"></div>
+      <div class="phone-screen">
+
+        <!-- STEP 1 — pain point, noise only -->
+        <div class="onb-step active" id="step-1">
+          <button class="onb-skip" onclick="skipToConnect()">Пропустить</button>
+          <div class="onb-visual">
+            <svg class="anim" width="260" height="150" viewBox="0 0 320 180">
+              <circle class="dot" cx="20" cy="60" r="4" style="animation-delay:.03s"/>
+              <circle class="dot" cx="40" cy="100" r="5" style="animation-delay:.06s"/>
+              <circle class="dot" cx="55" cy="40" r="3.5" style="animation-delay:.09s"/>
+              <circle class="dot" cx="75" cy="130" r="4.5" style="animation-delay:.12s"/>
+              <circle class="dot" cx="95" cy="70" r="3.5" style="animation-delay:.15s"/>
+              <circle class="dot" cx="115" cy="110" r="5" style="animation-delay:.18s"/>
+              <circle class="dot" cx="135" cy="50" r="4" style="animation-delay:.21s"/>
+              <circle class="dot" cx="150" cy="140" r="3.5" style="animation-delay:.24s"/>
+              <circle class="dot" cx="170" cy="85" r="4.5" style="animation-delay:.27s"/>
+              <circle class="dot" cx="190" cy="120" r="3.5" style="animation-delay:.3s"/>
+              <circle class="dot" cx="205" cy="55" r="5" style="animation-delay:.33s"/>
+              <circle class="dot" cx="225" cy="145" r="4" style="animation-delay:.36s"/>
+              <circle class="dot" cx="245" cy="95" r="3.5" style="animation-delay:.39s"/>
+              <circle class="dot" cx="265" cy="65" r="4.5" style="animation-delay:.42s"/>
+              <circle class="dot" cx="285" cy="125" r="3.5" style="animation-delay:.45s"/>
+              <circle class="dot" cx="300" cy="90" r="4" style="animation-delay:.48s"/>
+            </svg>
+          </div>
+          <p class="onb-heading">Ты не толстеешь и не худеешь.</p>
+          <p class="onb-body">Ты просто теряешь время, гадая по весам.</p>
+          <div class="onb-dots">
+            <span class="onb-dot active"></span><span class="onb-dot"></span><span class="onb-dot"></span>
+          </div>
+          <button class="btn btn-primary" onclick="goTo(2)">Далее</button>
+        </div>
+
+        <!-- STEP 2 — signal from noise -->
+        <div class="onb-step" id="step-2">
+          <button class="onb-skip" onclick="skipToConnect()">Пропустить</button>
+          <div class="onb-visual">
+            <svg class="anim" width="280" height="140" viewBox="0 0 400 160">
+              <circle class="dot" cx="18" cy="70" r="4" style="animation-delay:.02s"/>
+              <circle class="dot" cx="42" cy="50" r="4.5" style="animation-delay:.06s"/>
+              <circle class="dot" cx="65" cy="90" r="3.5" style="animation-delay:.1s"/>
+              <circle class="dot" cx="90" cy="62" r="4" style="animation-delay:.14s"/>
+              <circle class="dot" cx="115" cy="100" r="4" style="animation-delay:.18s"/>
+              <circle class="dot" cx="140" cy="78" r="3.5" style="animation-delay:.22s"/>
+              <circle class="dot" cx="165" cy="105" r="4.5" style="animation-delay:.26s"/>
+              <circle class="dot" cx="190" cy="85" r="4" style="animation-delay:.3s"/>
+              <circle class="dot" cx="215" cy="112" r="3.5" style="animation-delay:.34s"/>
+              <circle class="dot" cx="240" cy="95" r="4" style="animation-delay:.38s"/>
+              <circle class="dot" cx="265" cy="118" r="4" style="animation-delay:.42s"/>
+              <circle class="dot" cx="290" cy="100" r="3.5" style="animation-delay:.46s"/>
+              <circle class="dot" cx="315" cy="124" r="4.5" style="animation-delay:.5s"/>
+              <circle class="dot" cx="345" cy="108" r="4" style="animation-delay:.54s"/>
+              <path class="trend-path" stroke-width="5" d="M14,68 C70,80 130,88 190,92 C250,96 300,100 350,110"/>
+            </svg>
+          </div>
+          <p class="onb-heading">Мы отделяем сигнал от шума.</p>
+          <p class="onb-body">Ежедневные колебания — шум. Тренд — единственное число, которому стоит доверять.</p>
+          <div class="onb-dots">
+            <span class="onb-dot"></span><span class="onb-dot active"></span><span class="onb-dot"></span>
+          </div>
+          <button class="btn btn-primary" onclick="goTo(3)">Далее</button>
+        </div>
+
+        <!-- STEP 3 — connect Health -->
+        <div class="onb-step" id="step-3">
+          <div style="height:32px;"></div>
+          <div class="onb-visual dark-stage">
+            <svg width="104" height="104" viewBox="0 0 120 120">
+              <circle class="dot" cx="15" cy="40" r="3.2" style="opacity:.85"/>
+              <circle class="dot" cx="28" cy="30" r="3.6" style="opacity:.85"/>
+              <circle class="dot" cx="60" cy="60" r="3" style="opacity:.85"/>
+              <circle class="dot" cx="85" cy="68" r="3.4" style="opacity:.85"/>
+              <circle class="dot" cx="100" cy="58" r="3" style="opacity:.85"/>
+              <path class="trend-path" stroke-width="8" d="M12,38 C30,42 45,50 60,55 C78,60 95,66 110,76" style="stroke-dashoffset:0;"/>
+            </svg>
+          </div>
+          <p class="onb-heading">Подключи Health Connect</p>
+          <p class="onb-body">Мы будем автоматически получать вес, сон и шаги — вводить вручную ничего не нужно.</p>
+          <div class="onb-dots">
+            <span class="onb-dot"></span><span class="onb-dot"></span><span class="onb-dot active"></span>
+          </div>
+          <button class="btn btn-primary" id="connectBtn" onclick="connectHealth()">Подключить Health</button>
+          <a class="btn btn-secondary" id="continueLink" style="display:none;" href="cutmetrics-screens-today-summary.html">Перейти в приложение</a>
+        </div>
+
+      </div>
+    </div>
+
+    <aside class="annotations">
+      <h3>Ключевые решения</h3>
+      <div class="note"><span class="note-mark"></span><p>Ни одного вопроса пользователю — только объяснение принципа и подключение Health, как явно требует раздел 1 ТЗ. Никакой анкеты про цели/опыт на старте.</p></div>
+      <div class="note"><span class="note-mark"></span><p>Экран 1 показывает шум без сигнала — это боль, узнаваемая до того, как объяснено решение. Линия появляется только на экране 2.</p></div>
+      <div class="note"><span class="note-mark"></span><p>Экран 2 — та же композиция сигнатурного мотива, что и в дизайн-системе, не новая иллюстрация: принцип вводится один раз и переиспользуется по всему продукту.</p></div>
+      <div class="note"><span class="note-mark"></span><p>«Пропустить» есть только на объясняющих экранах. Подключение Health пропустить нельзя — без него приложение не может работать.</p></div>
+      <div class="note"><span class="note-mark"></span><p>После успешного подключения кнопка перекрашивается в Steady Green — тот же цвет, что отвечает за «статус в порядке» в еженедельном саммари, а не новый оттенок.</p></div>
+    </aside>
+  </div>
+</div>
+
+<script>
+  let step = 1;
+  function goTo(n){
+    document.querySelectorAll('.onb-step').forEach(s => s.classList.remove('active'));
+    document.getElementById('step-' + n).classList.add('active');
+    document.querySelectorAll('#step-' + n + ' .onb-dot').forEach((d,i) => d.classList.toggle('active', i === n-1));
+    step = n;
+  }
+  function skipToConnect(){ goTo(3); }
+
+  function connectHealth(){
+    const btn = document.getElementById('connectBtn');
+    btn.disabled = true;
+    btn.textContent = 'Подключаем…';
+    setTimeout(() => {
+      btn.textContent = 'Health Connect подключен ✓';
+      btn.style.background = 'var(--steady)';
+      document.getElementById('continueLink').style.display = 'block';
+    }, 900);
+  }
+</script>
+</body>
+</html>

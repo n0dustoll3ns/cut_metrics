@@ -1,8 +1,12 @@
 import 'package:cut_metrics/domain/health_data_processor.dart';
+import 'package:cut_metrics/domain/recommendation_config.dart';
 import 'package:cut_metrics/repo/health_repository_impl.dart';
-import 'package:cut_metrics/ui/dashboard_view.dart';
+import 'package:cut_metrics/services/settings_service.dart';
+import 'package:cut_metrics/ui/settings_screen.dart';
+import 'package:cut_metrics/ui/summary_screen.dart';
 import 'package:cut_metrics/ui/theme.dart';
 import 'package:cut_metrics/ui/today_screen.dart';
+import 'package:cut_metrics/ui/trend_screen.dart';
 import 'package:cut_metrics/viewmodel/dashboard_view_model.dart';
 import 'package:flutter/material.dart';
 import 'package:health/health.dart';
@@ -12,8 +16,9 @@ void main() => runApp(const CutMetricsApp());
 
 /// Корневой виджет приложения.
 ///
-/// Настраивает Provider с [DashboardViewModel], тему дизайн-системы,
-/// и нижнюю навигацию между "Сегодня" и "Дашборд".
+/// Настраивает Provider с [DashboardViewModel] и [SettingsService], тему
+/// дизайн-системы, нижнюю навигацию из 4 вкладок (Фаза 5):
+/// Сегодня · Тренд · Саммари · Настройки.
 class CutMetricsApp extends StatelessWidget {
   const CutMetricsApp({super.key});
 
@@ -31,6 +36,7 @@ class CutMetricsApp extends StatelessWidget {
               ),
               processor: HealthDataProcessor(appPackageId: 'com.example.cut_metrics'),
               health: health,
+              settingsService: SettingsService(),
             );
           },
         ),
@@ -45,7 +51,11 @@ class CutMetricsApp extends StatelessWidget {
   }
 }
 
-/// Оболочка с нижней навигацией: "Сегодня" и "Дашборд".
+/// Оболочка с нижней навигацией: Сегодня · Тренд · Саммари · Настройки.
+///
+/// Гейт «Саммари» (U3 + решение №7): вкладка открывается только когда
+/// саммари готово (≥3 взвешиваний за последние 7 дней), иначе — снекбар.
+/// При открытии фиксируется `lastSummaryShownDate`.
 class _AppShell extends StatefulWidget {
   const _AppShell();
 
@@ -56,21 +66,50 @@ class _AppShell extends StatefulWidget {
 class _AppShellState extends State<_AppShell> {
   int _currentIndex = 0;
 
-  final _screens = const [
-    TodayScreen(),
-    DashboardView(),
-  ];
+  void _selectTab(int index) {
+    final vm = context.read<DashboardViewModel>();
+
+    if (index == 2) {
+      final summary = vm.computeWeeklySummary();
+      if (summary == null) {
+        // Решение №7: снекбар, вкладка не открывается.
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(RecommendationConfig.summaryNotReadyMessage),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        return;
+      }
+      // Фиксация показа саммари (хранится, но не гейтит — U3).
+      vm.markSummaryShown();
+    }
+
+    // «Сегодня» всегда показывает 30-дневный график.
+    if (index == 0 && vm.rangeDays != RecommendationConfig.todayChartDays) {
+      vm.setRange(RecommendationConfig.todayChartDays);
+    }
+
+    setState(() => _currentIndex = index);
+  }
 
   @override
   Widget build(BuildContext context) {
+    final screens = [
+      TodayScreen(onOpenSummary: () => _selectTab(2)),
+      const TrendScreen(),
+      const SummaryScreen(),
+      const SettingsScreen(),
+    ];
+
     return Scaffold(
       body: IndexedStack(
         index: _currentIndex,
-        children: _screens,
+        children: screens,
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _currentIndex,
-        onDestinationSelected: (index) => setState(() => _currentIndex = index),
+        onDestinationSelected: _selectTab,
         destinations: const [
           NavigationDestination(
             icon: Icon(Icons.today_outlined),
@@ -80,10 +119,21 @@ class _AppShellState extends State<_AppShell> {
           NavigationDestination(
             icon: Icon(Icons.show_chart),
             selectedIcon: Icon(Icons.show_chart),
-            label: 'Дашборд',
+            label: 'Тренд',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.insights_outlined),
+            selectedIcon: Icon(Icons.insights),
+            label: 'Саммари',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.tune),
+            selectedIcon: Icon(Icons.tune),
+            label: 'Настройки',
           ),
         ],
       ),
     );
   }
 }
+

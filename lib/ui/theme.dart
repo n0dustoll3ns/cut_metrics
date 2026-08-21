@@ -109,6 +109,17 @@ class CMFonts {
         height: 1.5,
       );
 
+  /// Label/бейдж: Inter 600 — статус-беджи, метки (`.badge` дизайн-системы).
+  static TextStyle label({
+    double size = 13,
+    Color color = CMColors.ink,
+  }) =>
+      GoogleFonts.inter(
+        fontSize: size,
+        fontWeight: FontWeight.w600,
+        color: color,
+      );
+
   /// Caption/моно: Space Mono uppercase — даты, единицы, подписи.
   static TextStyle caption({
     double size = 12,

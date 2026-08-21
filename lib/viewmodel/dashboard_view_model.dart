@@ -1,12 +1,18 @@
 import 'package:collection/collection.dart';
+import 'package:cut_metrics/domain/activity_level.dart';
 import 'package:cut_metrics/domain/data_source.dart';
 import 'package:cut_metrics/domain/date_key.dart';
 import 'package:cut_metrics/domain/health_data_processor.dart';
 import 'package:cut_metrics/domain/metric_type.dart';
+import 'package:cut_metrics/domain/recommendation_config.dart';
+import 'package:cut_metrics/domain/recommendation_engine.dart';
+import 'package:cut_metrics/domain/sleep_analyzer.dart';
+import 'package:cut_metrics/domain/sleep_day.dart';
 import 'package:cut_metrics/domain/steps_day.dart';
 import 'package:cut_metrics/domain/weight_day.dart';
 import 'package:cut_metrics/repo/health_permissions.dart';
 import 'package:cut_metrics/repo/health_repository.dart';
+import 'package:cut_metrics/services/settings_service.dart';
 import 'package:flutter/foundation.dart';
 import 'package:health/health.dart';
 
@@ -39,6 +45,19 @@ class DashboardViewModel extends ChangeNotifier {
   final HealthDataProcessor _processor;
   final Health? _health;
 
+  // ─── Фаза 5: сон, настройки, саммари ─────────────────────────────────────────
+
+  final SleepAnalyzer _sleepAnalyzer = SleepAnalyzer();
+
+  /// Персистентные настройки (целевой темп, уровень активности, дата саммари).
+  ///
+  /// Опционален: в тестах без `shared_preferences` используются дефолты из
+  /// [RecommendationConfig] / [ActivityLevel.level1], записи настроек нет.
+  final SettingsService? _settings;
+
+  double _targetPace = RecommendationConfig.defaultTargetPacePercent;
+  ActivityLevel _activityLevel = ActivityLevel.level1;
+
   // ─── Публичное состояние ────────────────────────────────────────────────────
 
   DateTime get start => _start;
@@ -51,12 +70,24 @@ class DashboardViewModel extends ChangeNotifier {
   List<WeightDay> get emaData => _emaData;
   List<StepsDay> get stepsData => _stepsData;
 
+  /// Целевой темп, %/нед (слайдер в Настройках).
+  double get targetPace => _targetPace;
+
+  /// Уровень активности 1–5 (Настройки).
+  ActivityLevel get activityLevel => _activityLevel;
+
+  /// Текущая длина диапазона Тренда в днях (для подсветки сегмента).
+  int get rangeDays => _rangeDays;
+
   // ─── Приватное состояние ────────────────────────────────────────────────────
 
-  final DateTime _start;
-  final DateTime _end;
+  DateTime _start;
+  DateTime _end;
   bool _isLoading = false;
   String? _error;
+
+  /// Длина текущего диапазона Тренда в днях (7/30/90).
+  int _rangeDays = RecommendationConfig.todayChartDays;
 
   // Кеши обработанных данных (все загруженные, не только видимый диапазон).
   //
@@ -66,6 +97,9 @@ class DashboardViewModel extends ChangeNotifier {
   // Health Connect остаётся единственным источником истины.
   final Map<DateKey, WeightDay> _weightCache = {};
   final Map<DateKey, StepsDay> _stepsCache = {};
+
+  /// Ночи сна с данными (пустые ночи не попадают — С4).
+  final Map<DateKey, SleepDay> _sleepCache = {};
   Map<DateKey, WeightDay> _emaCache = {};
 
   // Данные для UI (отфильтрованы по диапазону start–end).
@@ -85,12 +119,15 @@ class DashboardViewModel extends ChangeNotifier {
     required HealthRepository repository,
     required HealthDataProcessor processor,
     Health? health,
+    SettingsService? settingsService,
     bool autoLoad = true,
-    // ignore: prefer_initializing_formals
   })  : _repo = repository,
         _processor = processor,
         _health = health,
-        _start = DateTime.now().subtract(const Duration(days: 30)),
+        _settings = settingsService,
+        _start = DateTime.now().subtract(
+          const Duration(days: RecommendationConfig.todayChartDays - 1),
+        ),
         _end = DateTime.now() {
     if (autoLoad) load();
   }
@@ -109,6 +146,12 @@ class DashboardViewModel extends ChangeNotifier {
     notifyListeners();
 
     try {
+      // Настройки Фазы 5 (целевой темп, уровень активности).
+      if (_settings != null) {
+        _targetPace = await _settings.loadTargetPace();
+        _activityLevel = await _settings.loadActivityLevel();
+      }
+
       // Permissions — только если есть реальный Health (не тест с моком).
       if (_health != null) {
         final granted = await checkAndRequestPermissions(_health);
@@ -118,28 +161,47 @@ class DashboardViewModel extends ChangeNotifier {
         }
       }
 
+      // Грузим за maxTrendDays (90) — движку рекомендаций нужен вес за окно
+      // независимо от того, какой сегмент Тренда смотрит пользователь.
+      final loadStart = DateTime.now().subtract(
+        const Duration(days: RecommendationConfig.maxTrendDays - 1),
+      );
+
       // Загружаем сырые точки веса батчем за весь диапазон.
       final weightPoints = await _repo.fetchRawData(
         types: const [HealthDataType.WEIGHT],
-        startDate: _start,
+        startDate: loadStart,
         endDate: _end,
       );
 
       // Загружаем сырые точки шагов + агрегированные значения по каждой дате.
       final stepsPoints = await _repo.fetchRawData(
         types: const [HealthDataType.STEPS],
-        startDate: _start,
+        startDate: loadStart,
         endDate: _end,
       );
 
       // Агрегация шагов за весь диапазон одним запросом (Фаза 4, DoD 3).
       // Ранее был цикл из N вызовов aggregateExternalSteps по одному на день —
       // теперь один батчевый вызов к Health Connect.
-      final aggregatedByDate = await _repo.aggregateExternalStepsForRange(_start, _end);
+      final aggregatedByDate = await _repo.aggregateExternalStepsForRange(loadStart, _end);
+
+      // Сон: с запасом −1 день — ночь, начавшаяся в 23:00, относится к
+      // следующему дню сна (правило С3).
+      final sleepPoints = await _repo.fetchRawData(
+        types: kSleepTypes,
+        startDate: loadStart.subtract(const Duration(days: 1)),
+        endDate: _end,
+      );
 
       // Резолюция приоритета источников (Tier 1 → Tier 2).
       final weightResolved = _processor.resolveWeightForAllDates(weightPoints);
       final stepsResolved = _processor.resolveStepsForAllDates(stepsPoints, aggregatedByDate);
+      final sleepResolved = _sleepAnalyzer.analyze(
+        rawPoints: sleepPoints,
+        rangeStart: loadStart,
+        rangeEnd: _end,
+      );
 
       // Обновляем кеши.
       _weightCache
@@ -148,6 +210,9 @@ class DashboardViewModel extends ChangeNotifier {
       _stepsCache
         ..clear()
         ..addAll(stepsResolved);
+      _sleepCache
+        ..clear()
+        ..addAll(sleepResolved);
 
       // EMA пересчитывается по актуальному кешу весов.
       _emaCache = _processor.computeEma(_weightCache, _emaPeriod);
@@ -216,6 +281,115 @@ class DashboardViewModel extends ChangeNotifier {
         .where((e) => inRange(e.key))
         .map((e) => e.value)
         .sorted((a, b) => a.date.compareTo(b.date));
+  }
+
+  // ─── API Фазы 5: диапазоны, средние, саммари, настройки ──────────────────────
+
+  /// Меняет длину диапазона Тренда (7/30/90 дней).
+  ///
+  /// Данные уже загружены за [RecommendationConfig.maxTrendDays] при [load],
+  /// поэтому смена в пределах 90 дней — только пересортировка кеша, без похода
+  /// в Health Connect.
+  void setRange(int days) {
+    _rangeDays = days;
+    _start = DateTime.now().subtract(Duration(days: days - 1));
+    _end = DateTime.now();
+    _refreshChartData();
+    notifyListeners();
+  }
+
+  /// Среднесуточный сон за диапазон, ч — только по ночам с данными (С4:
+  /// пустые ночи исключаются из знаменателя). `null` — нет ни одной ночи.
+  double? get avgSleepHours {
+    final nights = _sleepCache.values
+        .where((n) => n.date.value.isInsideInterval(_start, _end))
+        .toList();
+    if (nights.isEmpty) return null;
+    final total = nights.map((n) => n.total).reduce((a, b) => a + b);
+    return total / nights.length;
+  }
+
+  /// Среднесуточные шаги за диапазон — по дням с записями. `null` — нет данных.
+  int? get avgSteps {
+    final days = _stepsCache.entries
+        .where((e) => e.key.value.isInsideInterval(_start, _end))
+        .toList();
+    if (days.isEmpty) return null;
+    final total = days.map((e) => e.value.steps).reduce((a, b) => a + b);
+    return (total / days.length).round();
+  }
+
+  /// Среднесуточный расход калорий за диапазон («Активность» на Тренде):
+  /// шаги (день без записи = 0 шагов) + добавка уровня активности, по ВСЕМ
+  /// дням диапазона. `null` — нет ни одного веса (нечем считать).
+  double? get avgCaloriesPerDay {
+    final latestWeight = _latestWeight();
+    if (latestWeight == null) return null;
+
+    final days = _end.onlyDate.difference(_start.onlyDate).inDays + 1;
+    var sum = 0.0;
+    for (var i = 0; i < days; i++) {
+      final date = DateKey(_start.onlyDate.add(Duration(days: i)));
+      final steps = _stepsCache[date]?.steps ?? 0;
+      sum += dailyCaloriesBurned(
+        steps: steps,
+        weightKg: latestWeight,
+        level: _activityLevel,
+      );
+    }
+    return sum / days;
+  }
+
+  /// Самый свежой резолвленный вес из кеша (для формулы калорий), или `null`.
+  double? _latestWeight() {
+    if (_weightCache.isEmpty) return null;
+    final sorted = _weightCache.values.toList()
+      ..sort((a, b) => a.date.compareTo(b.date));
+    return sorted.last.weight;
+  }
+
+  /// Сглаженный вес «на сегодня» — последняя точка EMA-линии дашборда.
+  ///
+  /// Это то самое большое число на вкладке «Сегодня» (аннотация макета:
+  /// «большое число на экране это и есть последняя точка сглаженной линии»).
+  /// `null` — данных нет.
+  double? get smoothedWeightToday => _emaData.isEmpty ? null : _emaData.last.weight;
+
+  /// Пересчитывает еженедельное саммари за скользящие 7 дней (U3: при каждом
+  /// вызове, без еженедельного гейта).
+  ///
+  /// `null` — недостаточно данных: в окне меньше
+  /// [RecommendationConfig.minWeightPointsInWindow] сырых точек веса.
+  WeeklySummary? computeWeeklySummary() {
+    final engineEma = _processor.computeEma(
+      _weightCache,
+      RecommendationConfig.engineEmaPeriod,
+    );
+    return RecommendationEngine.compute(
+      weightCache: _weightCache,
+      emaCache: engineEma,
+      today: DateTime.now(),
+      targetPacePercent: _targetPace,
+    );
+  }
+
+  /// Фиксирует факт показа саммари (хранится, но не гейтит показ — U3).
+  Future<void> markSummaryShown() async {
+    await _settings?.saveLastSummaryShownDate(DateTime.now());
+  }
+
+  /// Устанавливает целевой темп (слайдер в Настройках, мгновенное применение).
+  Future<void> setTargetPace(double value) async {
+    _targetPace = value;
+    await _settings?.saveTargetPace(value);
+    notifyListeners();
+  }
+
+  /// Устанавливает уровень активности 1–5 (Настройки, мгновенное применение).
+  Future<void> setActivityLevel(ActivityLevel level) async {
+    _activityLevel = level;
+    await _settings?.saveActivityLevel(level);
+    notifyListeners();
   }
 
   // ─── API Фазы 3: подтверждение значения (секция 8 спеки) ─────────────────────

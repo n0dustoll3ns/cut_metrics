@@ -1,12 +1,64 @@
 # cut_metrics — карта проекта
 
-> Flutter-приложение для отслеживания метрик здоровья (вес, шаги, сон, питание).
+> Flutter-приложение для отслеживания метрик здоровья (вес, шаги, сон, активность).
 > Данные берутся из Health Connect (Android) через пакет `health`.
-> Последний code review + применение фиксов: 2026-06-29.
+> Последний code review + применение фиксов: 2026-06-29. Фаза 5 реализована: 2026-08-21.
 
 ---
 
-## Архитектура
+## Текущая структура (Фазы 1–5, актуальная)
+
+```
+lib/
+  main.dart                        — 4 вкладки: Сегодня · Тренд · Саммари · Настройки
+  domain/
+    data_source.dart               — DataSource { manual, external } (Tier 1/2)
+    date_key.dart                  — DateKey + OnlyDate
+    weight_day.dart, steps_day.dart— модели с source + ==/hashCode
+    health_data_processor.dart     — резолюция Tier1→Tier2, батч, computeEma
+    sleep_analyzer.dart            — сон (перенос из old_proj + ASLEEP-приоритет, слои merge)
+    sleep_day.dart                 — SleepDay (total = asleep | deep+light+rem)
+    recommendation_engine.dart     — WeeklySummary/PaceStatus (чистый Dart)
+    recommendation_config.dart     — ВСЕ константы Фазы 5 в одном месте
+    activity_level.dart            — уровни 1–5 + калории (шаги×вес×0.0005 + добавка)
+    metric_type.dart
+  repo/
+    health_repository.dart         — контракт
+    health_repository_impl.dart    — Health Connect через `health`
+    mock_health_repository.dart    — мок (+хелперы сна)
+    health_permissions.dart        — permissions, kSleepTypes
+  services/
+    settings_service.dart          — targetPace/activityLevel/lastSummaryShown (SharedPreferences)
+  viewmodel/
+    dashboard_view_model.dart      — кеши (вес/шаги/сон/EMA), setRange, средние,
+                                     computeWeeklySummary, setTargetPace/setActivityLevel
+  ui/
+    theme.dart                     — токены дизайн-системы (+CMFonts.label)
+    source_badge.dart              — беджи «Из Health Connect»/«Ручной ввод» (B.2/B.3)
+    metric_card.dart, metric_card_state.dart — 5 состояний + бедж источника (B.6)
+    today_screen.dart              — сглаженный вес 60px + график 30д + карточки
+    trend_screen.dart              — Неделя/Месяц/3 мес + среднесуточные (сон/шаги/ккал)
+    summary_screen.dart            — саммари (статус, %/нед, ±кг, рекомендация)
+    settings_screen.dart           — слайдер темпа 0.3–1.4 + уровень активности
+```
+
+**Ключевая логика Фазы 5:**
+- Саммари: пересчёт при каждом открытии за скользящие 7 дней; ≥3 взвешиваний в окне,
+  иначе снекбар (гейт в `main.dart::_selectTab`); темп нормализуется к неделе
+  (`Δ% × 7 / дни между крайними точками`); tolerance ±0.15 п.п.; дефолт темпа 0.8%.
+- Активность = шаги×вес×0.0005 ккал + добавка уровня (ккал/кг/день: 0/1.5/3/4.5/6).
+- Сон: правило «после 12:00 → следующий день»; ASLEEP приоритетнее стадий; merge по слоям.
+- Данные грузятся за 90 дней (maxTrendDays) всегда — движок не зависит от сегмента Тренда.
+- Тесты: 90 (все зелёные), `flutter analyze` — 2 info / 0 errors.
+
+Спеки Фаз 1–5 — в `docs/phase*.md`; изменения Фазы 5 по сбору требований —
+`docs/phase5_ui_screens_and_activity_spec.md` + секция «Изменения» в конце
+`docs/phase5_recommendation_and_indicator_spec.md`. Макеты экранов —
+`docs/screen-*.html`.
+
+---
+
+## Архитектура СТАРОЙ версии (lib/old_proj, не компилируется с новым main)
 
 ```
 main.dart

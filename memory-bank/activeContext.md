@@ -27,6 +27,15 @@
 резолюция батчевая (тесты проверяют: 1 вызов `aggregateExternalStepsForRange` + 2
 `fetchRawData` при `load()`). 2 новых теста (всего 49 — все зелёные), `flutter analyze` чист (2 info, 0 errors).
 
+**Фаза 5 завершена** (2026-08-21): `RecommendationEngine` + индикатор источника +
+полная перестройка UI по макетам (4 вкладки). 41 новый тест (всего 90 — все зелёные),
+`flutter analyze` 2 info / 0 errors. Ключевые решения зафиксированы в
+`docs/phase5_ui_screens_and_activity_spec.md` + секция «Изменения» в
+`docs/phase5_recommendation_and_indicator_spec.md` (слайдер вместо пресетов, дефолт 0.8%,
+ежедневный пересчёт саммари вместо A.6, нормализация темпа к неделе, сон с ASLEEP-приоритетом
+и послойным merge, активность = шаги×вес×0.0005 + уровни 1–5). Все константы Фазы 5 —
+в `lib/domain/recommendation_config.dart` (требование пользователя: менять в одном месте).
+
 **Сборка APK починена** (2026-08-18): `flutter build apk` падал с
 `System.OutOfMemoryException` в `flutter\bin\internal\update_engine_version.ps1`
 ("Unable to determine engine version") — на общей RDP-машине исчерпывался commit-лимит,
@@ -49,11 +58,42 @@ JVM-аппетиты (`-Xmx3G`, metaspace 1G, `workers.max=2`). APK собира
 
 ## Следующий шаг
 
-Фаза 5 (`docs/phase5_recommendation_and_indicator_spec.md`) — RecommendationEngine и индикатор
-источника. Чистый Dart-класс: темп изменения веса (%/нед), статус (в темпе / медленно / быстро),
-рекомендация по калориям. UI-индикатор источника (manual/external) на карточках.
+Фазы 1–5 реализованы. Дальше — проверка на устройстве (UI Фазы 5 + 4 технических риска
+из `techContext.md` + сборка APK), затем по отдельному запросу — Фаза 6 (AccessGate,
+не начинать без явного требования).
 
-## Созданные файлы Фазы 1
+## Созданные файлы Фазы 5
+
+- `docs/phase5_ui_screens_and_activity_spec.md` — ТЗ дополнений (экраны, активность, сон)
+- `lib/domain/recommendation_config.dart` — ВСЕ константы Фазы 5 в одном месте
+- `lib/domain/recommendation_engine.dart` — `PaceStatus`, `WeeklySummary`, `compute()`
+- `lib/domain/activity_level.dart` — уровни 1–5, `stepsToKcal`, `dailyCaloriesBurned`
+- `lib/domain/sleep_day.dart` — `SleepDay` (total = asleep | deep+light+rem)
+- `lib/domain/sleep_analyzer.dart` — перенос из old_proj + ASLEEP-приоритет + слои merge
+- `lib/services/settings_service.dart` — targetPace/activityLevel/lastSummaryShownDate
+- `lib/ui/source_badge.dart` — беджи источника (B.2/B.3, без новых hex)
+- `lib/ui/trend_screen.dart` — Неделя/Месяц/3 мес + среднесуточные
+- `lib/ui/summary_screen.dart` — саммари по макету
+- `lib/ui/settings_screen.dart` — слайдер темпа + уровень активности
+- `test/domain/recommendation_engine_test.dart` — 11 тестов (статусы, границы, null)
+- `test/domain/activity_level_test.dart` — 10 тестов
+- `test/domain/sleep_analyzer_test.dart` — 9 тестов
+- `test/services/settings_service_test.dart` — 6 тестов
+
+## Изменённые файлы Фазы 5
+
+- `lib/main.dart` — 4 вкладки, гейт «Саммари» (снекбар), SettingsService
+- `lib/viewmodel/dashboard_view_model.dart` — кеш сна, `setRange`, средние,
+  `computeWeeklySummary`, настройки, загрузка за 90 дней
+- `lib/repo/mock_health_repository.dart` — `addSleepStage`/`addSleepAsleep`/`_makeIntervalPoint`
+- `lib/ui/metric_card.dart` — интеграция `SourceBadge`, удалён старый бейдж «РУЧНОЙ ВВОД»
+- `lib/ui/theme.dart` — `CMFonts.label` (Inter 600)
+- `lib/ui/today_screen.dart` — перестроен по макету (сглаженный вес, график, кнопка саммари)
+- `docs/phase5_recommendation_and_indicator_spec.md` — секция «Изменения по итогам сбора требований»
+- `test/viewmodel/dashboard_view_model_test.dart` — fetchRawData 2→3, 8 новых тестов
+- Удалены: `lib/ui/dashboard_view.dart`, `lib/ui/steps_chart.dart` (заменены Трендом)
+
+## Явно вне скоупа прямо сейчас
 
 - `lib/domain/data_source.dart` — enum `DataSource { manual, external }`
 - `lib/domain/metric_type.dart` — enum `MetricType { weight, steps }`

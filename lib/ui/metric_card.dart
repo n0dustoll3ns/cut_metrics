@@ -1,6 +1,8 @@
+import 'package:cut_metrics/domain/data_source.dart';
 import 'package:cut_metrics/domain/date_key.dart';
 import 'package:cut_metrics/domain/metric_type.dart';
 import 'package:cut_metrics/ui/metric_card_state.dart';
+import 'package:cut_metrics/ui/source_badge.dart';
 import 'package:cut_metrics/ui/theme.dart';
 import 'package:cut_metrics/viewmodel/dashboard_view_model.dart';
 import 'package:flutter/material.dart';
@@ -133,6 +135,9 @@ class _MetricCardState extends State<MetricCard> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _ValueDisplay(value: value.value, unit: _unit),
+          const SizedBox(height: CMSpacing.sp2),
+          // Бедж источника: Фаза 5, часть B, таблица B.6.
+          const SourceBadge(source: DataSource.external),
           const SizedBox(height: CMSpacing.sp3),
           Row(
             children: [
@@ -202,7 +207,10 @@ class _MetricCardState extends State<MetricCard> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _ValueDisplay(value: value.value, unit: _unit, confirmed: true),
+          _ValueDisplay(value: value.value, unit: _unit),
+          const SizedBox(height: CMSpacing.sp2),
+          // Бедж источника: Фаза 5, часть B, таблица B.6.
+          const SourceBadge(source: DataSource.manual),
           const SizedBox(height: CMSpacing.sp3),
           TextButton.icon(
             onPressed: _cancelValue,
@@ -322,15 +330,16 @@ class _CardShell extends StatelessWidget {
 }
 
 /// Отображение значения метрики.
+///
+/// Бедж источника выведен из этого виджета в Фазе 5 — состоянием карточки
+/// управляет [SourceBadge] (таблица B.6), рядом со значением только число и юнит.
 class _ValueDisplay extends StatelessWidget {
   final num value;
   final String unit;
-  final bool confirmed;
 
   const _ValueDisplay({
     required this.value,
     required this.unit,
-    this.confirmed = false,
   });
 
   @override
@@ -348,24 +357,6 @@ class _ValueDisplay extends StatelessWidget {
         ),
         const SizedBox(width: CMSpacing.sp1),
         Text(unit, style: CMFonts.caption(size: 12)),
-        if (confirmed) ...[
-          const SizedBox(width: CMSpacing.sp2),
-          Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: CMSpacing.sp2,
-              vertical: CMSpacing.sp1,
-            ),
-            decoration: BoxDecoration(
-              color: CMColors.signalTint,
-              borderRadius: BorderRadius.circular(CMRadius.sm),
-              border: Border.all(color: CMColors.signal),
-            ),
-            child: Text(
-              'РУЧНОЙ ВВОД',
-              style: CMFonts.caption(size: 10, color: CMColors.signal),
-            ),
-          ),
-        ],
       ],
     );
   }

@@ -69,6 +69,34 @@ class MockHealthRepository implements HealthRepository {
     addPoint(_makeStepsPoint(date, steps, appPackageId, RecordingMethod.manual));
   }
 
+  /// Добавляет интервал стадии сна (DEEP/LIGHT/REM) — внешний трекер.
+  ///
+  /// [from]/[to] — точные временные метки (не день): интервалы сна пересекают
+  /// полночь, анализатор группирует их по правилу «после 12:00 → следующий день».
+  void addSleepStage(
+    DateTime from,
+    DateTime to, {
+    HealthDataType type = HealthDataType.SLEEP_LIGHT,
+    String sourceId = kExternalSourceId,
+  }) {
+    assert(
+      type == HealthDataType.SLEEP_DEEP ||
+          type == HealthDataType.SLEEP_LIGHT ||
+          type == HealthDataType.SLEEP_REM,
+      'addSleepStage expects a sleep stage type, got $type',
+    );
+    addPoint(_makeIntervalPoint(from, to, type, sourceId));
+  }
+
+  /// Добавляет интервал общей длительности сна (`SLEEP_ASLEEP`) — внешний трекер.
+  void addSleepAsleep(
+    DateTime from,
+    DateTime to, {
+    String sourceId = kExternalSourceId,
+  }) {
+    addPoint(_makeIntervalPoint(from, to, HealthDataType.SLEEP_ASLEEP, sourceId));
+  }
+
   /// Переопределяет результат `aggregateExternalSteps` для конкретной даты.
   ///
   /// Позволяет тесту напрямую задать «агрегированное» значение,
@@ -233,6 +261,27 @@ class MockHealthRepository implements HealthRepository {
       type: HealthDataType.WEIGHT,
       unit: HealthDataUnit.KILOGRAM,
       recordingMethod: recordingMethod,
+    );
+  }
+
+  HealthDataPoint _makeIntervalPoint(
+    DateTime from,
+    DateTime to,
+    HealthDataType type,
+    String sourceId,
+  ) {
+    return HealthDataPoint(
+      sourceName: sourceId,
+      uuid: '',
+      sourceDeviceId: '',
+      sourceId: sourceId,
+      sourcePlatform: HealthPlatformType.googleHealthConnect,
+      value: NumericHealthValue(numericValue: to.difference(from).inMinutes),
+      dateFrom: from,
+      dateTo: to,
+      type: type,
+      unit: HealthDataUnit.MINUTE,
+      recordingMethod: RecordingMethod.automatic,
     );
   }
 

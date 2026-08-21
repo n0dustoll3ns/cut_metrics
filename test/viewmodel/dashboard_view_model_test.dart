@@ -1,7 +1,9 @@
+import 'package:cut_metrics/domain/activity_level.dart';
 import 'package:cut_metrics/domain/data_source.dart';
 import 'package:cut_metrics/domain/date_key.dart';
 import 'package:cut_metrics/domain/health_data_processor.dart';
 import 'package:cut_metrics/domain/metric_type.dart';
+import 'package:cut_metrics/domain/recommendation_engine.dart';
 import 'package:cut_metrics/repo/mock_health_repository.dart';
 import 'package:cut_metrics/viewmodel/dashboard_view_model.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -174,7 +176,7 @@ void main() {
       expect(repo.aggregateExternalStepsCallCount, 0);
     });
 
-    test('load() makes exactly 2 fetchRawData calls (weight + steps)', () async {
+    test('load() makes exactly 3 fetchRawData calls (weight + steps + sleep)', () async {
       await setupViewModel(externalWeights: [80, 79, 78]);
 
       repo.fetchRawDataCallCount = 0;
@@ -185,8 +187,101 @@ void main() {
       );
       await vm.load();
 
-      // Один вызов для WEIGHT + один для STEPS = 2.
-      expect(repo.fetchRawDataCallCount, 2);
+      // Один вызов для WEIGHT + один для STEPS + один для SLEEP = 3 (Фаза 5).
+      expect(repo.fetchRawDataCallCount, 3);
+    });
+  });
+
+  group('Phase 5: range / averages / summary', () {
+    test('setRange changes visible range without new fetches', () async {
+      await setupViewModel(externalWeights: [80, 79, 78, 77, 76]);
+
+      repo.fetchRawDataCallCount = 0;
+      vm.setRange(7);
+      expect(repo.fetchRawDataCallCount, 0);
+      expect(vm.rangeDays, 7);
+      expect(vm.start.isAfter(DateTime.now().subtract(const Duration(days: 7))), isTrue);
+    });
+
+    test('computeWeeklySummary returns null with too few points', () async {
+      await setupViewModel(externalWeights: [80]); // 1 точка в окне
+      expect(vm.computeWeeklySummary(), isNull);
+    });
+
+    test('computeWeeklySummary computes with enough recent points', () async {
+      await setupViewModel(externalWeights: [100, 99.8, 99.6, 99.4, 99.2]);
+      final summary = vm.computeWeeklySummary();
+      expect(summary, isNotNull);
+      expect(summary!.status, anyOf(PaceStatus.inPace, PaceStatus.tooSlow, PaceStatus.tooFast));
+      // Темп снижения: вес падает → фактический темп отрицательный.
+      expect(summary.actualPacePercent, lessThan(0));
+      expect(summary.recommendationText, isNotEmpty);
+    });
+
+    test('avgSleepHours counts only nights with data', () async {
+      await setupViewModel(externalWeights: [80]);
+
+      final now = DateTime.now();
+      // Ночь: вчера 23:00 → сегодня 07:00 = 8 ч (день сна — сегодня).
+      repo.addSleepAsleep(
+        DateTime(now.year, now.month, now.day - 1, 23),
+        DateTime(now.year, now.month, now.day, 7),
+      );
+      vm = DashboardViewModel(
+        repository: repo,
+        processor: processor,
+        autoLoad: false,
+      );
+      await vm.load();
+
+      expect(vm.avgSleepHours, closeTo(8, 1e-9));
+    });
+
+    test('avgSteps counts days with records', () async {
+      await setupViewModel(externalWeights: [80]);
+
+      final now = DateTime.now();
+      repo.addExternalSteps(now, 10000);
+      repo.addExternalSteps(now.subtract(const Duration(days: 1)), 6000);
+      vm = DashboardViewModel(
+        repository: repo,
+        processor: processor,
+        autoLoad: false,
+      );
+      await vm.load();
+
+      expect(vm.avgSteps, 8000);
+    });
+
+    test('avgCaloriesPerDay is null without any weight', () async {
+      await setupViewModel();
+      expect(vm.avgCaloriesPerDay, isNull);
+    });
+
+    test('avgCaloriesPerDay = steps kcal + level additive', () async {
+      await setupViewModel(externalWeights: [80]); // вес 80 кг
+      await vm.setActivityLevel(ActivityLevel.level1);
+
+      final now = DateTime.now();
+      repo.addExternalSteps(now, 10000); // 400 ккал за сегодня
+      vm = DashboardViewModel(
+        repository: repo,
+        processor: processor,
+        autoLoad: false,
+      );
+      await vm.load();
+      await vm.setActivityLevel(ActivityLevel.level1);
+
+      // 30 дней диапазона, шаги только за 1 день: (400 + 0×29) / 30 ≈ 13.33.
+      expect(vm.avgCaloriesPerDay, closeTo(400 / 30, 1e-6));
+    });
+
+    test('smoothedWeightToday returns last EMA point', () async {
+      await setupViewModel(externalWeights: [80, 79, 78]);
+      expect(vm.smoothedWeightToday, isNotNull);
+      // EMA сошлась к последнему весу 78 (сглаженная < первой точки).
+      expect(vm.smoothedWeightToday!, lessThan(80));
+      expect(vm.smoothedWeightToday!, greaterThan(77));
     });
   });
 }

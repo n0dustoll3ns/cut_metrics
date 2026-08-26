@@ -30,6 +30,7 @@ lib/
   services/
     settings_service.dart          — targetPace/activityLevel/lastSummaryShown (SharedPreferences)
     debug_log.dart                 — in-memory журнал отладки (кольцевой буфер 1000, ChangeNotifier)
+    app_settings_opener.dart       — MethodChannel → настройки приложения Android (кнопка разрешений)
   viewmodel/
     dashboard_view_model.dart      — кеши (вес/шаги/сон/EMA), setRange, средние,
                                      computeWeeklySummary, setTargetPace/setActivityLevel
@@ -37,7 +38,7 @@ lib/
     theme.dart                     — токены дизайн-системы (+CMFonts.label)
     source_badge.dart              — беджи «Из Health Connect»/«Ручной ввод» (B.2/B.3)
     metric_card.dart, metric_card_state.dart — 5 состояний + бедж источника (B.6)
-    today_screen.dart              — сглаженный вес 60px + график 30д + карточки
+    today_screen.dart              — сглаженный вес 60px + график 30д + карточки + баннер разрешений HC
     trend_screen.dart              — Неделя/Месяц/3 мес + среднесуточные (сон/шаги/ккал)
     summary_screen.dart            — саммари (статус, %/нед, ±кг, рекомендация)
     settings_screen.dart           — слайдер темпа 0.3–1.4 + уровень активности + подпись версии
@@ -51,7 +52,7 @@ lib/
 - Активность = шаги×вес×0.0005 ккал + добавка уровня (ккал/кг/день: 0/1.5/3/4.5/6).
 - Сон: правило «после 12:00 → следующий день»; ASLEEP приоритетнее стадий; merge по слоям.
 - Данные грузятся за 90 дней (maxTrendDays) всегда — движок не зависит от сегмента Тренда.
-- Тесты: 100 (все зелёные), `flutter analyze` — 2 info / 0 errors.
+- Тесты: 104 (все зелёные), `flutter analyze` — 4 info / 0 errors.
 
 **Журнал отладки (2026-08-26, для проверки релиза на устройстве):**
 - `DebugLog` (`lib/services/debug_log.dart`) — in-memory за сессию (не персистентно),
@@ -64,6 +65,30 @@ lib/
 - Логи закрывают все 4 техриска Фаз 2/4: sourceId источников (№1), getTotalStepsInInterval (№2),
   delete() (№3), getHealthIntervalDataFromTypes по дням (№4) — в сообщениях тега `repo`.
 - Тесты: `test/services/debug_log_test.dart` (10 шт.).
+
+**Кнопка перехода в настройки разрешений (2026-08-26):**
+- Если `load()` упёрся в отказ разрешений Health Connect — на «Сегодня» показывается
+  `PermissionsBanner` (`lib/ui/today_screen.dart`, вместо `ErrorBox`) с кнопкой
+  «Открыть настройки разрешений».
+- Кнопка открывает страницу приложения в системных настройках Android
+  (Настройки → Приложения → Cut Metrics → Разрешения) — решение пользователя от 2026-08-26.
+- Реализация: `AppSettingsOpener` (`lib/services/app_settings_opener.dart`) → MethodChannel
+  `cut_metrics/app_settings` → `MainActivity.kt` (`ACTION_APPLICATION_DETAILS_SETTINGS`,
+  try/catch ActivityNotFoundException). Новых зависимостей нет.
+- Возврат в приложение: `WidgetsBindingObserver` в `main.dart` (`didChangeAppLifecycleState`)
+  → `DashboardViewModel.recheckPermissions()` — тихая проверка `Health.hasPermissions`
+  (без системного диалога); права выданы → `load()`, баннер исчезает; не выданы → баннер остаётся.
+- ViewModel: флаг `permissionsDenied` + injectable `permissionCheck`/`permissionStatusCheck`
+  (для тестов). Тесты: 4 новых в `test/viewmodel/dashboard_view_model_test.dart` (группа permissions).
+- Проверено: `flutter test` — 104 зелёных; `flutter analyze` — 4 info / 0 errors;
+  `flutter build apk --debug` — успешно (Kotlin-канал компилируется).
+- ⚠️ Поведение кнопки и авто-исчезновение баннера после возврата — проверить на устройстве.
+
+**Попутный фикс сборки (2026-08-26):** `ic_launcher_playstore_512.png` лежал в
+`android/app/src/main/res/play_store/` — это ломало ЛЮБУЮ сборку
+(`:app:packageDebugResources`: «The file name must end with .xml», файлы в `res/`
+должны быть ресурсами). Перенесён в `android/app/play_store/` (вне `res/`, для стора).
+
 
 Спеки Фаз 1–5 — в `docs/phase*.md`; изменения Фазы 5 по сбору требований —
 `docs/phase5_ui_screens_and_activity_spec.md` + секция «Изменения» в конце

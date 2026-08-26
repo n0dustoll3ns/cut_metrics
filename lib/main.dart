@@ -71,8 +71,30 @@ class _AppShell extends StatefulWidget {
   State<_AppShell> createState() => _AppShellState();
 }
 
-class _AppShellState extends State<_AppShell> {
+class _AppShellState extends State<_AppShell> with WidgetsBindingObserver {
   int _currentIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  /// Возврат в приложение (например, после выдачи разрешений в системных
+  /// настройках — кнопка на баннере «Сегодня»): тихо перепроверяем права
+  /// без диалога; если выданы — данные перезагружаются, баннер исчезает.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      context.read<DashboardViewModel>().recheckPermissions();
+    }
+  }
 
   void _selectTab(int index) {
     final vm = context.read<DashboardViewModel>();

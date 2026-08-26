@@ -1,5 +1,6 @@
 import 'package:cut_metrics/domain/date_key.dart';
 import 'package:cut_metrics/domain/metric_type.dart';
+import 'package:cut_metrics/services/app_settings_opener.dart';
 import 'package:cut_metrics/ui/metric_card.dart';
 import 'package:cut_metrics/ui/theme.dart';
 import 'package:cut_metrics/ui/weight_chart.dart';
@@ -50,6 +51,14 @@ class TodayScreen extends StatelessWidget {
             padding: const EdgeInsets.only(bottom: CMSpacing.sp4),
             child: Text(dateStr, style: CMFonts.caption(size: 12)),
           ),
+
+          // Баннер «нет разрешений» — кнопка в системные настройки (2026-08-26).
+          // Показывается вместо ErrorBox: отказ в разрешениях — не ошибка,
+          // а состояние, требующее действия пользователя.
+          if (vm.permissionsDenied) ...[
+            const PermissionsBanner(),
+            const SizedBox(height: CMSpacing.sp4),
+          ],
 
           // Сглаженный вес — большое число
           Text(
@@ -104,8 +113,8 @@ class TodayScreen extends StatelessWidget {
             viewModel: vm,
           ),
 
-          // Ошибка (если есть)
-          if (vm.error != null) ...[
+          // Ошибка (если есть). Отказ в разрешениях покрыт баннером выше.
+          if (vm.error != null && !vm.permissionsDenied) ...[
             const SizedBox(height: CMSpacing.sp4),
             ErrorBox(message: vm.error!),
           ],
@@ -138,6 +147,62 @@ class ErrorBox extends StatelessWidget {
             child: Text(
               message,
               style: CMFonts.body(size: 14, color: CMColors.alert),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Баннер «разрешения Health Connect не выданы» (2026-08-26).
+///
+/// Показывается на «Сегодня» (вместо [ErrorBox]), когда
+/// [DashboardViewModel.permissionsDenied]. Кнопка открывает страницу
+/// приложения в системных настройках Android (Настройки → Приложения →
+/// Cut Metrics → Разрешения) — согласовано с пользователем 2026-08-26.
+///
+/// После возврата в приложение `_AppShell` (WidgetsBindingObserver) тихо
+/// перепроверяет права и перезагружает данные — баннер исчезает сам.
+class PermissionsBanner extends StatelessWidget {
+  const PermissionsBanner({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(CMSpacing.sp4),
+      decoration: BoxDecoration(
+        color: CMColors.alertTint,
+        borderRadius: BorderRadius.circular(CMRadius.md),
+        border: Border.all(color: CMColors.alertBorder),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(
+                Icons.health_and_safety_outlined,
+                color: CMColors.alert,
+                size: 20,
+              ),
+              const SizedBox(width: CMSpacing.sp2),
+              Expanded(
+                child: Text(
+                  'Нет разрешений для доступа к Health Connect. Откройте '
+                  'настройки приложения и разрешите доступ к данным о здоровье.',
+                  style: CMFonts.body(size: 14, color: CMColors.alert),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: CMSpacing.sp3),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: AppSettingsOpener.openAppSettings,
+              icon: const Icon(Icons.settings_outlined, size: 18),
+              label: const Text('Открыть настройки разрешений'),
             ),
           ),
         ],

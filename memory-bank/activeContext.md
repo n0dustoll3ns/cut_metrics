@@ -59,8 +59,9 @@ JVM-аппетиты (`-Xmx3G`, metaspace 1G, `workers.max=2`). APK собира
 ## Следующий шаг
 
 Фазы 1–5 реализованы. Дальше — проверка на устройстве (UI Фазы 5 + 4 технических риска
-из `techContext.md` + сборка APK; для разбора в release — журнал отладки, секция ниже),
-затем по отдельному запросу — Фаза 6 (AccessGate, не начинать без явного требования).
+из `techContext.md` + баннер разрешений с кнопкой в настройки + сборка APK; для разбора
+в release — журнал отладки, секция ниже), затем по отдельному запросу — Фаза 6
+(AccessGate, не начинать без явного требования).
 
 ## Журнал отладки (2026-08-26)
 
@@ -89,6 +90,43 @@ JVM-аппетиты (`-Xmx3G`, metaspace 1G, `workers.max=2`). APK собира
 `test/services/debug_log_test.dart`. Изменённые: `lib/main.dart`,
 `lib/viewmodel/dashboard_view_model.dart`, `lib/repo/health_repository_impl.dart`,
 `lib/repo/health_permissions.dart`, `lib/ui/settings_screen.dart`, `README.md`.
+
+## Баннер разрешений + кнопка в системные настройки (2026-08-26)
+
+Когда `load()` упирается в отказ разрешений Health Connect, экран «Сегодня» показывает
+`PermissionsBanner` (вместо `ErrorBox`) с кнопкой «Открыть настройки разрешений».
+Решение пользователя (2026-08-26): кнопка ведёт на страницу приложения в системных
+настройках Android (`ACTION_APPLICATION_DETAILS_SETTINGS`), НЕ в настройки Health Connect.
+
+- `lib/services/app_settings_opener.dart` — `AppSettingsOpener.openAppSettings()`:
+  MethodChannel `cut_metrics/app_settings`, только Android, лог в DebugLog (тег `perm`).
+- `android/app/src/main/kotlin/.../MainActivity.kt` — хендлер канала: `openAppDetails` →
+  `Settings.ACTION_APPLICATION_DETAILS_SETTINGS` (`ActivityNotFoundException` → false).
+- `DashboardViewModel` — флаг `permissionsDenied` (сброс в начале `load()`),
+  `recheckPermissions()`: тихая `Health.hasPermissions` (без системного диалога),
+  права выданы → `load()`. Injectable `permissionCheck`/`permissionStatusCheck` —
+  для юнит-тестов этой ветки.
+- `main.dart` — `WidgetsBindingObserver` на `_AppShell`: `AppLifecycleState.resumed` →
+  `recheckPermissions()` (пользователь вернулся из настроек — баннер исчезает и данные
+  грузятся сами; прав нет — баннер остаётся, диалог НЕ всплывает принудительно).
+- Новых зависимостей нет — в пакете `health` 13.3.1 нет API открытия настроек.
+- Тесты: 4 новых в `test/viewmodel/dashboard_view_model_test.dart` (всего 104),
+  `flutter analyze` — 4 info / 0 errors (2 базовых + 2 `prefer_initializing_formals`
+  на новых injectable-параметрах, стиль конструктора сохранён).
+
+Созданные файлы: `lib/services/app_settings_opener.dart`. Изменённые:
+`MainActivity.kt`, `lib/viewmodel/dashboard_view_model.dart`, `lib/ui/today_screen.dart`,
+`lib/main.dart`, `test/viewmodel/dashboard_view_model_test.dart`, `README.md`.
+Верификация: `flutter test` 104 зелёных, `flutter analyze` 4 info / 0 errors,
+`flutter build apk --debug` — успешно.
+
+⚠️ Проверить на устройстве: открытие настроек по кнопке, авто-исчезновение баннера
+после выдачи прав и возврата в приложение.
+
+Попутный фикс: `ic_launcher_playstore_512.png` перемещён из
+`android/app/src/main/res/play_store/` (ломал любую сборку — «The file name must end
+with .xml» на `:app:packageDebugResources`, вернулось с коммитом «иконка приложения»)
+в `android/app/play_store/` — вне `res/`, файл для стора, ресурсом быть не должен.
 
 ## Созданные файлы Фазы 5
 

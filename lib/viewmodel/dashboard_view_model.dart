@@ -46,6 +46,18 @@ class DashboardViewModel extends ChangeNotifier {
   final HealthDataProcessor _processor;
   final Health? _health;
 
+  /// Переопределяемая проверка разрешений Health Connect (для тестов).
+  ///
+  /// Если `null` — используется [checkAndRequestPermissions] (продакшн-режим).
+  /// Позволяет покрыть юнит-тестами ветку «разрешения не выданы», которая
+  /// иначе требует реального Health Connect на устройстве.
+  final Future<bool> Function(Health health)? _permissionCheck;
+
+  /// Переопределяемая тихая проверка разрешений БЕЗ системного диалога
+  /// (для тестов). Если `null` — используется `Health.hasPermissions`.
+  /// Задействуется в [recheckPermissions] при возврате в приложение.
+  final Future<bool?> Function(Health health)? _permissionStatusCheck;
+
   // ─── Фаза 5: сон, настройки, саммари ─────────────────────────────────────────
 
   final SleepAnalyzer _sleepAnalyzer = SleepAnalyzer();
@@ -65,6 +77,12 @@ class DashboardViewModel extends ChangeNotifier {
   DateTime get end => _end;
   bool get isLoading => _isLoading;
   String? get error => _error;
+
+  /// `true` — разрешения Health Connect не выданы, последний [load] прерван.
+  ///
+  /// UI (экран «Сегодня») показывает баннер с кнопкой перехода в системные
+  /// настройки приложения (2026-08-26). Сбрасывается в начале каждого [load].
+  bool get permissionsDenied => _permissionsDenied;
 
   /// Список точек веса для UI (отсортирован по дате, в диапазоне start–end).
   List<WeightDay> get weightData => _weightData;
@@ -86,6 +104,10 @@ class DashboardViewModel extends ChangeNotifier {
   DateTime _end;
   bool _isLoading = false;
   String? _error;
+
+  /// Разрешения не выданы — load() прерван на шаге permissions.
+  /// Поднимается вместе с [_error], см. геттер [permissionsDenied].
+  bool _permissionsDenied = false;
 
   /// Длина текущего диапазона Тренда в днях (7/30/90).
   int _rangeDays = RecommendationConfig.todayChartDays;
@@ -121,10 +143,14 @@ class DashboardViewModel extends ChangeNotifier {
     required HealthDataProcessor processor,
     Health? health,
     SettingsService? settingsService,
+    Future<bool> Function(Health health)? permissionCheck,
+    Future<bool?> Function(Health health)? permissionStatusCheck,
     bool autoLoad = true,
   })  : _repo = repository,
         _processor = processor,
         _health = health,
+        _permissionCheck = permissionCheck,
+        _permissionStatusCheck = permissionStatusCheck,
         _settings = settingsService,
         _start = DateTime.now().subtract(
           const Duration(days: RecommendationConfig.todayChartDays - 1),
@@ -146,6 +172,7 @@ class DashboardViewModel extends ChangeNotifier {
     DebugLog.instance.log('vm', 'load: старт');
     _isLoading = true;
     _error = null;
+    _permissionsDenied = false;
     notifyListeners();
 
     try {
@@ -157,9 +184,13 @@ class DashboardViewModel extends ChangeNotifier {
 
       // Permissions — только если есть реальный Health (не тест с моком).
       if (_health != null) {
-        final granted = await checkAndRequestPermissions(_health);
+        final granted =
+            await (_permissionCheck ?? checkAndRequestPermissions)(_health);
         if (!granted) {
-          _error = 'Нет разрешений для доступа к Health Connect';
+          _permissionsDenied = true;
+          _error =
+              'Нет разрешений для доступа к Health Connect. Откройте настройки '
+              'приложения и разрешите доступ к данным о здоровье.';
           DebugLog.instance.warn(
             'vm',
             'load: permissions не выданы — загрузка прервана',
@@ -246,6 +277,34 @@ class DashboardViewModel extends ChangeNotifier {
       );
     }
   }
+
+  /// Тихая перепроверка разрешений БЕЗ системного диалога.
+  ///
+  /// Вызывается при возврате в приложение (`AppLifecycleState.resumed`,
+  /// observer в `main.dart`), если [permissionsDenied]: пользователь мог
+  /// выдать права в системных настройках. Права выданы → [load] (баннер
+  /// исчезнет, данные загрузятся). Не выданы → ничего не делает, баннер
+  /// остаётся. Исключения глушатся — фоновая перепроверка не должна
+  /// ломать UI.
+  Future<void> recheckPermissions() async {
+    if (!_permissionsDenied || _health == null) return;
+    try {
+      final granted = await (_permissionStatusCheck ?? _hasAllPermissions)(
+        _health,
+      );
+      DebugLog.instance.log('vm', 'recheckPermissions → $granted');
+      if (granted == true) {
+        await load();
+      }
+    } catch (e) {
+      DebugLog.instance.error('vm', 'recheckPermissions: $e');
+    }
+  }
+
+  /// Продакшн-режим тихой проверки: `hasPermissions` без запроса (диалог
+  /// не показывается — в отличие от `checkAndRequestPermissions`).
+  Future<bool?> _hasAllPermissions(Health health) =>
+      health.hasPermissions(kHealthDataTypes, permissions: kHealthDataAccess);
 
   /// Перезагружает данные для одной даты после submit/cancel.
   ///

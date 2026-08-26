@@ -7,6 +7,7 @@ import 'package:cut_metrics/domain/recommendation_engine.dart';
 import 'package:cut_metrics/repo/mock_health_repository.dart';
 import 'package:cut_metrics/viewmodel/dashboard_view_model.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:health/health.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -282,6 +283,86 @@ void main() {
       // EMA сошлась к последнему весу 78 (сглаженная < первой точки).
       expect(vm.smoothedWeightToday!, lessThan(80));
       expect(vm.smoothedWeightToday!, greaterThan(77));
+    });
+  });
+
+  group('permissions (баннер «нет разрешений», 2026-08-26)', () {
+    test('denied permissions set permissionsDenied and skip loading', () async {
+      repo = MockHealthRepository();
+      processor = HealthDataProcessor(appPackageId: kAppPackageId);
+      vm = DashboardViewModel(
+        repository: repo,
+        processor: processor,
+        health: Health(),
+        permissionCheck: (health) async => false,
+        autoLoad: false,
+      );
+      await vm.load();
+
+      expect(vm.permissionsDenied, isTrue);
+      expect(vm.error, isNotNull);
+      expect(repo.fetchRawDataCallCount, 0);
+    });
+
+    test('granted permissions keep permissionsDenied false and load data', () async {
+      repo = MockHealthRepository();
+      processor = HealthDataProcessor(appPackageId: kAppPackageId);
+      repo.addExternalWeight(DateTime.now(), 80);
+      vm = DashboardViewModel(
+        repository: repo,
+        processor: processor,
+        health: Health(),
+        permissionCheck: (health) async => true,
+        autoLoad: false,
+      );
+      await vm.load();
+
+      expect(vm.permissionsDenied, isFalse);
+      expect(vm.error, isNull);
+      // Вес + шаги + сон — три батчевых чтения в load().
+      expect(repo.fetchRawDataCallCount, 3);
+    });
+
+    test('recheckPermissions reloads data after user grants in settings', () async {
+      repo = MockHealthRepository();
+      processor = HealthDataProcessor(appPackageId: kAppPackageId);
+      var granted = false;
+      vm = DashboardViewModel(
+        repository: repo,
+        processor: processor,
+        health: Health(),
+        permissionCheck: (health) async => granted,
+        permissionStatusCheck: (health) async => granted,
+        autoLoad: false,
+      );
+      await vm.load();
+      expect(vm.permissionsDenied, isTrue);
+
+      // Пользователь выдал права в системных настройках и вернулся в приложение.
+      granted = true;
+      await vm.recheckPermissions();
+
+      expect(vm.permissionsDenied, isFalse);
+      expect(vm.error, isNull);
+      expect(repo.fetchRawDataCallCount, 3);
+    });
+
+    test('recheckPermissions does nothing while still denied', () async {
+      repo = MockHealthRepository();
+      processor = HealthDataProcessor(appPackageId: kAppPackageId);
+      vm = DashboardViewModel(
+        repository: repo,
+        processor: processor,
+        health: Health(),
+        permissionCheck: (health) async => false,
+        permissionStatusCheck: (health) async => false,
+        autoLoad: false,
+      );
+      await vm.load();
+      await vm.recheckPermissions();
+
+      expect(vm.permissionsDenied, isTrue);
+      expect(repo.fetchRawDataCallCount, 0);
     });
   });
 }

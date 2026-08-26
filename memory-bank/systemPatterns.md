@@ -110,3 +110,19 @@ merge обрезал бы стадии, лежащие внутри общего
 `load()` всегда грузит вес/шаги/сон за `maxTrendDays` (90) — движку рекомендаций нужен
 вес за окно независимо от того, какой сегмент смотрит пользователь. `setRange(7/30/90)`
 только фильтрует кеши, без похода в Health Connect. «Весь срок» убран как сегмент.
+
+## Паттерн: системные настройки из Flutter + поток отказа разрешений (2026-08-26)
+
+В пакете `health` 13.3.1 нет API открытия системных настроек, поэтому переход на
+страницу приложения при отказе разрешений HC сделан собственным MethodChannel
+`cut_metrics/app_settings` (`AppSettingsOpener` → `MainActivity.openAppDetails` →
+`Settings.ACTION_APPLICATION_DETAILS_SETTINGS`). Решение пользователя: вести именно
+на страницу приложения в системных настройках, НЕ в настройки Health Connect.
+
+Связанный поток в `DashboardViewModel`: флаг `permissionsDenied` поднимается при
+отказе в `load()` (UI показывает баннер вместо ErrorBox), `recheckPermissions()`
+(тихая `Health.hasPermissions`, без диалога) вызывается на
+`AppLifecycleState.resumed` в `main.dart`. Принцип: системный диалог не всплывает
+сам при возврате в приложение — баннер остаётся, пока права не выданы; после выдачи
+данные перезагружаются автоматически. Для тестов проверки прав injectable
+(`permissionCheck`/`permissionStatusCheck`).

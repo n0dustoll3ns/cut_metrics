@@ -1,6 +1,7 @@
 import 'package:cut_metrics/domain/health_data_processor.dart';
 import 'package:cut_metrics/domain/recommendation_config.dart';
 import 'package:cut_metrics/repo/health_repository_impl.dart';
+import 'package:cut_metrics/services/debug_log.dart';
 import 'package:cut_metrics/services/settings_service.dart';
 import 'package:cut_metrics/ui/settings_screen.dart';
 import 'package:cut_metrics/ui/summary_screen.dart';
@@ -8,11 +9,18 @@ import 'package:cut_metrics/ui/theme.dart';
 import 'package:cut_metrics/ui/today_screen.dart';
 import 'package:cut_metrics/ui/trend_screen.dart';
 import 'package:cut_metrics/viewmodel/dashboard_view_model.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:health/health.dart';
 import 'package:provider/provider.dart';
 
-void main() => runApp(const CutMetricsApp());
+void main() {
+  DebugLog.instance.log(
+    'app',
+    'Cut Metrics старт (${kReleaseMode ? 'release' : 'debug'})',
+  );
+  runApp(const CutMetricsApp());
+}
 
 /// Корневой виджет приложения.
 ///

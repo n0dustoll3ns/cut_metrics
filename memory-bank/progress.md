@@ -16,6 +16,7 @@
 - ✅ Реализация Фазы 4 (2026-08-11) — батчевая агрегация шагов (`aggregateExternalStepsForRange` через `getHealthIntervalDataFromTypes`), документация сессионности кешей, 2 новых теста (всего 49)
 - ✅ Реализация Фазы 5 (2026-08-21) — `RecommendationEngine` (темп/статус/рекомендация, чистый Dart, нормализация к неделе), беджи источника, 4 вкладки по макетам (Сегодня/Тренд/Саммари/Настройки), сон (`SleepAnalyzer` + ASLEEP-приоритет), активность (шаги×вес×0.0005 + уровни 1–5), `SettingsService` (слайдер темпа 0.3–1.4, дефолт 0.8), все константы в `recommendation_config.dart`. 41 новый тест (всего 90)
 - ✅ Починен `flutter build apk` (2026-08-18) — падал из-за OutOfMemoryException в `update_engine_version.ps1` (общая RDP-машина, Gradle просил `-Xmx8G`); в `android/gradle.properties` занижены JVM-аппетиты Gradle (`-Xmx3G`, metaspace 1G, `workers.max=2`), APK собирается (`app-release.apk`, ~49 МБ)
+- ✅ Экран дебаг-сообщений для release (2026-08-26) — `DebugLog` (in-memory за сессию, кольцевой буфер 1000, ChangeNotifier) + `DebugLogScreen` (фильтры-чипы по тегам, «Только ошибки», «Копировать всё» через Clipboard); скрытый вход — 5 тапов по подписи версии в «Настройках»; инструментированы `repo`/`vm`/`perm`/`app` (покрыты все 4 техриска), 10 новых тестов (всего 100). Детали — `activeContext.md` → «Журнал отладки»
 
 ## В работе / предстоит
 

@@ -59,8 +59,36 @@ JVM-аппетиты (`-Xmx3G`, metaspace 1G, `workers.max=2`). APK собира
 ## Следующий шаг
 
 Фазы 1–5 реализованы. Дальше — проверка на устройстве (UI Фазы 5 + 4 технических риска
-из `techContext.md` + сборка APK), затем по отдельному запросу — Фаза 6 (AccessGate,
-не начинать без явного требования).
+из `techContext.md` + сборка APK; для разбора в release — журнал отладки, секция ниже),
+затем по отдельному запросу — Фаза 6 (AccessGate, не начинать без явного требования).
+
+## Журнал отладки (2026-08-26)
+
+Инструмент для проверки техрисков/UX на устройстве в **release**-сборке (там нет
+`flutter logs`). Решения согласованы с пользователем: in-memory за сессию (без
+персистентности), экспорт только «Копировать всё» через буфер, теги `app`/`vm`/`repo`/`perm`
+(сон и движок рекомендаций НЕ инструментированы), фильтры: чипы по тегам + «Только ошибки».
+
+- `lib/services/debug_log.dart` — `DebugLog` (синглтон, ChangeNotifier): уровни
+  info/warn/error, кольцевой буфер 1000 записей (`ListQueue` из `dart:collection`),
+  работает и в release (вызовы не обёрнуты в `kDebugMode`).
+- `lib/ui/debug_log_screen.dart` — список живьём (новые сверху, Space Mono, error —
+  Alert Rust, warn — Signal Cobalt), SelectionArea, «Копировать всё» / «Очистить».
+- Вход скрытый: 5 тапов по подписи версии внизу «Настройки» (пауза между тапами ≤ 3 с,
+  `_VersionLabel` в `settings_screen.dart`); версия в подписи синхронизируется
+  вручную с `pubspec.yaml` — помнить при бампе версии.
+- Инструментированы: `main.dart` (`app`), `DashboardViewModel.load/submit/cancel` (`vm`,
+  Stopwatch-длительность load), `HealthRepositoryImpl` — все методы с sourceId и
+  результатами (`repo`, закрывает техриски №1–№4 при проверке), `health_permissions` (`perm`).
+  Бизнес-логика не менялась — только вызовы логирования + try/catch-rethrow для контекста
+  исключений. Новых зависимостей нет.
+- Тесты: `test/services/debug_log_test.dart` (10). Всего 100 зелёных,
+  `flutter analyze` — 2 info / 0 errors (те же 2 базовых info, что и до изменений).
+
+Созданные файлы: `lib/services/debug_log.dart`, `lib/ui/debug_log_screen.dart`,
+`test/services/debug_log_test.dart`. Изменённые: `lib/main.dart`,
+`lib/viewmodel/dashboard_view_model.dart`, `lib/repo/health_repository_impl.dart`,
+`lib/repo/health_permissions.dart`, `lib/ui/settings_screen.dart`, `README.md`.
 
 ## Созданные файлы Фазы 5
 

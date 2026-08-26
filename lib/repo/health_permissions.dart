@@ -1,3 +1,4 @@
+import 'package:cut_metrics/services/debug_log.dart';
 import 'package:health/health.dart';
 
 /// Sleep-типы, поддерживаемые Health Connect на Android.
@@ -51,8 +52,18 @@ List<HealthDataAccess> get kHealthDataAccess => [
 /// т.к. повторный запрос при уже выданных правах может блокировать
 /// (особенно на iOS, см. документацию пакета `health`).
 Future<bool> checkAndRequestPermissions(Health health) async {
-  return await health.requestAuthorization(
-    kHealthDataTypes,
-    permissions: kHealthDataAccess,
-  );
+  try {
+    final granted = await health.requestAuthorization(
+      kHealthDataTypes,
+      permissions: kHealthDataAccess,
+    );
+    DebugLog.instance.log(
+      'perm',
+      'requestAuthorization (${kHealthDataTypes.length} типов) → $granted',
+    );
+    return granted;
+  } catch (e) {
+    DebugLog.instance.error('perm', 'requestAuthorization: исключение $e');
+    rethrow;
+  }
 }

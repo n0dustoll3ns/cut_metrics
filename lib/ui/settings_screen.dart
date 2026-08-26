@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:cut_metrics/domain/activity_level.dart';
 import 'package:cut_metrics/domain/recommendation_config.dart';
+import 'package:cut_metrics/ui/debug_log_screen.dart';
 import 'package:cut_metrics/ui/theme.dart';
 import 'package:cut_metrics/viewmodel/dashboard_view_model.dart';
 import 'package:flutter/material.dart';
@@ -129,7 +132,67 @@ class SettingsScreen extends StatelessWidget {
               ),
             ),
           ),
+          const SizedBox(height: CMSpacing.sp8),
+          const _VersionLabel(),
         ],
+      ),
+    );
+  }
+}
+
+/// Подпись версии внизу «Настроек» + скрытый вход в журнал отладки:
+/// 5 тапов подряд (пауза между тапами не больше 3 с) открывают [DebugLogScreen].
+///
+/// Работает и в debug, и в release — обычному пользователю не мешает
+/// (подпись версии и так стоит на экране). Без визуального отклика,
+/// вход осознанно скрытый.
+class _VersionLabel extends StatefulWidget {
+  const _VersionLabel();
+
+  @override
+  State<_VersionLabel> createState() => _VersionLabelState();
+}
+
+class _VersionLabelState extends State<_VersionLabel> {
+  static const _tapsToOpen = 5;
+  static const _tapResetAfter = Duration(seconds: 3);
+
+  /// Синхронизировать вручную с `version` в `pubspec.yaml`.
+  static const _version = '0.1.0';
+
+  int _taps = 0;
+  Timer? _resetTimer;
+
+  @override
+  void dispose() {
+    _resetTimer?.cancel();
+    super.dispose();
+  }
+
+  void _onTap() {
+    _resetTimer?.cancel();
+    _taps++;
+    if (_taps >= _tapsToOpen) {
+      _taps = 0;
+      Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => const DebugLogScreen()),
+      );
+      return;
+    }
+    _resetTimer = Timer(_tapResetAfter, () => _taps = 0);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      // opaque — тапы по пустому месту вокруг подписи тоже считаются.
+      behavior: HitTestBehavior.opaque,
+      onTap: _onTap,
+      child: Center(
+        child: Text(
+          'Cut Metrics $_version',
+          style: CMFonts.caption(size: 12, color: CMColors.noise),
+        ),
       ),
     );
   }

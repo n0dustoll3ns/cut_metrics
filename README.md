@@ -29,6 +29,7 @@ lib/
     health_permissions.dart        — permissions, kSleepTypes
   services/
     settings_service.dart          — targetPace/activityLevel/lastSummaryShown (SharedPreferences)
+    debug_log.dart                 — in-memory журнал отладки (кольцевой буфер 1000, ChangeNotifier)
   viewmodel/
     dashboard_view_model.dart      — кеши (вес/шаги/сон/EMA), setRange, средние,
                                      computeWeeklySummary, setTargetPace/setActivityLevel
@@ -39,7 +40,8 @@ lib/
     today_screen.dart              — сглаженный вес 60px + график 30д + карточки
     trend_screen.dart              — Неделя/Месяц/3 мес + среднесуточные (сон/шаги/ккал)
     summary_screen.dart            — саммари (статус, %/нед, ±кг, рекомендация)
-    settings_screen.dart           — слайдер темпа 0.3–1.4 + уровень активности
+    settings_screen.dart           — слайдер темпа 0.3–1.4 + уровень активности + подпись версии
+    debug_log_screen.dart          — журнал отладки: чипы-теги, «Только ошибки», «Копировать всё»
 ```
 
 **Ключевая логика Фазы 5:**
@@ -49,7 +51,19 @@ lib/
 - Активность = шаги×вес×0.0005 ккал + добавка уровня (ккал/кг/день: 0/1.5/3/4.5/6).
 - Сон: правило «после 12:00 → следующий день»; ASLEEP приоритетнее стадий; merge по слоям.
 - Данные грузятся за 90 дней (maxTrendDays) всегда — движок не зависит от сегмента Тренда.
-- Тесты: 90 (все зелёные), `flutter analyze` — 2 info / 0 errors.
+- Тесты: 100 (все зелёные), `flutter analyze` — 2 info / 0 errors.
+
+**Журнал отладки (2026-08-26, для проверки релиза на устройстве):**
+- `DebugLog` (`lib/services/debug_log.dart`) — in-memory за сессию (не персистентно),
+  кольцевой буфер 1000 записей, работает и в release. Теги: `app` (main), `vm` (ViewModel),
+  `repo` (HealthRepositoryImpl), `perm` (permissions).
+- Экран `lib/ui/debug_log_screen.dart`: новые записи сверху, чипы-фильтры по тегам +
+  «Только ошибки», «Копировать всё» в буфер обмена (без новых зависимостей).
+- Вход скрытый: 5 тапов по подписи версии внизу «Настроек» (пауза между тапами ≤ 3 с).
+  Версия в подписи синхронизируется вручную с `pubspec.yaml`.
+- Логи закрывают все 4 техриска Фаз 2/4: sourceId источников (№1), getTotalStepsInInterval (№2),
+  delete() (№3), getHealthIntervalDataFromTypes по дням (№4) — в сообщениях тега `repo`.
+- Тесты: `test/services/debug_log_test.dart` (10 шт.).
 
 Спеки Фаз 1–5 — в `docs/phase*.md`; изменения Фазы 5 по сбору требований —
 `docs/phase5_ui_screens_and_activity_spec.md` + секция «Изменения» в конце

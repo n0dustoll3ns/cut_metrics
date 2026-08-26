@@ -12,6 +12,7 @@ import 'package:cut_metrics/domain/steps_day.dart';
 import 'package:cut_metrics/domain/weight_day.dart';
 import 'package:cut_metrics/repo/health_permissions.dart';
 import 'package:cut_metrics/repo/health_repository.dart';
+import 'package:cut_metrics/services/debug_log.dart';
 import 'package:cut_metrics/services/settings_service.dart';
 import 'package:flutter/foundation.dart';
 import 'package:health/health.dart';
@@ -141,6 +142,8 @@ class DashboardViewModel extends ChangeNotifier {
   ///
   /// Если [_health] == null (тесты с моком), шаг permissions пропускается.
   Future<void> load() async {
+    final stopwatch = Stopwatch()..start();
+    DebugLog.instance.log('vm', 'load: старт');
     _isLoading = true;
     _error = null;
     notifyListeners();
@@ -157,6 +160,10 @@ class DashboardViewModel extends ChangeNotifier {
         final granted = await checkAndRequestPermissions(_health);
         if (!granted) {
           _error = 'Нет разрешений для доступа к Health Connect';
+          DebugLog.instance.warn(
+            'vm',
+            'load: permissions не выданы — загрузка прервана',
+          );
           return;
         }
       }
@@ -217,13 +224,26 @@ class DashboardViewModel extends ChangeNotifier {
       // EMA пересчитывается по актуальному кешу весов.
       _emaCache = _processor.computeEma(_weightCache, _emaPeriod);
 
+      DebugLog.instance.log(
+        'vm',
+        'load: резолюция — вес ${weightPoints.length} тчк → '
+        '${_weightCache.length} дн., шаги ${stepsPoints.length} тчк → '
+        '${_stepsCache.length} дн., сон ${sleepPoints.length} тчк → '
+        '${_sleepCache.length} ночей, EMA ${_emaCache.length} тчк',
+      );
+
       _refreshChartData();
     } catch (e) {
       _error = 'Ошибка загрузки: $e';
+      DebugLog.instance.error('vm', 'load: $e');
       debugPrint('DashboardViewModel.load error: $e');
     } finally {
       _isLoading = false;
       notifyListeners();
+      DebugLog.instance.log(
+        'vm',
+        'load: готово за ${stopwatch.elapsedMilliseconds} мс',
+      );
     }
   }
 
@@ -414,11 +434,13 @@ class DashboardViewModel extends ChangeNotifier {
   /// Пишет ручное значение (Tier 1) в Health Connect, обновляет кеш,
   /// при необходимости пересчитывает EMA, notifyListeners().
   Future<void> submitManualValue(DateKey date, MetricType type, num value) async {
+    DebugLog.instance.log('vm', 'submit $date ${type.name} = $value');
     try {
       await _repo.writeManualRecord(date, type, value);
       await _reloadDate(date, type);
     } catch (e) {
       _error = 'Не удалось сохранить: $e';
+      DebugLog.instance.error('vm', 'submit $date ${type.name} = $value: $e');
       debugPrint('DashboardViewModel.submitManualValue error: $e');
       notifyListeners();
     }
@@ -427,11 +449,13 @@ class DashboardViewModel extends ChangeNotifier {
   /// Удаляет ручную запись (Tier 1), откатывает на Tier 2/missing,
   /// обновляет кеш, пересчитывает EMA при необходимости, notifyListeners().
   Future<void> cancelManualValue(DateKey date, MetricType type) async {
+    DebugLog.instance.log('vm', 'cancel $date ${type.name}');
     try {
       await _repo.deleteManualRecord(date, type);
       await _reloadDate(date, type);
     } catch (e) {
       _error = 'Не удалось отменить: $e';
+      DebugLog.instance.error('vm', 'cancel $date ${type.name}: $e');
       debugPrint('DashboardViewModel.cancelManualValue error: $e');
       notifyListeners();
     }

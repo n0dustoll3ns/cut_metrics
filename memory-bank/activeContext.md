@@ -123,7 +123,7 @@ JVM-аппетиты (`-Xmx3G`, metaspace 1G, `workers.max=2`). APK собира
 ⚠️ Проверить на устройстве: открытие настроек по кнопке, авто-исчезновение баннера
 после выдачи прав и возврата в приложение.
 
-Попутный фикс: `ic_launcher_playstore_512.png` перемещён из
+Попутный фикс (утром): `ic_launcher_playstore_512.png` перемещён из
 `android/app/src/main/res/play_store/` (ломал любую сборку — «The file name must end
 with .xml» на `:app:packageDebugResources`, вернулось с коммитом «иконка приложения»)
 в `android/app/play_store/` — вне `res/`, файл для стора, ресурсом быть не должен.

@@ -86,8 +86,12 @@ lib/
 
 **Попутный фикс сборки (2026-08-26):** `ic_launcher_playstore_512.png` лежал в
 `android/app/src/main/res/play_store/` — это ломало ЛЮБУЮ сборку
-(`:app:packageDebugResources`: «The file name must end with .xml», файлы в `res/`
-должны быть ресурсами). Перенесён в `android/app/play_store/` (вне `res/`, для стора).
+(`:app:package*Resources`: «The file name must end with .xml», файлы в `res/`
+должны быть ресурсами). Каноническое место: `android/app/play_store/` (вне `res/`,
+для стора). ⚠️ Дубль в `res/play_store/` вернулся повторно с коммитом «иконка
+приложения» (b758452) и снова удалён — при добавлении иконок следить, чтобы в `res/`
+не попадали не-XML файлы. Подробности и итоги полного починки сборки — секция
+«Сборка APK» ниже.
 
 
 Спеки Фаз 1–5 — в `docs/phase*.md`; изменения Фазы 5 по сбору требований —
@@ -237,7 +241,24 @@ main.dart
 
 ## Сборка APK
 
-`flutter build apk` → `build\app\outputs\flutter-apk\app-release.apk` (~49 МБ).
+`flutter build apk` → `build\app\outputs\flutter-apk\app-release.apk` (~55 МБ, 2026-08-26).
+
+Подпись release — debug-ключом: `signingConfig = signingConfigs.getByName("debug")` в
+`android/app/build.gradle.kts`. ⚠️ Без этой строки APK собирается, но НЕ подписывается —
+на устройство не установится (проверка: `build-tools\<ver>\apksigner.bat verify --print-certs`,
+jarsigner для этого бесполезен — видит только v1, а при minSdk 26 подпись v2).
+
+⚠️ `build.gradle.kts` — Kotlin DSL: строки только в двойных кавычках, флаги —
+`isMinifyEnabled = ...` / `isShrinkResources = ...` (Groovy-синтаксис вида
+`minifyEnabled false` или одинарные кавычки ломают компиляцию скрипта —
+«Unexpected tokens (use ';' to separate...)»). Починено 2026-08-26.
+
+⚠️ Файлы для Play Store нельзя класть в `android/app/src/main/res/` — любой не-XML файл
+там ломает ЛЮБУЮ сборку («The file name must end with .xml»). Каноническое место иконки
+стора: `android/app/play_store/ic_launcher_playstore_512.png`. Дубль в `res/play_store/`
+уже дважды возвращался с коммитами иконок (последний — b758452 «иконка приложения»,
+удалён повторно 2026-08-26) — при добавлении иконок проверять, что в `res/` не попадают
+не-XML файлы.
 
 ⚠️ Ограничение сборочной машины (общая RDP, ~24 ГБ RAM + pagefile 32 ГБ): в
 `android/gradle.properties` намеренно занижены JVM-аппетиты Gradle

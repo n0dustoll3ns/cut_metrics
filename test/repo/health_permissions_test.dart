@@ -164,7 +164,8 @@ void main() {
 
       expect(granted, isFalse);
       expect(requestCalls, 1); // запрос — один вызов на все типы
-      expect(probeCalls, kHealthDataTypes.length); // проверка — по типам
+      // Тихая проверка — по типам ДВА раза: до запроса (шаг 1) и после (шаг 3).
+      expect(probeCalls, kHealthDataTypes.length * 2);
 
       final permLines = DebugLog.instance.entries
           .where((e) => e.tag == 'perm')
@@ -194,5 +195,75 @@ void main() {
         isTrue,
       );
     });
+
+    test('всё уже выдано → requestAuthorization не вызывается', () async {
+      DebugLog.instance.clear();
+      var requestCalls = 0;
+
+      final granted = await checkAndRequestPermissions(
+        Health(),
+        request: (types, permissions) async {
+          requestCalls++;
+          return true;
+        },
+        probe: (types, permissions) async => true, // всё уже выдано
+      );
+
+      expect(granted, isTrue);
+      // Запрос не нужен — тихая проверка до запроса уже всё решила.
+      expect(requestCalls, 0);
+
+      final permLines = DebugLog.instance.entries
+          .where((e) => e.tag == 'perm')
+          .map((e) => e.message)
+          .toList();
+      expect(
+        permLines.any((m) => m.contains('все пермишены уже выданы')),
+        isTrue,
+      );
+      expect(
+        permLines.any((m) => m.startsWith('requestAuthorization')),
+        isFalse,
+      );
+    });
+
+    test(
+      'регрессия: requestAuthorization → false при уже выданных правах '
+      '(пустой granted-set) → итог true',
+      () async {
+        DebugLog.instance.clear();
+        var probeCalls = 0;
+
+        final granted = await checkAndRequestPermissions(
+          Health(),
+          // Баг пакета health 13.3.1/13.3.2: при уже выданных правах
+          // системная активити возвращает пустой granted-set → false.
+          request: (types, permissions) async => false,
+          probe: (types, permissions) async {
+            probeCalls++;
+            // До запроса (первые 12 вызовов) — шаги «не выданы», запрос
+            // запускается; после запроса (вторые 12) — всё выдано.
+            return probeCalls > kHealthDataTypes.length;
+          },
+        );
+
+        // Итог берётся из тихой проверки после запроса, а не из granted.
+        expect(granted, isTrue);
+        expect(probeCalls, kHealthDataTypes.length * 2);
+
+        final permLines = DebugLog.instance.entries
+            .where((e) => e.tag == 'perm')
+            .map((e) => e.message)
+            .toList();
+        expect(
+          permLines.any((m) => m.startsWith('requestAuthorization')),
+          isTrue,
+        );
+        expect(
+          permLines.any((m) => m.contains('итог') && m.contains('все')),
+          isTrue,
+        );
+      },
+    );
   });
 }

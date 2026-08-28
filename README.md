@@ -53,7 +53,7 @@ lib/
 - Активность = шаги×вес×0.0005 ккал + добавка уровня (ккал/кг/день: 0/1.5/3/4.5/6).
 - Сон: правило «после 12:00 → следующий день»; ASLEEP приоритетнее стадий; merge по слоям.
 - Данные грузятся за 90 дней (maxTrendDays) всегда — движок не зависит от сегмента Тренда.
-- Тесты: 112 (все зелёные), `flutter analyze` — 4 info / 0 errors.
+- Тесты: 114 (все зелёные), `flutter analyze` — 4 info / 0 errors.
 
 **Журнал отладки (2026-08-26, для проверки релиза на устройстве):**
 - `DebugLog` (`lib/services/debug_log.dart`) — in-memory за сессию (не персистентно),
@@ -104,12 +104,25 @@ lib/
 - Группы `kPermissionGroups` (Вес/Шаги READ_WRITE, Сон 9×READ, Питание READ)
   ровно покрывают `kHealthDataTypes`/`kHealthDataAccess` (тест проверяет);
   итог — AND по всем (`allGranted`, null/false = не выдано).
-- `requestAuthorization` остался ОДНИМ вызовом (один системный диалог — решение
-  пользователя); `recheckPermissions` → `checkPermissionsPerType` + `allGranted`;
-  сигнатуры injectable `permissionCheck`/`permissionStatusCheck` не менялись.
+- ✅ Фикс «поштучно все true, но load: permissions не выданы» (2026-08-28):
+  нативный `requestAuthorization` пакета health 13.3.1/13.3.2 НЕ проверяет
+  заранее выданные права — всегда запускает системную активити, и при уже
+  выданных правах контракт HC возвращает ПУСТОЙ granted-set (только права,
+  выданные в текущей сессии запроса), который плагин трактует как false
+  (`HealthPlugin.kt`: `permissionGranted.isEmpty()` → `success(false)`) →
+  вечный баннер при полностью выданных правах. Теперь
+  `checkAndRequestPermissions` работает в 3 шага: (1) тихая проверка
+  `checkPermissionsPerType` — всё выдано → `requestAuthorization` НЕ
+  вызывается, в логе «все пермишены уже выданы — запрос не нужен»;
+  (2) есть невыделенные → ОДИН пакетный `requestAuthorization` (один системный
+  диалог — решение пользователя, UX онбординга не меняется); (3) возвращается
+  итог тихой проверки ПОСЛЕ запроса (`allGranted`), а не сырой результат
+  `requestAuthorization` — он ненадёжен (см. выше).
+- `recheckPermissions` → `checkPermissionsPerType` + `allGranted`; сигнатуры
+  injectable `permissionCheck`/`permissionStatusCheck` не менялись.
 - Исключение одного типа не рушит остальные: error в логе, пункт `null`.
-- Тесты: `test/repo/health_permissions_test.dart` (8 шт., injectable `probe`/`request`,
-  включая диагностический тест про SLEEP_IN_BED). Всего 112 зелёных;
+- Тесты: `test/repo/health_permissions_test.dart` (10 шт., injectable `probe`/`request`,
+  включая регрессии про пустой granted-set и SLEEP_IN_BED). Всего 114 зелёных;
   `flutter analyze` — 4 info / 0 errors.
 
 **Попутный фикс сборки (2026-08-26):** `ic_launcher_playstore_512.png` лежал в

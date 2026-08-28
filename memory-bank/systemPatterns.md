@@ -141,3 +141,25 @@ merge обрезал бы стадии, лежащие внутри общего
 `dataTypeKeysAndroid`». Все sleep-стадии HC живут в одной записи
 `SleepSessionRecord` — системное разрешение «Сон» одно на все стадии,
 данных не теряем.
+
+## Паттерн: requestAuthorization → false при уже выданных правах (2026-08-28)
+
+Нативная реализация пакета `health` 13.3.1/13.3.2 (`HealthPlugin.kt`,
+`requestAuthorization`) НЕ проверяет заранее `getGrantedPermissions` — она
+всегда запускает системную активити разрешений. Контракт
+`PermissionController.createRequestPermissionResultContract()` возвращает
+набор прав, выданных ТОЛЬКО в текущей сессии запроса: если все запрошенные
+права уже выданы, активити возвращает ПУСТОЙ набор, а колбэк плагина трактует
+его как отказ (`permissionGranted.isEmpty()` → `success(false)`). Итог:
+тихая `hasPermissions` по каждому типу → true, но пакетный
+`requestAuthorization` → false → «load: permissions не выданы — загрузка
+прервана» и вечный баннер при полностью выданных правах. `hasPermissions` —
+единственный надёжный источник истины (нативный
+`getGrantedPermissions().containsAll(...)`). Решение (пользователь,
+2026-08-28, вариант A): в `checkAndRequestPermissions` — тихая предпроверка
+по типам (всё выдано → запрос не вызывается вовсе), запрос только при
+необходимости (один пакетный вызов, один диалог), возврат итога тихой
+проверки ПОСЛЕ запроса, а не сырого результата `requestAuthorization`.
+Общий принцип: никогда не полагаться на возвращаемое значение
+`requestAuthorization` — решение принимать по `hasPermissions` /
+`checkPermissionsPerType`.

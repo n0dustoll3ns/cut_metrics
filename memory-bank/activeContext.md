@@ -156,15 +156,34 @@ with .xml» на `:app:packageDebugResources`, вернулось с комми�
     `Сон (SLEEP_ASLEEP, READ) → true` … Исключение типа → error в лог,
     пункт `null`, остальные проверяются.
   - `allGranted()` — `true` только при всех `true` (null/false = не выдано).
-  - `checkAndRequestPermissions(health, {request, probe})` — один
-    `requestAuthorization` на все типы + детализация по типам после запроса.
+  - `checkAndRequestPermissions(health, {request, probe})` — 3 шага (фикс
+    2026-08-28, см. ниже): тихая проверка → при необходимости ОДИН пакетный
+    `requestAuthorization` → итог по тихой проверке после запроса.
 - `DashboardViewModel._hasAllPermissions` → `checkPermissionsPerType` +
   `allGranted` (используется в `recheckPermissions`). Сигнатуры injectable
   `permissionCheck`/`permissionStatusCheck` не менялись.
 - Итоговое поведение (баннер, гейты) не изменилось: AND по всем пунктам.
-- Тесты: `test/repo/health_permissions_test.dart` (8, injectable probe/request,
-  включая регрессионный про Android-поддержку типов). Всего 112 зелёных,
-  `flutter analyze` 4 info / 0 errors.
+
+✅ Второй корень «load: permissions не выданы — загрузка прервана» при поштучно
+выданных правах найден и закрыт (2026-08-28, вариант A по согласованию с
+пользователем): нативный `requestAuthorization` (health 13.3.1/13.3.2,
+`HealthPlugin.kt`) не делает предварительной проверки `getGrantedPermissions`
+— всегда запускает системную активити; когда все права уже выданы, контракт
+Health Connect возвращает ПУСТОЙ granted-set (только права, выданные в текущей
+сессии запроса), и плагин трактует пустой набор как отказ
+(`permissionGranted.isEmpty()` → `success(false)`). Раньше
+`checkAndRequestPermissions` возвращала именно этот сырой `false`, игнорируя
+поштучные `hasPermissions` (все true) → `permissionsDenied` и вечный баннер
+при полностью выданных правах. Фикс: (1) тихая предпроверка
+`checkPermissionsPerType` — всё выдано → запрос не вызывается вовсе (в логе
+«все пермишены уже выданы — запрос не нужен»); (2) иначе один пакетный запрос;
+(3) возвращается `allGranted` после запроса, а не результат
+`requestAuthorization`. Регрессионные тесты: «всё выдано → запрос не
+вызывается», «request=false при выданных правах → итог true».
+
+- Тесты: `test/repo/health_permissions_test.dart` (10, injectable probe/request,
+  включая регрессионные про Android-поддержку типов и пустой granted-set).
+  Всего 114 зелёных, `flutter analyze` 4 info / 0 errors.
 
 ## Созданные файлы Фазы 5
 

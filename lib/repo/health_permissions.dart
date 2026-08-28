@@ -176,25 +176,31 @@ Future<Map<String, bool?>> checkPermissionsPerType(
 bool allGranted(Map<String, bool?> results) =>
     results.isNotEmpty && results.values.every((granted) => granted == true);
 
-/// Запрашивает разрешения у Health Connect.
+/// Проверяет разрешения Health Connect и при необходимости запрашивает их.
 ///
 /// WEIGHT и STEPS запрашиваются с `READ_WRITE` (для записи ручного ввода),
 /// остальные типы — с `READ`.
 ///
-/// Сам запрос (`requestAuthorization`) остаётся ОДНИМ вызовом на все типы —
-/// системный диалог Health Connect показывается один, UX онбординга не
-/// меняется (решение пользователя 2026-08-28). Разделяются на отдельные
-/// вызовы только тихие проверки: сразу после запроса
-/// [checkPermissionsPerType] логирует значение каждого пермишена
-/// (сон — по каждой стадии).
+/// Порядок работы (2026-08-28, фикс «поштучно все true, но load: permissions
+/// не выданы»):
 ///
-/// Возвращает `true` при успехе, `false` — если пользователь отказал
-/// или Health Connect недоступен. В случае исключения (Health Connect
-/// не установлен и т.п.) — пробрасывает наверх, не глушит.
+/// 1. Сначала тихая проверка [checkPermissionsPerType]. Если всё выдано —
+///    `requestAuthorization` НЕ вызывается. Причина: нативная реализация
+///    пакета `health` (13.3.1/13.3.2) при уже выданных правах всё равно
+///    запускает системную активити и получает ПУСТОЙ granted-set (контракт
+///    Health Connect возвращает только права, выданные в текущей сессии
+///    запроса), а пустой набор трактует как отказ
+///    (`HealthPlugin.kt`: `permissionGranted.isEmpty()` → `success(false)`).
+///    Отсюда вечный баннер при полностью выданных правах.
+/// 2. Если есть невыделенные типы — ОДИН пакетный `requestAuthorization`
+///    на все типы (один системный диалог, UX онбординга не меняется —
+///    решение пользователя 2026-08-28).
+/// 3. Возвращается итог тихой проверки ПОСЛЕ запроса ([allGranted]), а не
+///    сырой результат `requestAuthorization` — он ненадёжен (см. п. 1).
 ///
-/// Перед вызовом рекомендуется проверить [Health.hasPermissions],
-/// т.к. повторный запрос при уже выданных правах может блокировать
-/// (особенно на iOS, см. документацию пакета `health`).
+/// Возвращает `true`, если все пермишены выданы, `false` — если после
+/// запроса что-то не выдано. В случае исключения (Health Connect не
+/// установлен и т.п.) — пробрасывает наверх, не глушит.
 ///
 /// [request] и [probe] переопределяют реальные вызовы пакета в тестах.
 Future<bool> checkAndRequestPermissions(
@@ -211,14 +217,26 @@ Future<bool> checkAndRequestPermissions(
       (types, permissions) =>
           health.requestAuthorization(types, permissions: permissions);
   try {
+    // Шаг 1. Тихая проверка: если всё уже выдано — запрос не нужен
+    // (повторный requestAuthorization при выданных правах вернул бы false,
+    // см. док-комментарий функции).
+    final before = await checkPermissionsPerType(health, probe: probe);
+    if (allGranted(before)) {
+      DebugLog.instance.log('perm', 'все пермишены уже выданы — запрос не нужен');
+      return true;
+    }
+
+    // Шаг 2. Есть невыделенные типы — один пакетный запрос (один диалог).
     final granted = await requester(kHealthDataTypes, kHealthDataAccess);
     DebugLog.instance.log(
       'perm',
       'requestAuthorization (${kHealthDataTypes.length} типов, один диалог) '
           '→ $granted',
     );
-    // Детализация по каждому типу: отдельные тихие вызовы hasPermissions,
-    // значение каждого пермишена — в журнал (тег perm).
+
+    // Шаг 3. Итог — по тихой проверке ПОСЛЕ запроса (не по `granted`):
+    // результат `requestAuthorization` ненадёжен при уже выданных правах.
+    // Значение каждого пермишена — в журнал (тег perm).
     final perType = await checkPermissionsPerType(health, probe: probe);
     final allOk = allGranted(perType);
     final detail = perType.entries.map((e) => '${e.key}=${e.value}').join(', ');
@@ -226,7 +244,7 @@ Future<bool> checkAndRequestPermissions(
       'perm',
       'итог: ${allOk ? 'все пермишены выданы' : 'есть невыделенные'} ($detail)',
     );
-    return granted;
+    return allOk;
   } catch (e) {
     DebugLog.instance.error('perm', 'requestAuthorization: исключение $e');
     rethrow;

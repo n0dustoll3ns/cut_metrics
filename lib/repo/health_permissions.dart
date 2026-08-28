@@ -20,10 +20,10 @@ const List<HealthDataType> kSleepTypes = [
 /// Одна метрика здоровья для раздельной проверки разрешений (2026-08-28).
 ///
 /// Раньше все 13 типов проверялись одним пакетным вызовом `hasPermissions` —
-/// в логах было видно только общее true/false, без детализации, какая именно
-/// метрика не выдана. Теперь тихая проверка ([checkPermissionsByMetric]) идёт
-/// отдельным вызовом на каждую группу, и значение каждой метрики пишется в
-/// DebugLog с тегом `perm`.
+/// в логах было видно только общее true/false, без детализации, какой именно
+/// тип не выдан. Теперь тихая проверка ([checkPermissionsPerType]) идёт
+/// отдельным вызовом на КАЖДЫЙ тип (в т.ч. на каждую стадию сна), и значение
+/// каждого пермишена пишется в DebugLog с тегом `perm`.
 class HealthPermissionGroup {
   /// Человекочитаемое имя метрики («Вес», «Шаги», «Сон», «Питание»).
   final String label;
@@ -39,14 +39,6 @@ class HealthPermissionGroup {
     required this.types,
     required this.permissions,
   });
-
-  /// Короткое описание для логов: `WEIGHT, READ_WRITE` / `10 типов, READ`.
-  String get logDescription {
-    final access = permissions.first.name;
-    return types.length == 1
-        ? '${types.first.name}, $access'
-        : '${types.length} типов, $access';
-  }
 }
 
 /// Группы типов по метрикам — по одной на каждую метрику здоровья.
@@ -117,25 +109,28 @@ typedef HealthPermissionProbe =
       List<HealthDataAccess> permissions,
     );
 
-/// Тихо проверяет разрешения ОТДЕЛЬНЫМИ вызовами по каждой метрике.
+/// Тихо проверяет разрешения ОТДЕЛЬНЫМИ вызовами по каждому типу данных.
 ///
-/// Для каждой группы из [kPermissionGroups] — свой вызов `hasPermissions`
-/// (без системного диалога), значение каждой метрики пишется в DebugLog
-/// с тегом `perm`, по одной строке на пункт:
+/// Для каждого типа из [kPermissionGroups] — свой вызов `hasPermissions`
+/// (без системного диалога), значение каждого пермишена пишется в DebugLog
+/// с тегом `perm`, по одной строке на пункт — сон разбит по стадиям
+/// (10 строк; 2026-08-28: выяснилось, что для отдельных sleep-типов доступ
+/// получить не удаётся — теперь видно, для каких именно):
 ///
 /// ```
 /// Вес (WEIGHT, READ_WRITE) → true
 /// Шаги (STEPS, READ_WRITE) → false
-/// Сон (10 типов, READ) → true
+/// Сон (SLEEP_ASLEEP, READ) → true
+/// ... ещё 9 стадий сна ...
 /// Питание (NUTRITION, READ) → true
 /// ```
 ///
-/// Возвращает map «метрика → значение», где `null` — статус не определён
-/// (например, Health Connect недоступен). Исключение одной группы не рушит
-/// остальные: логируется как error, метрика получает `null`.
+/// Возвращает map «пункт → значение» (13 записей), где `null` — статус
+/// не определён (например, Health Connect недоступен). Исключение одного
+/// типа не рушит остальные: логируется как error, пункт получает `null`.
 ///
 /// [probe] переопределяет реальный вызов `hasPermissions` в тестах.
-Future<Map<String, bool?>> checkPermissionsByMetric(
+Future<Map<String, bool?>> checkPermissionsPerType(
   Health health, {
   HealthPermissionProbe? probe,
 }) async {
@@ -145,20 +140,22 @@ Future<Map<String, bool?>> checkPermissionsByMetric(
           health.hasPermissions(types, permissions: permissions);
   final results = <String, bool?>{};
   for (final group in kPermissionGroups) {
-    try {
-      final granted = await checker(group.types, group.permissions);
-      results[group.label] = granted;
-      DebugLog.instance.log(
-        'perm',
-        '${group.label} (${group.logDescription}) → $granted',
-      );
-    } catch (e) {
-      // Отказ одной метрики не должен рушить проверку остальных.
-      results[group.label] = null;
-      DebugLog.instance.error(
-        'perm',
-        '${group.label}: hasPermissions бросил исключение — $e',
-      );
+    for (var i = 0; i < group.types.length; i++) {
+      final type = group.types[i];
+      final access = group.permissions[i];
+      final item = '${group.label} (${type.name}, ${access.name})';
+      try {
+        final granted = await checker([type], [access]);
+        results[item] = granted;
+        DebugLog.instance.log('perm', '$item → $granted');
+      } catch (e) {
+        // Отказ одного типа не должен рушить проверку остальных.
+        results[item] = null;
+        DebugLog.instance.error(
+          'perm',
+          '$item: hasPermissions бросил исключение — $e',
+        );
+      }
     }
   }
   return results;
@@ -179,7 +176,8 @@ bool allGranted(Map<String, bool?> results) =>
 /// системный диалог Health Connect показывается один, UX онбординга не
 /// меняется (решение пользователя 2026-08-28). Разделяются на отдельные
 /// вызовы только тихие проверки: сразу после запроса
-/// [checkPermissionsByMetric] логирует значение по каждой метрике.
+/// [checkPermissionsPerType] логирует значение каждого пермишена
+/// (сон — по каждой стадии).
 ///
 /// Возвращает `true` при успехе, `false` — если пользователь отказал
 /// или Health Connect недоступен. В случае исключения (Health Connect
@@ -210,16 +208,14 @@ Future<bool> checkAndRequestPermissions(
       'requestAuthorization (${kHealthDataTypes.length} типов, один диалог) '
           '→ $granted',
     );
-    // Детализация по метрикам: отдельные тихие вызовы hasPermissions,
-    // значение каждого пункта — в журнал (тег perm).
-    final byMetric = await checkPermissionsByMetric(health, probe: probe);
-    final allOk = allGranted(byMetric);
-    final detail = byMetric.entries
-        .map((e) => '${e.key}=${e.value}')
-        .join(', ');
+    // Детализация по каждому типу: отдельные тихие вызовы hasPermissions,
+    // значение каждого пермишена — в журнал (тег perm).
+    final perType = await checkPermissionsPerType(health, probe: probe);
+    final allOk = allGranted(perType);
+    final detail = perType.entries.map((e) => '${e.key}=${e.value}').join(', ');
     DebugLog.instance.log(
       'perm',
-      'итог: ${allOk ? 'все метрики выданы' : 'есть невыделенные'} ($detail)',
+      'итог: ${allOk ? 'все пермишены выданы' : 'есть невыделенные'} ($detail)',
     );
     return granted;
   } catch (e) {

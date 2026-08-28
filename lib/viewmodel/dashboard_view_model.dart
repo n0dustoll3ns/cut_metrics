@@ -309,13 +309,13 @@ class DashboardViewModel extends ChangeNotifier {
   }
 
   /// Продакшн-режим тихой проверки: РАЗДЕЛЬНЫЕ вызовы `hasPermissions` по
-  /// каждой метрике (вес/шаги/сон/питание) — без системного диалога (в отличие
-  /// от `checkAndRequestPermissions`). Значение каждой метрики пишется в
-  /// DebugLog тегом `perm`, см. `checkPermissionsByMetric`
-  /// в `health_permissions.dart` (2026-08-28).
+  /// каждому типу (вес, шаги, 10 стадий сна, питание) — без системного
+  /// диалога (в отличие от `checkAndRequestPermissions`). Значение каждого
+  /// пермишена пишется в DebugLog тегом `perm`, см.
+  /// `checkPermissionsPerType` в `health_permissions.dart` (2026-08-28).
   Future<bool?> _hasAllPermissions(Health health) async {
-    final byMetric = await checkPermissionsByMetric(health);
-    return allGranted(byMetric);
+    final perType = await checkPermissionsPerType(health);
+    return allGranted(perType);
   }
 
   /// Перезагружает данные для одной даты после submit/cancel.

@@ -128,30 +128,39 @@ JVM-аппетиты (`-Xmx3G`, metaspace 1G, `workers.max=2`). APK собира
 with .xml» на `:app:packageDebugResources`, вернулось с коммитом «иконка приложения»)
 в `android/app/play_store/` — вне `res/`, файл для стора, ресурсом быть не должен.
 
-## Раздельная проверка разрешений по метрикам (2026-08-28)
+## Раздельная проверка разрешений по каждому типу (2026-08-28)
 
-Тихая проверка `hasPermissions` разделена на отдельные вызовы по метрикам —
-в журнале отладки видно значение каждого пункта (какая метрика не выдана).
-Решение пользователя: `requestAuthorization` остаётся ОДНИМ вызовом (один
-системный диалог, UX онбординга не меняется), разделяются только тихие проверки.
+Тихая проверка `hasPermissions` идёт отдельным вызовом на КАЖДЫЙ тип (13 вызовов,
+сон — по каждой из 10 стадий) — в журнале отладки значение каждого пермишена
+отдельной строкой (тег `perm`). Решение пользователя: `requestAuthorization`
+остаётся ОДНИМ вызовом (один системный диалог, UX онбординга не меняется),
+разделяются только тихие проверки. Функция переименована:
+`checkPermissionsByMetric` → `checkPermissionsPerType`.
+
+⚠️ Найден вероятный корень проблемы «доступ получить не удаётся»: `SLEEP_IN_BED`
+отсутствует в `dataTypeKeysAndroid` пакета health 13.3.1 (поддерживается только
+на iOS) — запрос и проверка этого типа на Android не могут вернуть true.
+Зафиксировано диагностическим тестом. Решение (исключать ли SLEEP_IN_BED из
+kSleepTypes на Android) — открытый вопрос для пользователя.
 
 - `lib/repo/health_permissions.dart`:
   - `HealthPermissionGroup` + `kPermissionGroups` — Вес/Шаги (READ_WRITE),
-    Сон (kSleepTypes, 10×READ), Питание (READ); ровно покрывают прежние
-    `kHealthDataTypes`/`kHealthDataAccess` (теперь собираются из групп).
-  - `checkPermissionsByMetric(health, {probe})` — отдельный тихий вызов на
-    каждую метрику, по строке в DebugLog (тег `perm`):
-    `Вес (WEIGHT, READ_WRITE) → true` и т.д. Исключение группы → error в лог,
-    метрика `null`, остальные проверяются.
+    Сон (kSleepTypes, 10×READ), Питание (READ); ровно покрывают
+    `kHealthDataTypes`/`kHealthDataAccess` (собираются из групп).
+  - `checkPermissionsPerType(health, {probe})` — отдельный тихий вызов на
+    каждый тип, по строке в DebugLog: `Вес (WEIGHT, READ_WRITE) → true`,
+    `Сон (SLEEP_ASLEEP, READ) → true` … Исключение типа → error в лог,
+    пункт `null`, остальные проверяются.
   - `allGranted()` — `true` только при всех `true` (null/false = не выдано).
   - `checkAndRequestPermissions(health, {request, probe})` — один
-    `requestAuthorization` на все типы + детализация по метрикам после запроса.
-- `DashboardViewModel._hasAllPermissions` → `checkPermissionsByMetric` +
+    `requestAuthorization` на все типы + детализация по типам после запроса.
+- `DashboardViewModel._hasAllPermissions` → `checkPermissionsPerType` +
   `allGranted` (используется в `recheckPermissions`). Сигнатуры injectable
   `permissionCheck`/`permissionStatusCheck` не менялись.
-- Итоговое поведение (баннер, гейты) не изменилось: AND по всем метрикам.
-- Тесты: `test/repo/health_permissions_test.dart` (7, injectable probe/request
-  вместо platform channel). Всего 111 зелёных, `flutter analyze` 4 info / 0 errors.
+- Итоговое поведение (баннер, гейты) не изменилось: AND по всем пунктам.
+- Тесты: `test/repo/health_permissions_test.dart` (8, injectable probe/request,
+  включая диагностический про SLEEP_IN_BED). Всего 112 зелёных,
+  `flutter analyze` 4 info / 0 errors.
 
 ## Созданные файлы Фазы 5
 

@@ -3,7 +3,7 @@ import 'package:cut_metrics/services/debug_log.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:health/health.dart';
 
-/// Тесты раздельной проверки разрешений по метрикам (2026-08-28).
+/// Тесты раздельной проверки разрешений по каждому типу (2026-08-28).
 ///
 /// Реальные вызовы `Health` требуют platform channel, поэтому в тестах
 /// подменяются injectable-параметрами `probe` / `request`.
@@ -43,61 +43,86 @@ void main() {
     });
   });
 
-  group('checkPermissionsByMetric', () {
-    test('отдельный вызов и строка лога на каждую метрику', () async {
+  group('checkPermissionsPerType', () {
+    test(
+      'отдельный вызов и строка лога на каждый тип (сон — по стадиям)',
+      () async {
+        DebugLog.instance.clear();
+        var calls = 0;
+        final result = await checkPermissionsPerType(
+          Health(),
+          probe: (types, permissions) async {
+            calls++;
+            return types.first != HealthDataType.STEPS; // шаги не выданы
+          },
+        );
+
+        // 13 типов: вес + шаги + 10 стадий сна + питание.
+        expect(calls, kHealthDataTypes.length);
+        expect(result, hasLength(kHealthDataTypes.length));
+        expect(result['Вес (WEIGHT, READ_WRITE)'], isTrue);
+        expect(result['Шаги (STEPS, READ_WRITE)'], isFalse);
+        expect(result['Сон (SLEEP_ASLEEP, READ)'], isTrue);
+        expect(result['Питание (NUTRITION, READ)'], isTrue);
+        // Все 10 стадий сна — отдельными записями.
+        expect(
+          result.keys.where((k) => k.startsWith('Сон (SLEEP_')),
+          hasLength(kSleepTypes.length),
+        );
+
+        final permLines = DebugLog.instance.entries
+            .where((e) => e.tag == 'perm' && e.level == DebugLogLevel.info)
+            .map((e) => e.message)
+            .toList();
+        expect(permLines.length, kHealthDataTypes.length);
+        expect(
+          permLines.any((m) => m.contains('Вес (WEIGHT') && m.contains('true')),
+          isTrue,
+        );
+        expect(
+          permLines.any(
+            (m) => m.contains('Шаги (STEPS') && m.contains('false'),
+          ),
+          isTrue,
+        );
+        expect(permLines.any((m) => m.contains('Сон (SLEEP_IN_BED')), isTrue);
+      },
+    );
+
+    test('исключение одного типа логируется как error, пункт null', () async {
       DebugLog.instance.clear();
-      var calls = 0;
-      final result = await checkPermissionsByMetric(
+      final result = await checkPermissionsPerType(
         Health(),
         probe: (types, permissions) async {
-          calls++;
-          return types.first != HealthDataType.STEPS; // шаги не выданы
-        },
-      );
-
-      expect(calls, kPermissionGroups.length);
-      expect(result['Вес'], isTrue);
-      expect(result['Шаги'], isFalse);
-      expect(result['Сон'], isTrue);
-      expect(result['Питание'], isTrue);
-
-      final permLines = DebugLog.instance.entries
-          .where((e) => e.tag == 'perm' && e.level == DebugLogLevel.info)
-          .map((e) => e.message)
-          .toList();
-      expect(permLines.length, kPermissionGroups.length);
-      expect(
-        permLines.any((m) => m.contains('Вес') && m.contains('true')),
-        isTrue,
-      );
-      expect(
-        permLines.any((m) => m.contains('Шаги') && m.contains('false')),
-        isTrue,
-      );
-    });
-
-    test('исключение группы логируется как error, метрика null', () async {
-      DebugLog.instance.clear();
-      final result = await checkPermissionsByMetric(
-        Health(),
-        probe: (types, permissions) async {
-          if (types.contains(HealthDataType.SLEEP_ASLEEP)) {
+          if (types.first == HealthDataType.SLEEP_ASLEEP) {
             throw Exception('Health Connect недоступен');
           }
           return true;
         },
       );
 
-      expect(result['Сон'], isNull);
-      expect(result['Вес'], isTrue);
-      expect(result['Шаги'], isTrue);
-      expect(result['Питание'], isTrue);
+      expect(result['Сон (SLEEP_ASLEEP, READ)'], isNull);
+      expect(result['Сон (SLEEP_DEEP, READ)'], isTrue);
+      expect(result['Вес (WEIGHT, READ_WRITE)'], isTrue);
 
       final errors = DebugLog.instance.entries
           .where((e) => e.level == DebugLogLevel.error && e.tag == 'perm')
           .toList();
       expect(errors, hasLength(1));
-      expect(errors.single.message, contains('Сон'));
+      expect(errors.single.message, contains('SLEEP_ASLEEP'));
+    });
+  });
+
+  group('диагностика sleep-типов (2026-08-28)', () {
+    test('SLEEP_IN_BED — единственный sleep-тип, не поддерживаемый пакетом '
+        'health 13.3.1 на Android', () {
+      // dataTypeKeysAndroid — список пакета; в нём 9 из 10 наших sleep-типов.
+      final supported = kSleepTypes.where(dataTypeKeysAndroid.contains);
+      expect(supported, hasLength(9));
+      expect(
+        dataTypeKeysAndroid.contains(HealthDataType.SLEEP_IN_BED),
+        isFalse,
+      );
     });
   });
 
@@ -111,7 +136,7 @@ void main() {
   });
 
   group('checkAndRequestPermissions', () {
-    test('один requestAuthorization + лог по каждой метрике', () async {
+    test('один requestAuthorization + лог по каждому типу', () async {
       DebugLog.instance.clear();
       var requestCalls = 0;
       var probeCalls = 0;
@@ -124,7 +149,7 @@ void main() {
         },
         probe: (types, permissions) async {
           probeCalls++;
-          // Не выданы шаги и питание — видно, какая именно метрика провалилась.
+          // Не выданы шаги и питание — видно, какой именно тип провалился.
           return types.first != HealthDataType.STEPS &&
               !types.contains(HealthDataType.NUTRITION);
         },
@@ -132,7 +157,7 @@ void main() {
 
       expect(granted, isFalse);
       expect(requestCalls, 1); // запрос — один вызов на все типы
-      expect(probeCalls, kPermissionGroups.length); // проверка — по метрикам
+      expect(probeCalls, kHealthDataTypes.length); // проверка — по типам
 
       final permLines = DebugLog.instance.entries
           .where((e) => e.tag == 'perm')
@@ -150,7 +175,15 @@ void main() {
         );
       }
       expect(
-        permLines.any((m) => m.contains('итог') && m.contains('Шаги=false')),
+        permLines.any((m) => m.contains('Сон (SLEEP_IN_BED, READ)')),
+        isTrue,
+      );
+      expect(
+        permLines.any(
+          (m) =>
+              m.contains('итог') &&
+              m.contains('Шаги (STEPS, READ_WRITE)=false'),
+        ),
         isTrue,
       );
     });

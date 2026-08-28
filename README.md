@@ -27,7 +27,7 @@ lib/
     health_repository_impl.dart    — Health Connect через `health`
     mock_health_repository.dart    — мок (+хелперы сна)
     health_permissions.dart        — permissions: kSleepTypes, kPermissionGroups
-                                     (раздельные тихие проверки по метрикам)
+                                     (раздельные тихие проверки по каждому типу)
   services/
     settings_service.dart          — targetPace/activityLevel/lastSummaryShown (SharedPreferences)
     debug_log.dart                 — in-memory журнал отладки (кольцевой буфер 1000, ChangeNotifier)
@@ -53,7 +53,7 @@ lib/
 - Активность = шаги×вес×0.0005 ккал + добавка уровня (ккал/кг/день: 0/1.5/3/4.5/6).
 - Сон: правило «после 12:00 → следующий день»; ASLEEP приоритетнее стадий; merge по слоям.
 - Данные грузятся за 90 дней (maxTrendDays) всегда — движок не зависит от сегмента Тренда.
-- Тесты: 111 (все зелёные), `flutter analyze` — 4 info / 0 errors.
+- Тесты: 112 (все зелёные), `flutter analyze` — 4 info / 0 errors.
 
 **Журнал отладки (2026-08-26, для проверки релиза на устройстве):**
 - `DebugLog` (`lib/services/debug_log.dart`) — in-memory за сессию (не персистентно),
@@ -78,30 +78,34 @@ lib/
   try/catch ActivityNotFoundException). Новых зависимостей нет.
 - Возврат в приложение: `WidgetsBindingObserver` в `main.dart` (`didChangeAppLifecycleState`)
   → `DashboardViewModel.recheckPermissions()` — тихая проверка `Health.hasPermissions`
-  (без системного диалога; с 2026-08-28 — раздельные вызовы по метрикам, см. ниже); права выданы → `load()`, баннер исчезает; не выданы → баннер остаётся.
+  (без системного диалога; с 2026-08-28 — раздельные вызовы по каждому типу, см. ниже); права выданы → `load()`, баннер исчезает; не выданы → баннер остаётся.
 - ViewModel: флаг `permissionsDenied` + injectable `permissionCheck`/`permissionStatusCheck`
   (для тестов). Тесты: 4 новых в `test/viewmodel/dashboard_view_model_test.dart` (группа permissions).
 - Проверено: `flutter test` — 104 зелёных; `flutter analyze` — 4 info / 0 errors;
   `flutter build apk --debug` — успешно (Kotlin-канал компилируется).
 - ⚠️ Поведение кнопки и авто-исчезновение баннера после возврата — проверить на устройстве.
 
-**Раздельная проверка разрешений по метрикам (2026-08-28):**
-- Тихая проверка `hasPermissions` разделена на отдельные вызовы по метрикам —
-  в журнале видно значение каждого пункта (какая именно метрика не выдана).
-- `checkPermissionsByMetric` (`lib/repo/health_permissions.dart`) — по одному
-  тихому вызову на метрику, каждая пишется в DebugLog (тег `perm`):
-  `Вес (WEIGHT, READ_WRITE) → true`, `Шаги (STEPS, READ_WRITE) → false`,
-  `Сон (10 типов, READ) → true`, `Питание (NUTRITION, READ) → true` + строка «итог».
+**Раздельная проверка разрешений по каждому типу (2026-08-28):**
+- Тихая проверка `hasPermissions` идёт ОТДЕЛЬНЫМ вызовом на каждый тип (13 вызовов),
+  сон разбит по стадиям — в журнале значение каждого пермишена отдельной строкой.
+- `checkPermissionsPerType` (`lib/repo/health_permissions.dart`) пишет в DebugLog
+  (тег `perm`): `Вес (WEIGHT, READ_WRITE) → true`, `Шаги (STEPS, READ_WRITE) → false`,
+  `Сон (SLEEP_ASLEEP, READ) → true` … (10 стадий сна) … `Питание (NUTRITION, READ) → true`
+  + строка «итог» со всеми значениями.
+- ⚠️ Причина разбивки: нашлись sleep-типы, для которых доступ получить не удаётся.
+  В исходниках пакета health 13.3.1 `SLEEP_IN_BED` ОТСУТСТВУЕТ в `dataTypeKeysAndroid`
+  (поддерживается только на iOS) — вероятно, именно он валит запрос/проверку.
+  Решение (исключить из запроса или оставить) — за пользователем.
 - Группы `kPermissionGroups` (Вес/Шаги READ_WRITE, Сон 10×READ, Питание READ)
-  ровно покрывают прежние `kHealthDataTypes`/`kHealthDataAccess` (тест проверяет);
-  итог — AND по всем метрикам (`allGranted`, null/false = не выдано).
-- `requestAuthorization` в `checkAndRequestPermissions` остался ОДНИМ вызовом —
-  один системный диалог, UX онбординга не меняется (решение пользователя).
-- `recheckPermissions` → `checkPermissionsByMetric` + `allGranted`; сигнатуры
-  injectable `permissionCheck`/`permissionStatusCheck` не менялись.
-- Исключение одной метрики не рушит остальные: error в логе, метрика `null`.
-- Тесты: `test/repo/health_permissions_test.dart` (7 шт., injectable `probe`/`request`).
-  Всего 111 зелёных; `flutter analyze` — 4 info / 0 errors.
+  ровно покрывают `kHealthDataTypes`/`kHealthDataAccess` (тест проверяет);
+  итог — AND по всем (`allGranted`, null/false = не выдано).
+- `requestAuthorization` остался ОДНИМ вызовом (один системный диалог — решение
+  пользователя); `recheckPermissions` → `checkPermissionsPerType` + `allGranted`;
+  сигнатуры injectable `permissionCheck`/`permissionStatusCheck` не менялись.
+- Исключение одного типа не рушит остальные: error в логе, пункт `null`.
+- Тесты: `test/repo/health_permissions_test.dart` (8 шт., injectable `probe`/`request`,
+  включая диагностический тест про SLEEP_IN_BED). Всего 112 зелёных;
+  `flutter analyze` — 4 info / 0 errors.
 
 **Попутный фикс сборки (2026-08-26):** `ic_launcher_playstore_512.png` лежал в
 `android/app/src/main/res/play_store/` — это ломало ЛЮБУЮ сборку

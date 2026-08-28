@@ -146,16 +146,16 @@ class DashboardViewModel extends ChangeNotifier {
     Future<bool> Function(Health health)? permissionCheck,
     Future<bool?> Function(Health health)? permissionStatusCheck,
     bool autoLoad = true,
-  })  : _repo = repository,
-        _processor = processor,
-        _health = health,
-        _permissionCheck = permissionCheck,
-        _permissionStatusCheck = permissionStatusCheck,
-        _settings = settingsService,
-        _start = DateTime.now().subtract(
-          const Duration(days: RecommendationConfig.todayChartDays - 1),
-        ),
-        _end = DateTime.now() {
+  }) : _repo = repository,
+       _processor = processor,
+       _health = health,
+       _permissionCheck = permissionCheck,
+       _permissionStatusCheck = permissionStatusCheck,
+       _settings = settingsService,
+       _start = DateTime.now().subtract(
+         const Duration(days: RecommendationConfig.todayChartDays - 1),
+       ),
+       _end = DateTime.now() {
     if (autoLoad) load();
   }
 
@@ -184,8 +184,9 @@ class DashboardViewModel extends ChangeNotifier {
 
       // Permissions — только если есть реальный Health (не тест с моком).
       if (_health != null) {
-        final granted =
-            await (_permissionCheck ?? checkAndRequestPermissions)(_health);
+        final granted = await (_permissionCheck ?? checkAndRequestPermissions)(
+          _health,
+        );
         if (!granted) {
           _permissionsDenied = true;
           _error =
@@ -222,7 +223,10 @@ class DashboardViewModel extends ChangeNotifier {
       // Агрегация шагов за весь диапазон одним запросом (Фаза 4, DoD 3).
       // Ранее был цикл из N вызовов aggregateExternalSteps по одному на день —
       // теперь один батчевый вызов к Health Connect.
-      final aggregatedByDate = await _repo.aggregateExternalStepsForRange(loadStart, _end);
+      final aggregatedByDate = await _repo.aggregateExternalStepsForRange(
+        loadStart,
+        _end,
+      );
 
       // Сон: с запасом −1 день — ночь, начавшаяся в 23:00, относится к
       // следующему дню сна (правило С3).
@@ -234,7 +238,10 @@ class DashboardViewModel extends ChangeNotifier {
 
       // Резолюция приоритета источников (Tier 1 → Tier 2).
       final weightResolved = _processor.resolveWeightForAllDates(weightPoints);
-      final stepsResolved = _processor.resolveStepsForAllDates(stepsPoints, aggregatedByDate);
+      final stepsResolved = _processor.resolveStepsForAllDates(
+        stepsPoints,
+        aggregatedByDate,
+      );
       final sleepResolved = _sleepAnalyzer.analyze(
         rawPoints: sleepPoints,
         rangeStart: loadStart,
@@ -258,9 +265,9 @@ class DashboardViewModel extends ChangeNotifier {
       DebugLog.instance.log(
         'vm',
         'load: резолюция — вес ${weightPoints.length} тчк → '
-        '${_weightCache.length} дн., шаги ${stepsPoints.length} тчк → '
-        '${_stepsCache.length} дн., сон ${sleepPoints.length} тчк → '
-        '${_sleepCache.length} ночей, EMA ${_emaCache.length} тчк',
+            '${_weightCache.length} дн., шаги ${stepsPoints.length} тчк → '
+            '${_stepsCache.length} дн., сон ${sleepPoints.length} тчк → '
+            '${_sleepCache.length} ночей, EMA ${_emaCache.length} тчк',
       );
 
       _refreshChartData();
@@ -301,10 +308,15 @@ class DashboardViewModel extends ChangeNotifier {
     }
   }
 
-  /// Продакшн-режим тихой проверки: `hasPermissions` без запроса (диалог
-  /// не показывается — в отличие от `checkAndRequestPermissions`).
-  Future<bool?> _hasAllPermissions(Health health) =>
-      health.hasPermissions(kHealthDataTypes, permissions: kHealthDataAccess);
+  /// Продакшн-режим тихой проверки: РАЗДЕЛЬНЫЕ вызовы `hasPermissions` по
+  /// каждой метрике (вес/шаги/сон/питание) — без системного диалога (в отличие
+  /// от `checkAndRequestPermissions`). Значение каждой метрики пишется в
+  /// DebugLog тегом `perm`, см. `checkPermissionsByMetric`
+  /// в `health_permissions.dart` (2026-08-28).
+  Future<bool?> _hasAllPermissions(Health health) async {
+    final byMetric = await checkPermissionsByMetric(health);
+    return allGranted(byMetric);
+  }
 
   /// Перезагружает данные для одной даты после submit/cancel.
   ///
@@ -432,7 +444,8 @@ class DashboardViewModel extends ChangeNotifier {
   /// Это то самое большое число на вкладке «Сегодня» (аннотация макета:
   /// «большое число на экране это и есть последняя точка сглаженной линии»).
   /// `null` — данных нет.
-  double? get smoothedWeightToday => _emaData.isEmpty ? null : _emaData.last.weight;
+  double? get smoothedWeightToday =>
+      _emaData.isEmpty ? null : _emaData.last.weight;
 
   /// Пересчитывает еженедельное саммари за скользящие 7 дней (U3: при каждом
   /// вызове, без еженедельного гейта).
@@ -492,7 +505,11 @@ class DashboardViewModel extends ChangeNotifier {
 
   /// Пишет ручное значение (Tier 1) в Health Connect, обновляет кеш,
   /// при необходимости пересчитывает EMA, notifyListeners().
-  Future<void> submitManualValue(DateKey date, MetricType type, num value) async {
+  Future<void> submitManualValue(
+    DateKey date,
+    MetricType type,
+    num value,
+  ) async {
     DebugLog.instance.log('vm', 'submit $date ${type.name} = $value');
     try {
       await _repo.writeManualRecord(date, type, value);

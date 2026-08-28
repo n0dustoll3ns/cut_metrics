@@ -128,6 +128,31 @@ JVM-аппетиты (`-Xmx3G`, metaspace 1G, `workers.max=2`). APK собира
 with .xml» на `:app:packageDebugResources`, вернулось с коммитом «иконка приложения»)
 в `android/app/play_store/` — вне `res/`, файл для стора, ресурсом быть не должен.
 
+## Раздельная проверка разрешений по метрикам (2026-08-28)
+
+Тихая проверка `hasPermissions` разделена на отдельные вызовы по метрикам —
+в журнале отладки видно значение каждого пункта (какая метрика не выдана).
+Решение пользователя: `requestAuthorization` остаётся ОДНИМ вызовом (один
+системный диалог, UX онбординга не меняется), разделяются только тихие проверки.
+
+- `lib/repo/health_permissions.dart`:
+  - `HealthPermissionGroup` + `kPermissionGroups` — Вес/Шаги (READ_WRITE),
+    Сон (kSleepTypes, 10×READ), Питание (READ); ровно покрывают прежние
+    `kHealthDataTypes`/`kHealthDataAccess` (теперь собираются из групп).
+  - `checkPermissionsByMetric(health, {probe})` — отдельный тихий вызов на
+    каждую метрику, по строке в DebugLog (тег `perm`):
+    `Вес (WEIGHT, READ_WRITE) → true` и т.д. Исключение группы → error в лог,
+    метрика `null`, остальные проверяются.
+  - `allGranted()` — `true` только при всех `true` (null/false = не выдано).
+  - `checkAndRequestPermissions(health, {request, probe})` — один
+    `requestAuthorization` на все типы + детализация по метрикам после запроса.
+- `DashboardViewModel._hasAllPermissions` → `checkPermissionsByMetric` +
+  `allGranted` (используется в `recheckPermissions`). Сигнатуры injectable
+  `permissionCheck`/`permissionStatusCheck` не менялись.
+- Итоговое поведение (баннер, гейты) не изменилось: AND по всем метрикам.
+- Тесты: `test/repo/health_permissions_test.dart` (7, injectable probe/request
+  вместо platform channel). Всего 111 зелёных, `flutter analyze` 4 info / 0 errors.
+
 ## Созданные файлы Фазы 5
 
 - `docs/phase5_ui_screens_and_activity_spec.md` — ТЗ дополнений (экраны, активность, сон)

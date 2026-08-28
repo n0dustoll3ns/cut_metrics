@@ -126,3 +126,18 @@ merge обрезал бы стадии, лежащие внутри общего
 сам при возврате в приложение — баннер остаётся, пока права не выданы; после выдачи
 данные перезагружаются автоматически. Для тестов проверки прав injectable
 (`permissionCheck`/`permissionStatusCheck`).
+
+## Паттерн: не запрашивать типы вне `dataTypeKeysAndroid` пакета health (2026-08-28)
+
+`SLEEP_IN_BED` — iOS-only тип (HealthKit «время в постели»), в Health Connect
+такого типа нет: в пакете `health` 13.3.1/13.3.2 он отсутствует и в
+`dataTypeKeysAndroid`, и в нативном `mapToType`. Следствие на Android:
+`hasPermissions([SLEEP_IN_BED])` всегда false (нативный `preparePermissionsListInternal`
+→ null → `success(false)` — независимо от выданных прав), а пакетный
+`requestAuthorization` с таким типом в списке молча возвращает false без
+системного диалога → `permissionsDenied` и вечный баннер. Решение (пользователь,
+2026-08-28): тип исключён из `kSleepTypes` (сон 10→9 стадий, всего 13→12 типов).
+Инвариант охраняется тестом «каждый тип из `kPermissionGroups` есть в
+`dataTypeKeysAndroid`». Все sleep-стадии HC живут в одной записи
+`SleepSessionRecord` — системное разрешение «Сон» одно на все стадии,
+данных не теряем.

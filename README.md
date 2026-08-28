@@ -86,17 +86,22 @@ lib/
 - ⚠️ Поведение кнопки и авто-исчезновение баннера после возврата — проверить на устройстве.
 
 **Раздельная проверка разрешений по каждому типу (2026-08-28):**
-- Тихая проверка `hasPermissions` идёт ОТДЕЛЬНЫМ вызовом на каждый тип (13 вызовов),
+- Тихая проверка `hasPermissions` идёт ОТДЕЛЬНЫМ вызовом на каждый тип (12 вызовов),
   сон разбит по стадиям — в журнале значение каждого пермишена отдельной строкой.
 - `checkPermissionsPerType` (`lib/repo/health_permissions.dart`) пишет в DebugLog
   (тег `perm`): `Вес (WEIGHT, READ_WRITE) → true`, `Шаги (STEPS, READ_WRITE) → false`,
-  `Сон (SLEEP_ASLEEP, READ) → true` … (10 стадий сна) … `Питание (NUTRITION, READ) → true`
+  `Сон (SLEEP_ASLEEP, READ) → true` … (9 стадий сна) … `Питание (NUTRITION, READ) → true`
   + строка «итог» со всеми значениями.
-- ⚠️ Причина разбивки: нашлись sleep-типы, для которых доступ получить не удаётся.
-  В исходниках пакета health 13.3.1 `SLEEP_IN_BED` ОТСУТСТВУЕТ в `dataTypeKeysAndroid`
-  (поддерживается только на iOS) — вероятно, именно он валит запрос/проверку.
-  Решение (исключить из запроса или оставить) — за пользователем.
-- Группы `kPermissionGroups` (Вес/Шаги READ_WRITE, Сон 10×READ, Питание READ)
+- ✅ `SLEEP_IN_BED` ИСКЛЮЧЁН из `kSleepTypes` (решение пользователя, 2026-08-28):
+  это iOS-only тип (HealthKit «время в постели»); в пакете health 13.3.1/13.3.2
+  его нет ни в `dataTypeKeysAndroid`, ни в нативном `mapToType` → `hasPermissions`
+  для него ВСЕГДА false (при полностью выданных правах, подтверждено на устройстве),
+  а пакетный `requestAuthorization` с ним в списке молча возвращает false БЕЗ
+  системного диалога (баннер разрешений не исчезал). Данные сна не теряются:
+  SleepAnalyzer читает ASLEEP + DEEP/LIGHT/REM из `SleepSessionRecord`.
+  Регрессионный тест: каждый тип из `kPermissionGroups` обязан быть в
+  `dataTypeKeysAndroid`.
+- Группы `kPermissionGroups` (Вес/Шаги READ_WRITE, Сон 9×READ, Питание READ)
   ровно покрывают `kHealthDataTypes`/`kHealthDataAccess` (тест проверяет);
   итог — AND по всем (`allGranted`, null/false = не выдано).
 - `requestAuthorization` остался ОДНИМ вызовом (один системный диалог — решение

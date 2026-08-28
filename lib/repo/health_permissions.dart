@@ -4,12 +4,20 @@ import 'package:health/health.dart';
 /// Sleep-типы, поддерживаемые Health Connect на Android.
 ///
 /// Все запрашиваются в `READ` — сон остаётся read-only (Фаза 2, секция 2).
+///
+/// ⚠️ `SLEEP_IN_BED` сюда НЕ включать — это iOS-only тип (HealthKit «время
+/// в постели»). В пакете `health` 13.3.1/13.3.2 его нет ни в
+/// `dataTypeKeysAndroid`, ни в нативном `mapToType`, поэтому `hasPermissions`
+/// для него ВСЕГДА false (подтверждено на устройстве 2026-08-28), а пакетный
+/// `requestAuthorization` с ним в списке молча возвращает false, не показывая
+/// системный диалог. В Health Connect все стадии сна — одна запись
+/// `SleepSessionRecord`, отдельного типа «в постели» не существует. Данные
+/// сна не теряются: SleepAnalyzer работает через ASLEEP + DEEP/LIGHT/REM.
 const List<HealthDataType> kSleepTypes = [
   HealthDataType.SLEEP_ASLEEP,
   HealthDataType.SLEEP_AWAKE,
   HealthDataType.SLEEP_AWAKE_IN_BED,
   HealthDataType.SLEEP_DEEP,
-  HealthDataType.SLEEP_IN_BED,
   HealthDataType.SLEEP_LIGHT,
   HealthDataType.SLEEP_OUT_OF_BED,
   HealthDataType.SLEEP_REM,
@@ -43,9 +51,10 @@ class HealthPermissionGroup {
 
 /// Группы типов по метрикам — по одной на каждую метрику здоровья.
 ///
-/// Порядок групп задаёт порядок в [kHealthDataTypes]: ровно те же 13 типов,
-/// что и раньше (состав запроса и правило «все обязаны быть выданы»
-/// не меняются — разделяются только тихие проверки и логи).
+/// Порядок групп задаёт порядок в [kHealthDataTypes]: ровно те же 12 типов
+/// (13 → 12 после исключения iOS-only `SLEEP_IN_BED`, 2026-08-28).
+/// Правило «все обязаны быть выданы» не меняется — разделяются только
+/// тихие проверки и логи.
 const List<HealthPermissionGroup> kPermissionGroups = [
   HealthPermissionGroup(
     label: 'Вес',
@@ -65,7 +74,6 @@ const List<HealthPermissionGroup> kPermissionGroups = [
       HealthDataAccess.READ, // SLEEP_AWAKE
       HealthDataAccess.READ, // SLEEP_AWAKE_IN_BED
       HealthDataAccess.READ, // SLEEP_DEEP
-      HealthDataAccess.READ, // SLEEP_IN_BED
       HealthDataAccess.READ, // SLEEP_LIGHT
       HealthDataAccess.READ, // SLEEP_OUT_OF_BED
       HealthDataAccess.READ, // SLEEP_REM
@@ -114,18 +122,19 @@ typedef HealthPermissionProbe =
 /// Для каждого типа из [kPermissionGroups] — свой вызов `hasPermissions`
 /// (без системного диалога), значение каждого пермишена пишется в DebugLog
 /// с тегом `perm`, по одной строке на пункт — сон разбит по стадиям
-/// (10 строк; 2026-08-28: выяснилось, что для отдельных sleep-типов доступ
-/// получить не удаётся — теперь видно, для каких именно):
+/// (9 строк; 2026-08-28: раздельная проверка выявила `SLEEP_IN_BED` —
+/// iOS-only тип, для которого `hasPermissions` на Android всегда false;
+/// исключён из [kSleepTypes]):
 ///
 /// ```
 /// Вес (WEIGHT, READ_WRITE) → true
 /// Шаги (STEPS, READ_WRITE) → false
 /// Сон (SLEEP_ASLEEP, READ) → true
-/// ... ещё 9 стадий сна ...
+/// ... ещё 8 стадий сна ...
 /// Питание (NUTRITION, READ) → true
 /// ```
 ///
-/// Возвращает map «пункт → значение» (13 записей), где `null` — статус
+/// Возвращает map «пункт → значение» (12 записей), где `null` — статус
 /// не определён (например, Health Connect недоступен). Исключение одного
 /// типа не рушит остальные: логируется как error, пункт получает `null`.
 ///

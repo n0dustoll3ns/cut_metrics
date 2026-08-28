@@ -130,22 +130,26 @@ with .xml» на `:app:packageDebugResources`, вернулось с комми�
 
 ## Раздельная проверка разрешений по каждому типу (2026-08-28)
 
-Тихая проверка `hasPermissions` идёт отдельным вызовом на КАЖДЫЙ тип (13 вызовов,
-сон — по каждой из 10 стадий) — в журнале отладки значение каждого пермишена
+Тихая проверка `hasPermissions` идёт отдельным вызовом на КАЖДЫЙ тип (12 вызовов,
+сон — по каждой из 9 стадий) — в журнале отладки значение каждого пермишена
 отдельной строкой (тег `perm`). Решение пользователя: `requestAuthorization`
 остаётся ОДНИМ вызовом (один системный диалог, UX онбординга не меняется),
 разделяются только тихие проверки. Функция переименована:
 `checkPermissionsByMetric` → `checkPermissionsPerType`.
 
-⚠️ Найден вероятный корень проблемы «доступ получить не удаётся»: `SLEEP_IN_BED`
-отсутствует в `dataTypeKeysAndroid` пакета health 13.3.1 (поддерживается только
-на iOS) — запрос и проверка этого типа на Android не могут вернуть true.
-Зафиксировано диагностическим тестом. Решение (исключать ли SLEEP_IN_BED из
-kSleepTypes на Android) — открытый вопрос для пользователя.
+✅ Корень проблемы «доступ получить не удаётся» найден и закрыт (решение
+пользователя 2026-08-28): `SLEEP_IN_BED` — iOS-only тип, в пакете health
+13.3.1/13.3.2 отсутствует и в `dataTypeKeysAndroid`, и в нативном `mapToType`
+→ `hasPermissions` для него всегда false (даже при выданных правах),
+а пакетный `requestAuthorization` с ним молча возвращает false без системного
+диалога. `SLEEP_IN_BED` исключён из `kSleepTypes` (10→9 sleep-типов, всего
+13→12); данные сна не теряются (ASLEEP + DEEP/LIGHT/REM из
+`SleepSessionRecord`). Инвариант охраняется регрессионным тестом: каждый тип
+из `kPermissionGroups` обязан быть в `dataTypeKeysAndroid`.
 
 - `lib/repo/health_permissions.dart`:
   - `HealthPermissionGroup` + `kPermissionGroups` — Вес/Шаги (READ_WRITE),
-    Сон (kSleepTypes, 10×READ), Питание (READ); ровно покрывают
+    Сон (kSleepTypes, 9×READ), Питание (READ); ровно покрывают
     `kHealthDataTypes`/`kHealthDataAccess` (собираются из групп).
   - `checkPermissionsPerType(health, {probe})` — отдельный тихий вызов на
     каждый тип, по строке в DebugLog: `Вес (WEIGHT, READ_WRITE) → true`,
@@ -159,7 +163,7 @@ kSleepTypes на Android) — открытый вопрос для пользо�
   `permissionCheck`/`permissionStatusCheck` не менялись.
 - Итоговое поведение (баннер, гейты) не изменилось: AND по всем пунктам.
 - Тесты: `test/repo/health_permissions_test.dart` (8, injectable probe/request,
-  включая диагностический про SLEEP_IN_BED). Всего 112 зелёных,
+  включая регрессионный про Android-поддержку типов). Всего 112 зелёных,
   `flutter analyze` 4 info / 0 errors.
 
 ## Созданные файлы Фазы 5

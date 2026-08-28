@@ -57,14 +57,14 @@ void main() {
           },
         );
 
-        // 13 типов: вес + шаги + 10 стадий сна + питание.
+        // 12 типов: вес + шаги + 9 стадий сна + питание.
         expect(calls, kHealthDataTypes.length);
         expect(result, hasLength(kHealthDataTypes.length));
         expect(result['Вес (WEIGHT, READ_WRITE)'], isTrue);
         expect(result['Шаги (STEPS, READ_WRITE)'], isFalse);
         expect(result['Сон (SLEEP_ASLEEP, READ)'], isTrue);
         expect(result['Питание (NUTRITION, READ)'], isTrue);
-        // Все 10 стадий сна — отдельными записями.
+        // Все 9 стадий сна — отдельными записями.
         expect(
           result.keys.where((k) => k.startsWith('Сон (SLEEP_')),
           hasLength(kSleepTypes.length),
@@ -85,7 +85,8 @@ void main() {
           ),
           isTrue,
         );
-        expect(permLines.any((m) => m.contains('Сон (SLEEP_IN_BED')), isTrue);
+        // SLEEP_IN_BED исключён (iOS-only) — в логах его быть не должно.
+        expect(permLines.any((m) => m.contains('SLEEP_IN_BED')), isFalse);
       },
     );
 
@@ -113,16 +114,22 @@ void main() {
     });
   });
 
-  group('диагностика sleep-типов (2026-08-28)', () {
-    test('SLEEP_IN_BED — единственный sleep-тип, не поддерживаемый пакетом '
-        'health 13.3.1 на Android', () {
-      // dataTypeKeysAndroid — список пакета; в нём 9 из 10 наших sleep-типов.
-      final supported = kSleepTypes.where(dataTypeKeysAndroid.contains);
-      expect(supported, hasLength(9));
-      expect(
-        dataTypeKeysAndroid.contains(HealthDataType.SLEEP_IN_BED),
-        isFalse,
-      );
+  group('регрессия: Android-поддержка типов (2026-08-28)', () {
+    test('каждый запрашиваемый тип есть в dataTypeKeysAndroid пакета health '
+        '(SLEEP_IN_BED — iOS-only, исключён из kSleepTypes)', () {
+      // Тип вне dataTypeKeysAndroid на Android не работает: hasPermissions
+      // всегда false, requestAuthorization молча фейлится без диалога
+      // (пакет health 13.3.1/13.3.2, нативный mapToType).
+      for (final group in kPermissionGroups) {
+        for (final type in group.types) {
+          expect(
+            dataTypeKeysAndroid.contains(type),
+            isTrue,
+            reason: '${group.label}: $type не поддерживается на Android',
+          );
+        }
+      }
+      expect(kSleepTypes, isNot(contains(HealthDataType.SLEEP_IN_BED)));
     });
   });
 
@@ -175,8 +182,8 @@ void main() {
         );
       }
       expect(
-        permLines.any((m) => m.contains('Сон (SLEEP_IN_BED, READ)')),
-        isTrue,
+        permLines.any((m) => m.contains('SLEEP_IN_BED')),
+        isFalse, // iOS-only тип исключён из запроса (2026-08-28)
       );
       expect(
         permLines.any(

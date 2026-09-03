@@ -53,6 +53,7 @@
     --shadow-2:0 4px 16px rgba(20,23,26,.10);
 
     --focus-ring:0 0 0 3px rgba(42,93,176,.35);
+    --on-signal:#FFFFFF;      /* текст на primary-кнопке: светлая — белый, тёмная — тёмный (Фаза 6) */
   }
 
   *{box-sizing:border-box;}
@@ -179,7 +180,7 @@
   .comp-block{display:flex; flex-wrap:wrap; gap:var(--sp-4); align-items:center; margin-bottom:var(--sp-8);}
   .btn{font-family:var(--f-body); font-weight:600; font-size:14px; border-radius:var(--r-md); padding:12px 22px; border:1px solid transparent; cursor:pointer; transition:background .15s ease, border-color .15s ease;}
   .btn:focus-visible{outline:none; box-shadow:var(--focus-ring);}
-  .btn-primary{background:var(--signal); color:#fff;}
+  .btn-primary{background:var(--signal); color:var(--on-signal);}
   .btn-primary:hover{background:var(--signal-hover);}
   .btn-primary:active{background:var(--signal-press);}
   .btn-secondary{background:transparent; color:var(--ink); border-color:var(--outline-strong);}
@@ -209,6 +210,51 @@
   .demo-card-value{margin:var(--sp-2) 0 var(--sp-4);}
   .demo-card-rec{font-size:14px; color:var(--ink-muted); line-height:1.5; margin-top:var(--sp-4); padding-top:var(--sp-4); border-top:1px solid var(--outline);}
 
+  /* ---------- Фаза 6: бедж источника данных ---------- */
+  .badge-source{background:var(--surface-2); border-color:var(--outline); color:var(--ink-muted);}
+  .badge-source .badge-dot{background:var(--noise);}
+  .badge-manual{background:var(--signal-tint); border-color:var(--outline); color:var(--ink);}
+  .badge-manual .badge-dot{background:var(--signal);}
+
+  /* ---------- Фаза 6: паттерн «ось дат графика» ---------- */
+  .axis-demo{background:var(--surface-0); border:1px solid var(--outline); border-radius:var(--r-lg); padding:var(--sp-4) var(--sp-4) var(--sp-2); margin-bottom:var(--sp-4); max-width:720px;}
+  .axis-svg{display:block; width:100%; height:auto;}
+  .axis-day{font-family:var(--f-mono); font-size:10px; fill:var(--noise);}
+  .axis-month{font-family:var(--f-mono); font-size:10px; font-weight:700; letter-spacing:.04em; fill:var(--ink-muted);}
+  .axis-gridline{stroke:var(--outline); stroke-width:1;}
+  .axis-rules{margin:0 0 var(--sp-8); padding-left:20px; font-size:13.5px; color:var(--ink-muted); line-height:1.7; max-width:720px;}
+  .axis-rules b{color:var(--ink); font-weight:600;}
+  .axis-rules code{font-family:var(--f-mono); font-size:12px; background:var(--surface-2); border-radius:4px; padding:1px 6px; color:var(--ink);}
+
+  /* ---------- Фаза 6: тёмная тема ---------- */
+  .dark-map{width:100%; border-collapse:collapse; font-size:13px; margin:0 0 var(--sp-4);}
+  .dark-map th{font-family:var(--f-mono); font-size:11px; letter-spacing:.05em; text-transform:uppercase; color:var(--noise); font-weight:400; text-align:left; padding:6px 10px; border-bottom:1px solid var(--outline-strong);}
+  .dark-map td{border-bottom:1px solid var(--outline); padding:7px 10px; vertical-align:middle;}
+  .dark-map tr:last-child td{border-bottom:none;}
+  .dark-map .tok{font-family:var(--f-mono); font-size:12px; white-space:nowrap; color:var(--ink);}
+  .dark-map .role{color:var(--ink-muted); font-size:12.5px;}
+  .chip{display:inline-block; width:15px; height:15px; border-radius:4px; border:1px solid rgba(20,23,26,.2); vertical-align:-3px; margin-right:8px;}
+  .hex{font-family:var(--f-mono); font-size:11.5px; color:var(--ink-muted); white-space:nowrap;}
+  .sub-caption{font-family:var(--f-mono); font-size:11px; letter-spacing:.05em; text-transform:uppercase; color:var(--noise); margin:var(--sp-8) 0 var(--sp-3);}
+  .aa-note{font-size:13px; color:var(--ink-muted); max-width:760px; line-height:1.7; margin:0 0 var(--sp-2);}
+  .aa-note b{color:var(--ink); font-weight:600;}
+  .aa-note code{font-family:var(--f-mono); font-size:12px;}
+  .theme-pair{display:grid; grid-template-columns:1fr 1fr; gap:var(--sp-4);}
+  @media (max-width:760px){ .theme-pair{grid-template-columns:1fr;} }
+  .theme-col{border:1px solid var(--outline); border-radius:var(--r-lg); padding:var(--sp-6); display:flex; flex-direction:column; gap:var(--sp-5); align-items:flex-start; background:var(--bg);}
+  .theme-col-title{font-family:var(--f-mono); font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:var(--noise);}
+  .theme-dark{
+    --bg:#101214; --surface-0:#191C1F; --surface-1:#101214; --surface-2:#23272C;
+    --outline:#2B3036; --outline-strong:#3A4046;
+    --ink:#E8EAEC; --ink-muted:#9AA1A9; --noise:#6E757D;
+    --signal:#7EA4E6; --signal-hover:#8FB2EB; --signal-press:#6F97DE; --signal-tint:#1C2836;
+    --steady:#52C695; --steady-tint:#142E25; --steady-border:#24584A;
+    --alert:#E57F72; --alert-tint:#38211E; --alert-border:#6E372F;
+    --on-signal:#101214;
+    --focus-ring:0 0 0 3px rgba(126,164,230,.4);
+    --shadow-1:0 1px 2px rgba(0,0,0,.45), 0 1px 1px rgba(0,0,0,.35);
+  }
+
   /* ---------- A11y ---------- */
   .focus-demo{display:flex; gap:var(--sp-6); align-items:center; flex-wrap:wrap;}
   .focus-static{
@@ -230,6 +276,7 @@
     <a href="#signature">Сигнатура</a>
     <a href="#grid">Сетка</a>
     <a href="#components">Компоненты</a>
+    <a href="#dark">Тёмная тема</a>
     <a href="#a11y">Доступность</a>
   </nav>
 
@@ -474,7 +521,11 @@
       <div class="comp-block">
         <span class="badge badge-steady"><span class="badge-dot"></span>В темпе</span>
         <span class="badge badge-alert"><span class="badge-dot"></span>Слишком быстро</span>
+        <span class="badge badge-source"><span class="badge-dot"></span>Из Google Fit</span>
+        <span class="badge badge-source"><span class="badge-dot"></span>Из Samsung Healt…</span>
+        <span class="badge badge-manual"><span class="badge-dot"></span>Ручной ввод</span>
       </div>
+      <p class="axis-rules" style="margin-bottom:var(--sp-8);"><b>Бедж источника данных (Фаза 6):</b> расширяется именем конкретного приложения — точка Noise + имя («Из Google Fit»). Имя — из словаря известных пакетов (задание №2, <code>source_names.dart</code>); пакет не из словаря — последний сегмент package name; package неизвестен — <code>Из Health Connect</code>. Одна строка, обрезка ~16 символов с «…». «Ручной ввод» — без изменений (Signal-точка на signal-tint подложке).</p>
 
       <div class="comp-block">
         <div class="field-example">
@@ -501,11 +552,168 @@
           <div class="demo-card-rec">Снизь калорийность на ~100 ккал в следующие 7 дней.</div>
         </div>
       </div>
+
+      <p class="sub-caption" style="margin-top:0;">Ось дат графика — Фаза 6</p>
+      <div class="axis-demo">
+        <svg class="axis-svg" viewBox="0 0 640 92" width="640" height="92" role="img" aria-label="Ось дат: числа дней, граница месяца 1 июля, тултип 17 июля">
+          <!-- тонкая вертикальная линия сетки на границе месяца -->
+          <line class="axis-gridline" x1="131.1" y1="28" x2="131.1" y2="74"/>
+          <!-- сырые точки (noiseLight: noise @55%) -->
+          <circle cx="20.0" cy="52" r="3" fill="var(--noise)" opacity=".55"/><circle cx="42.2" cy="46" r="3" fill="var(--noise)" opacity=".55"/>
+          <circle cx="64.4" cy="54" r="3" fill="var(--noise)" opacity=".55"/><circle cx="86.7" cy="42" r="3" fill="var(--noise)" opacity=".55"/>
+          <circle cx="108.9" cy="48" r="3" fill="var(--noise)" opacity=".55"/><circle cx="131.1" cy="56" r="3" fill="var(--noise)" opacity=".55"/>
+          <circle cx="153.3" cy="44" r="3" fill="var(--noise)" opacity=".55"/><circle cx="175.6" cy="50" r="3" fill="var(--noise)" opacity=".55"/>
+          <circle cx="197.8" cy="38" r="3" fill="var(--noise)" opacity=".55"/><circle cx="220.0" cy="46" r="3" fill="var(--noise)" opacity=".55"/>
+          <circle cx="242.2" cy="42" r="3" fill="var(--noise)" opacity=".55"/><circle cx="264.4" cy="52" r="3" fill="var(--noise)" opacity=".55"/>
+          <circle cx="286.7" cy="44" r="3" fill="var(--noise)" opacity=".55"/><circle cx="308.9" cy="48" r="3" fill="var(--noise)" opacity=".55"/>
+          <circle cx="331.1" cy="40" r="3" fill="var(--noise)" opacity=".55"/><circle cx="353.3" cy="50" r="3" fill="var(--noise)" opacity=".55"/>
+          <circle cx="375.6" cy="42" r="3" fill="var(--noise)" opacity=".55"/><circle cx="397.8" cy="46" r="3" fill="var(--noise)" opacity=".55"/>
+          <circle cx="420.0" cy="38" r="3" fill="var(--noise)" opacity=".55"/><circle cx="442.2" cy="48" r="3" fill="var(--noise)" opacity=".55"/>
+          <circle cx="464.4" cy="40" r="3" fill="var(--noise)" opacity=".55"/><circle cx="486.7" cy="46" r="3" fill="var(--noise)" opacity=".55"/>
+          <circle cx="508.9" cy="42" r="3" fill="var(--noise)" opacity=".55"/><circle cx="531.1" cy="50" r="3" fill="var(--noise)" opacity=".55"/>
+          <circle cx="553.3" cy="44" r="3" fill="var(--noise)" opacity=".55"/><circle cx="575.6" cy="46" r="3" fill="var(--noise)" opacity=".55"/>
+          <circle cx="597.8" cy="40" r="3" fill="var(--noise)" opacity=".55"/><circle cx="620.0" cy="44" r="3" fill="var(--noise)" opacity=".55"/>
+          <!-- линия тренда -->
+          <path d="M20,50 C90,52 160,48 230,46 C300,44 370,47 440,44 C500,41 560,42 620,42" fill="none" stroke="var(--signal)" stroke-width="3" stroke-linecap="round"/>
+          <!-- тултип по тапу: полная дата + значение -->
+          <circle cx="486.7" cy="46" r="5.5" fill="none" stroke="var(--signal)" stroke-width="1.5"/>
+          <line x1="486.7" y1="24" x2="486.7" y2="38.5" stroke="var(--outline)"/>
+          <rect x="421.7" y="2" width="130" height="22" rx="6" fill="var(--surface-0)" stroke="var(--outline)"/>
+          <text x="486.7" y="16.5" text-anchor="middle" style="font-family:var(--f-mono); font-size:10.5px; fill:var(--ink);">17 июл · 78.4 кг</text>
+          <!-- метки: обычные дни + граница месяца -->
+          <text class="axis-day" x="20.0" y="88" text-anchor="middle">26</text>
+          <text class="axis-month" x="131.1" y="88" text-anchor="middle">1 ИЮЛ</text>
+          <text class="axis-day" x="197.8" y="88" text-anchor="middle">4</text>
+          <text class="axis-day" x="286.7" y="88" text-anchor="middle">8</text>
+          <text class="axis-day" x="375.6" y="88" text-anchor="middle">12</text>
+          <text class="axis-day" x="464.4" y="88" text-anchor="middle">16</text>
+          <text class="axis-day" x="553.3" y="88" text-anchor="middle">20</text>
+          <text class="axis-day" x="620.0" y="88" text-anchor="middle">23</text>
+        </svg>
+      </div>
+      <ul class="axis-rules">
+        <li><b>Обычный день</b> — только число («7»). Space Mono 10px, Noise Grey.</li>
+        <li><b>Граница месяца</b> — <code>1 АВГ</code>: число + 3-буквенный месяц uppercase, Ink Muted, жирнее. Метка месяца показывается <b>всегда</b>, даже если не попадает в шаг прореживания, — вытесняет ближайшую обычную метку.</li>
+        <li><b>Прореживание</b> — не более ~8 меток на ширину графика (шаг = ceil(точек / 7)).</li>
+        <li>Граница месяца дополнительно подсвечивается <b>тонкой вертикальной линией сетки</b> (outline, 1px).</li>
+        <li><b>Тултип по тапу</b> — полная дата «17 июл» + значение.</li>
+      </ul>
+      <p class="axis-rules" style="list-style:none; margin-top:calc(-1 * var(--sp-4));">Применяется на «Сегодня» (30 дн) и «Тренде» (7/30/90 дн) — к графикам веса и EMA.</p>
+    </section>
+
+    <!-- ===================== DARK THEME ===================== -->
+    <section id="dark">
+      <p class="kicker">06</p>
+      <h2>Тёмная тема</h2>
+      <p class="lede">Тёмная тема — производная, а не новая система: те же роли, инвертированные значения, ноль новых токенов. «Приборная» тёмно-серая канва (#101214), карточки чуть светлее фона, Deep Ink инвертируется в светлый текст. Брендовые signal / steady / alert осветляются до контраста AA, tint-подложки темнеют — та же логика «бледная подложка вместо сплошной заливки». Светлая тема остаётся базовой; режим по умолчанию — системный.</p>
+      <table class="dark-map">
+        <thead>
+          <tr><th>Токен</th><th>Роль</th><th>Light</th><th>Dark</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="tok">bg</td><td class="role">фон / канва</td><td><span class="chip" style="background:#F3F5F6"></span><span class="hex">#F3F5F6</span></td><td><span class="chip" style="background:#101214"></span><span class="hex">#101214</span></td></tr>
+          <tr><td class="tok">surface0</td><td class="role">карточки</td><td><span class="chip" style="background:#FFFFFF"></span><span class="hex">#FFFFFF</span></td><td><span class="chip" style="background:#191C1F"></span><span class="hex">#191C1F</span></td></tr>
+          <tr><td class="tok">surface1</td><td class="role">= bg</td><td><span class="chip" style="background:#F3F5F6"></span><span class="hex">#F3F5F6</span></td><td><span class="chip" style="background:#101214"></span><span class="hex">#101214</span></td></tr>
+          <tr><td class="tok">surface2</td><td class="role">ховеры, заполнения</td><td><span class="chip" style="background:#E7EAEC"></span><span class="hex">#E7EAEC</span></td><td><span class="chip" style="background:#23272C"></span><span class="hex">#23272C</span></td></tr>
+          <tr><td class="tok">outline</td><td class="role">линии, сетка</td><td><span class="chip" style="background:#D7DBDE"></span><span class="hex">#D7DBDE</span></td><td><span class="chip" style="background:#2B3036"></span><span class="hex">#2B3036</span></td></tr>
+          <tr><td class="tok">outlineStrong</td><td class="role">рамки полей</td><td><span class="chip" style="background:#C2C7CC"></span><span class="hex">#C2C7CC</span></td><td><span class="chip" style="background:#3A4046"></span><span class="hex">#3A4046</span></td></tr>
+          <tr><td class="tok">ink</td><td class="role">основной текст — инверсия Deep Ink</td><td><span class="chip" style="background:#14171A"></span><span class="hex">#14171A</span></td><td><span class="chip" style="background:#E8EAEC"></span><span class="hex">#E8EAEC</span></td></tr>
+          <tr><td class="tok">inkMuted</td><td class="role">второстепенный текст</td><td><span class="chip" style="background:#4B5259"></span><span class="hex">#4B5259</span></td><td><span class="chip" style="background:#9AA1A9"></span><span class="hex">#9AA1A9</span></td></tr>
+          <tr><td class="tok">noise</td><td class="role">сырые точки, подписи</td><td><span class="chip" style="background:#9CA3AF"></span><span class="hex">#9CA3AF</span></td><td><span class="chip" style="background:#6E757D"></span><span class="hex">#6E757D</span></td></tr>
+          <tr><td class="tok">signal</td><td class="role">акцент, тренд, CTA</td><td><span class="chip" style="background:#2A5DB0"></span><span class="hex">#2A5DB0</span></td><td><span class="chip" style="background:#7EA4E6"></span><span class="hex">#7EA4E6</span></td></tr>
+          <tr><td class="tok">signalTint</td><td class="role">подложка ручного ввода</td><td><span class="chip" style="background:#E7EEF8"></span><span class="hex">#E7EEF8</span></td><td><span class="chip" style="background:#1C2836"></span><span class="hex">#1C2836</span></td></tr>
+          <tr><td class="tok">steady</td><td class="role">статус «в темпе»</td><td><span class="chip" style="background:#1F9D6C"></span><span class="hex">#1F9D6C</span></td><td><span class="chip" style="background:#52C695"></span><span class="hex">#52C695</span></td></tr>
+          <tr><td class="tok">steadyTint</td><td class="role">подложка статуса</td><td><span class="chip" style="background:#E4F5EE"></span><span class="hex">#E4F5EE</span></td><td><span class="chip" style="background:#142E25"></span><span class="hex">#142E25</span></td></tr>
+          <tr><td class="tok">steadyBorder</td><td class="role">рамка статуса</td><td><span class="chip" style="background:#BEE3D2"></span><span class="hex">#BEE3D2</span></td><td><span class="chip" style="background:#24584A"></span><span class="hex">#24584A</span></td></tr>
+          <tr><td class="tok">alert</td><td class="role">ошибки, отклонения</td><td><span class="chip" style="background:#B23A2E"></span><span class="hex">#B23A2E</span></td><td><span class="chip" style="background:#E57F72"></span><span class="hex">#E57F72</span></td></tr>
+          <tr><td class="tok">alertTint</td><td class="role">подложка ошибки</td><td><span class="chip" style="background:#FBEAE8"></span><span class="hex">#FBEAE8</span></td><td><span class="chip" style="background:#38211E"></span><span class="hex">#38211E</span></td></tr>
+          <tr><td class="tok">alertBorder</td><td class="role">рамка ошибки</td><td><span class="chip" style="background:#EFC5BF"></span><span class="hex">#EFC5BF</span></td><td><span class="chip" style="background:#6E372F"></span><span class="hex">#6E372F</span></td></tr>
+          <tr><td class="tok">noiseLight</td><td class="role">точки графика (alpha 55%)</td><td><span class="chip" style="background:rgba(156,163,175,.55)"></span><span class="hex">noise @55%</span></td><td><span class="chip" style="background:rgba(110,117,125,.55)"></span><span class="hex">noise @55%</span></td></tr>
+          <tr><td class="tok">onPrimary</td><td class="role">текст на primary-кнопке</td><td><span class="chip" style="background:#FFFFFF"></span><span class="hex">#FFFFFF</span></td><td><span class="chip" style="background:#101214"></span><span class="hex">#101214</span></td></tr>
+        </tbody>
+      </table>
+      <p class="aa-note"><b>Контраст AA (WCAG, текст ≥ 4.5:1; на bg / surface0):</b> тёмная — ink <code>15.6 / 14.2</code> · inkMuted <code>7.2 / 6.6</code> · signal <code>7.5 / 6.8</code> · steady <code>8.8 / 8.0</code> · alert <code>6.8 / 6.2</code> · onPrimary на signal <code>7.5</code>. Светлая (для сравнения) — ink <code>16.4 / 18.0</code> · inkMuted <code>7.2 / 7.7</code> · signal <code>5.8 / 6.2</code> · alert <code>5.4 / 5.7</code> · steady <code>3.2 / 3.4</code> — поэтому, как и раньше, цвет статуса несёт точка-индикатор, а не текст (в тёмной steady проходит AA и как текст, но принцип не меняем). noise — декоративная роль (сырые точки, подписи), контрастом не нормируется в обеих темах.</p>
+      <p class="aa-note">Производные тёмной темы: signal-hover <code>#8FB2EB</code>, signal-press <code>#6F97DE</code> (в тёмной hover <b>светлее</b> базового, не темнее); тени глубже — из чёрного. Значения из таблицы прошли контраст-проверку без подгонки оттенков — в пределах допуска, разрешённого ТЗ Фазы 6.</p>
+      <p class="sub-caption">Превью ключевых компонентов — две темы рядом</p>
+      <div class="theme-pair">
+        <div class="theme-col">
+          <div class="theme-col-title">Светлая</div>
+          <div style="display:flex; gap:12px; flex-wrap:wrap;">
+            <button class="btn btn-primary">Открыть саммари</button>
+            <button class="btn btn-secondary">Настроить темп</button>
+          </div>
+          <div style="display:flex; gap:12px; flex-wrap:wrap;">
+            <span class="badge badge-steady"><span class="badge-dot"></span>В темпе</span>
+            <span class="badge badge-alert"><span class="badge-dot"></span>Слишком быстро</span>
+            <span class="badge badge-source"><span class="badge-dot"></span>Из Google Fit</span>
+          </div>
+          <div class="field-example" style="max-width:100%;">
+            <label class="field-label">Целевой темп, %/нед</label>
+            <input class="field-input" type="text" value="0.6" readonly>
+          </div>
+          <svg class="axis-svg" viewBox="0 0 280 64" width="280" height="64" aria-hidden="true">
+            <line class="axis-gridline" x1="72.2" y1="8" x2="72.2" y2="40"/>
+            <circle cx="14" cy="30" r="2.4" fill="var(--noise)" opacity=".55"/><circle cx="33.4" cy="24" r="2.4" fill="var(--noise)" opacity=".55"/>
+            <circle cx="52.8" cy="32" r="2.4" fill="var(--noise)" opacity=".55"/><circle cx="91.6" cy="22" r="2.4" fill="var(--noise)" opacity=".55"/>
+            <circle cx="111" cy="28" r="2.4" fill="var(--noise)" opacity=".55"/><circle cx="130.3" cy="20" r="2.4" fill="var(--noise)" opacity=".55"/>
+            <circle cx="168.8" cy="26" r="2.4" fill="var(--noise)" opacity=".55"/><circle cx="188.4" cy="18" r="2.4" fill="var(--noise)" opacity=".55"/>
+            <circle cx="207.8" cy="24" r="2.4" fill="var(--noise)" opacity=".55"/><circle cx="246.5" cy="20" r="2.4" fill="var(--noise)" opacity=".55"/>
+            <circle cx="266" cy="26" r="2.4" fill="var(--noise)" opacity=".55"/>
+            <path d="M14,29 C70,26 130,22 190,21 C220,20.5 250,21 266,23" fill="none" stroke="var(--signal)" stroke-width="2.5" stroke-linecap="round"/>
+            <text class="axis-day" x="14" y="56" text-anchor="middle">28</text>
+            <text class="axis-month" x="72.2" y="56" text-anchor="middle">1 ИЮЛ</text>
+            <text class="axis-day" x="130.3" y="56" text-anchor="middle">4</text>
+            <text class="axis-day" x="188.4" y="56" text-anchor="middle">7</text>
+            <text class="axis-day" x="246.5" y="56" text-anchor="middle">10</text>
+          </svg>
+          <div class="demo-card" style="max-width:100%;">
+            <div class="demo-card-head"><span class="demo-card-range">17 ИЮЛ — 24 ИЮЛ</span></div>
+            <div class="demo-card-value"><div class="t-metric-lg">−0.6%</div></div>
+            <span class="badge badge-steady"><span class="badge-dot"></span>В темпе</span>
+          </div>
+        </div>
+        <div class="theme-col theme-dark">
+          <div class="theme-col-title">Тёмная</div>
+          <div style="display:flex; gap:12px; flex-wrap:wrap;">
+            <button class="btn btn-primary">Открыть саммари</button>
+            <button class="btn btn-secondary">Настроить темп</button>
+          </div>
+          <div style="display:flex; gap:12px; flex-wrap:wrap;">
+            <span class="badge badge-steady"><span class="badge-dot"></span>В темпе</span>
+            <span class="badge badge-alert"><span class="badge-dot"></span>Слишком быстро</span>
+            <span class="badge badge-source"><span class="badge-dot"></span>Из Google Fit</span>
+          </div>
+          <div class="field-example" style="max-width:100%;">
+            <label class="field-label">Целевой темп, %/нед</label>
+            <input class="field-input" type="text" value="0.6" readonly>
+          </div>
+          <svg class="axis-svg" viewBox="0 0 280 64" width="280" height="64" aria-hidden="true">
+            <line class="axis-gridline" x1="72.2" y1="8" x2="72.2" y2="40"/>
+            <circle cx="14" cy="30" r="2.4" fill="var(--noise)" opacity=".55"/><circle cx="33.4" cy="24" r="2.4" fill="var(--noise)" opacity=".55"/>
+            <circle cx="52.8" cy="32" r="2.4" fill="var(--noise)" opacity=".55"/><circle cx="91.6" cy="22" r="2.4" fill="var(--noise)" opacity=".55"/>
+            <circle cx="111" cy="28" r="2.4" fill="var(--noise)" opacity=".55"/><circle cx="130.3" cy="20" r="2.4" fill="var(--noise)" opacity=".55"/>
+            <circle cx="168.8" cy="26" r="2.4" fill="var(--noise)" opacity=".55"/><circle cx="188.4" cy="18" r="2.4" fill="var(--noise)" opacity=".55"/>
+            <circle cx="207.8" cy="24" r="2.4" fill="var(--noise)" opacity=".55"/><circle cx="246.5" cy="20" r="2.4" fill="var(--noise)" opacity=".55"/>
+            <circle cx="266" cy="26" r="2.4" fill="var(--noise)" opacity=".55"/>
+            <path d="M14,29 C70,26 130,22 190,21 C220,20.5 250,21 266,23" fill="none" stroke="var(--signal)" stroke-width="2.5" stroke-linecap="round"/>
+            <text class="axis-day" x="14" y="56" text-anchor="middle">28</text>
+            <text class="axis-month" x="72.2" y="56" text-anchor="middle">1 ИЮЛ</text>
+            <text class="axis-day" x="130.3" y="56" text-anchor="middle">4</text>
+            <text class="axis-day" x="188.4" y="56" text-anchor="middle">7</text>
+            <text class="axis-day" x="246.5" y="56" text-anchor="middle">10</text>
+          </svg>
+          <div class="demo-card" style="max-width:100%;">
+            <div class="demo-card-head"><span class="demo-card-range">17 ИЮЛ — 24 ИЮЛ</span></div>
+            <div class="demo-card-value"><div class="t-metric-lg">−0.6%</div></div>
+            <span class="badge badge-steady"><span class="badge-dot"></span>В темпе</span>
+          </div>
+        </div>
+      </div>
     </section>
 
     <!-- ===================== A11Y ===================== -->
     <section id="a11y">
-      <p class="kicker">06</p>
+      <p class="kicker">07</p>
       <h2>Доступность</h2>
       <p class="lede">Видимый фокус — обязательное требование из ТЗ (раздел 10). Проверь через Tab.</p>
       <div class="focus-demo">

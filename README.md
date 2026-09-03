@@ -4,6 +4,7 @@
 > Данные берутся из Health Connect (Android) через пакет `health`.
 > Последний code review + применение фиксов: 2026-06-29. Фаза 5 реализована: 2026-08-21.
 > Фаза 6 «Стабилизация и полировка»: ТЗ составлены 2026-09-02 — дизайн (`docs/phase6_design_system_and_mockups_task.md`) и реализация (`docs/phase6_implementation_task.md`) по отчёту `docs/test_report_26-09-02.md`.
+> **Задание №1 (дизайн) выполнено 2026-09-02:** обновлены `docs/design-system.html` (секция «Тёмная тема» — маппинг 18 токенов + AA-контраст + превью в двух темах; паттерн «ось дат»; бедж источника) и `docs/screen-today-graph-summary-settings.html` (ось дат на «Сегодня»/«Тренде», карточки autoConfirmed/autoUnconfirmed/sourceRefused + меню «⋯», блоки «Тема» и «Источники данных», подэкран «Источник: Вес», тёмный фрейм «Сегодня»). A0-лог с устройства разобран (`memory-bank/debug.log`): `sourceId` у пакета `health` на Android всегда пуст — источники определять по `sourceName` (итоги — в `docs/phase6_implementation_task.md` → A0). Задание №2 (реализация) — следующий шаг.
 
 ---
 

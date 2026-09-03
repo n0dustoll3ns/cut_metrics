@@ -20,6 +20,7 @@
     --shadow-1:0 1px 2px rgba(20,23,26,.06), 0 1px 1px rgba(20,23,26,.05);
     --shadow-2:0 10px 30px rgba(20,23,26,.14);
     --focus-ring:0 0 0 3px rgba(42,93,176,.35);
+    --on-signal:#FFFFFF;
   }
   *{box-sizing:border-box;}
   body{margin:0; background:var(--bg); color:var(--ink); font-family:var(--f-body); -webkit-font-smoothing:antialiased;}
@@ -80,7 +81,7 @@
 
   .btn{font-family:var(--f-body); font-weight:600; font-size:15px; border-radius:var(--r-md); padding:14px 20px; border:1px solid transparent; cursor:pointer; width:100%; margin-top:var(--sp-8);}
   .btn:focus-visible{outline:none; box-shadow:var(--focus-ring);}
-  .btn-primary{background:var(--signal); color:#fff;}
+  .btn-primary{background:var(--signal); color:var(--on-signal);}
   .btn-primary:hover{background:var(--signal-hover);}
   .btn-primary:active{background:var(--signal-press);}
 
@@ -147,6 +148,90 @@
   .btn-text:hover{color:var(--ink);}
   .btn-text:focus-visible{outline:none; box-shadow:var(--focus-ring);}
 
+  /* ---------- Фаза 6: карточки метрик ---------- */
+  .metric-cards{display:grid; grid-template-columns:1fr 1fr; gap:var(--sp-3); margin-top:var(--sp-6);}
+  .metric-card{position:relative; background:var(--surface-0); border:1px solid var(--outline); border-radius:var(--r-lg); padding:var(--sp-3) var(--sp-4); display:flex; flex-direction:column; gap:var(--sp-2);}
+  .metric-card-head{display:flex; justify-content:space-between; align-items:baseline;}
+  .metric-card-title{font-weight:600; font-size:14px; color:var(--ink);}
+  .metric-card-date{font-family:var(--f-mono); font-size:11px; color:var(--noise);}
+  .metric-value-row{display:flex; align-items:baseline; gap:4px;}
+  .metric-value-lg{font-family:var(--f-display); font-weight:600; font-size:28px; line-height:1; font-variant-numeric:tabular-nums; color:var(--ink);}
+  .metric-unit{font-family:var(--f-mono); font-size:11px; color:var(--noise);}
+  .badge{display:inline-flex; align-items:center; gap:7px; padding:5px 12px; border-radius:999px; font-weight:600; font-size:12px; border:1px solid transparent; width:fit-content;}
+  .badge-dot{width:7px; height:7px; border-radius:50%; flex-shrink:0;}
+  .badge-source{background:var(--surface-2); border-color:var(--outline); color:var(--ink-muted);}
+  .badge-source .badge-dot{background:var(--noise);}
+  .metric-card-foot{display:flex; justify-content:space-between; align-items:center; margin-top:auto; width:100%; gap:var(--sp-2);}
+  .confirmed-line{display:inline-flex; align-items:center; gap:6px; font-family:var(--f-mono); font-size:11px; letter-spacing:.03em; color:var(--ink-muted);}
+  .st-dot{width:8px; height:8px; border-radius:50%; flex-shrink:0;}
+  .refused-line{display:inline-flex; align-items:center; gap:6px; font-family:var(--f-mono); font-size:11px; letter-spacing:.03em; color:var(--alert);}
+  .icon-btn{width:30px; height:30px; border-radius:var(--r-sm); border:1px solid var(--outline-strong); background:var(--surface-1); color:var(--ink-muted); font-weight:700; font-size:14px; line-height:1; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; flex-shrink:0;}
+  .icon-btn:hover{background:var(--surface-2); color:var(--ink);}
+  .icon-btn:focus-visible{outline:none; box-shadow:var(--focus-ring);}
+  .confirm-btns{display:flex; gap:var(--sp-2); margin-top:var(--sp-2);}
+  .confirm-btn{flex:1; display:inline-flex; align-items:center; justify-content:center; gap:6px; border-radius:var(--r-md); border:1px solid var(--outline-strong); background:var(--surface-0); color:var(--ink); font-weight:600; font-size:14px; padding:9px 0; cursor:pointer;}
+  .confirm-btn svg{width:15px; height:15px;}
+  .confirm-btn:hover{background:var(--surface-1);}
+  .confirm-btn:focus-visible{outline:none; box-shadow:var(--focus-ring);}
+  .field-input{width:100%; padding:10px 12px; border:1px solid var(--outline-strong); border-radius:var(--r-md); font-family:var(--f-body); font-size:15px; background:var(--surface-0); color:var(--ink);}
+  .mini-cards{display:flex; flex-direction:column; gap:var(--sp-4); margin:var(--sp-4) 0;}
+  .mini-card{width:100%; max-width:360px;}
+  .menu-card{position:absolute; right:6px; top:46px; z-index:6; min-width:236px; background:var(--surface-0); border:1px solid var(--outline-strong); border-radius:var(--r-md); box-shadow:var(--shadow-2); padding:var(--sp-1);}
+  .menu-item{display:block; width:100%; text-align:left; background:none; border:none; font-family:var(--f-body); font-size:13.5px; font-weight:500; color:var(--ink); padding:9px 12px; border-radius:var(--r-sm); cursor:pointer;}
+  .menu-item:hover{background:var(--surface-2);}
+  .menu-item.danger{color:var(--alert);}
+
+  /* ---------- Фаза 6: ось дат (JS-графики) ---------- */
+  .ax-day{font-family:var(--f-mono); font-size:10px; fill:var(--noise);}
+  .ax-month{font-family:var(--f-mono); font-size:10px; font-weight:700; letter-spacing:.04em; fill:var(--ink-muted);}
+  .ax-grid{stroke:var(--outline); stroke-width:1;}
+  .ax-tip{fill:var(--surface-0); stroke:var(--outline);}
+  .ax-tip-text{font-family:var(--f-mono); font-size:10.5px; fill:var(--ink);}
+
+  /* ---------- Фаза 6: блок «Тема» и источники в Настройках ---------- */
+  .settings-hint{font-size:12px; color:var(--ink-muted); margin:var(--sp-2) 0 0;}
+  .settings-row-value{display:flex; align-items:center; gap:6px; font-size:13px; font-weight:600; color:var(--ink-muted);}
+  .chevron{width:14px; height:14px; color:var(--noise); flex-shrink:0;}
+  .source-row{cursor:pointer;}
+
+  /* ---------- Фаза 6: подэкран выбора источника ---------- */
+  .subscreen-head{display:flex; align-items:center; gap:var(--sp-3); margin-bottom:var(--sp-4);}
+  .back-btn{width:36px; height:36px; border-radius:var(--r-sm); border:1px solid var(--outline-strong); background:var(--surface-0); color:var(--ink); cursor:pointer; display:inline-flex; align-items:center; justify-content:center; flex-shrink:0;}
+  .back-btn svg{width:18px; height:18px;}
+  .back-btn:focus-visible{outline:none; box-shadow:var(--focus-ring);}
+  .subscreen-title{font-weight:600; font-size:19px; margin:0;}
+  .subscreen-lede{font-size:13px; color:var(--ink-muted); line-height:1.5; margin:0 0 var(--sp-4);}
+  .radio-row{display:flex; align-items:center; gap:var(--sp-3); padding:var(--sp-3) 0; border-bottom:1px solid var(--outline);}
+  .radio-row:last-child{border-bottom:none;}
+  .radio{width:20px; height:20px; border-radius:50%; border:2px solid var(--outline-strong); flex-shrink:0; display:inline-flex; align-items:center; justify-content:center;}
+  .radio.selected{border-color:var(--signal);}
+  .radio-dot{width:10px; height:10px; border-radius:50%; background:var(--signal);}
+  .radio.disabled{border-color:var(--outline); background:var(--surface-2);}
+  .radio-texts{flex:1; min-width:0;}
+  .src-name{display:block; font-weight:600; font-size:14px; color:var(--ink);}
+  .radio-row.refused .src-name{color:var(--ink-muted);}
+  .src-package{display:block; font-family:var(--f-mono); font-size:10.5px; color:var(--noise); margin-top:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .src-status{display:inline-flex; align-items:center; gap:6px; font-weight:600; font-size:11px; padding:3px 10px; border-radius:999px; border:1px solid var(--outline); color:var(--ink-muted); background:var(--surface-2); flex-shrink:0;}
+  .src-status .st-dot{width:6px; height:6px; background:var(--noise);}
+  .src-status.ok{background:var(--steady-tint); border-color:var(--steady-border); color:var(--ink);}
+  .src-status.ok .st-dot{background:var(--steady);}
+  .src-status.bad{background:var(--alert-tint); border-color:var(--alert-border); color:var(--ink);}
+  .src-status.bad .st-dot{background:var(--alert);}
+  .subscreen-note{font-size:12px; color:var(--noise); margin-top:var(--sp-4); line-height:1.5;}
+
+  /* ---------- Фаза 6: тёмная тема фрейма «Сегодня» ---------- */
+  .phone-screen.dark{
+    --bg:#101214; --surface-0:#191C1F; --surface-1:#101214; --surface-2:#23272C;
+    --outline:#2B3036; --outline-strong:#3A4046;
+    --ink:#E8EAEC; --ink-muted:#9AA1A9; --noise:#6E757D;
+    --signal:#7EA4E6; --signal-hover:#8FB2EB; --signal-press:#6F97DE; --signal-tint:#1C2836;
+    --steady:#52C695; --steady-tint:#142E25; --steady-border:#24584A;
+    --alert:#E57F72; --alert-tint:#38211E; --alert-border:#6E372F;
+    --on-signal:#101214;
+    --focus-ring:0 0 0 3px rgba(126,164,230,.4);
+    --shadow-1:0 1px 2px rgba(0,0,0,.45); --shadow-2:0 10px 30px rgba(0,0,0,.5);
+  }
+
   /* ---------- Annotations ---------- */
   .annotations{flex:1; min-width:280px; max-width:400px;}
   .annotations h3{font-size:14px; margin:0 0 var(--sp-4); font-family:var(--f-mono); letter-spacing:.05em; text-transform:uppercase; color:var(--noise);}
@@ -172,11 +257,11 @@
 <div class="page-wrap">
   <p class="kicker">Экраны — этап 4</p>
   <h1 class="title">Сегодня, Саммари, Тренд и Настройки</h1>
-  <p class="lede">Все четыре вкладки нижней навигации теперь спроектированы. Онбординг и paywall — отдельные экраны вне вкладок, следующий шаг. Тумблер справа — служебный, для показа обоих статусов саммари внутри одного макета; в реальном интерфейсе его нет.</p>
+  <p class="lede">Все четыре вкладки нижней навигации спроектированы; обновлено по Фазе 6 — ось дат на графиках, карточки метрик с кешем подтверждений и меню «⋯», блоки «Тема» и «Источники данных» в Настройках, подэкран выбора источника и тёмный фрейм «Сегодня». Онбординг и paywall — отдельные экраны вне вкладок. Тумблер справа — служебный, для показа обоих статусов саммари внутри одного макета; в реальном интерфейсе его нет.</p>
 
   <div class="workspace">
 
-    <div class="phone-frame">
+    <div class="phone-frame" id="appFrame">
       <div class="phone-notch"></div>
       <div class="phone-screen">
 
@@ -189,9 +274,38 @@
 
           <div class="chart-block">
             <div id="todayChart"></div>
-            <div class="chart-labels">
-              <span>25 ИЮН</span>
-              <span>24 ИЮЛ</span>
+          </div>
+
+          <!-- Фаза 6: карточки метрик — вес autoConfirmed, шаги autoUnconfirmed -->
+          <div class="metric-cards">
+            <div class="metric-card">
+              <div class="metric-card-head">
+                <span class="metric-card-title">Вес</span>
+                <span class="metric-card-date">24.07</span>
+              </div>
+              <div class="metric-value-row">
+                <span class="metric-value-lg" id="cardWeight">78.4</span>
+                <span class="metric-unit">кг</span>
+              </div>
+              <div class="metric-card-foot">
+                <span class="confirmed-line"><span class="st-dot" style="background:var(--steady)"></span>Подтверждено · Google Fit</span>
+                <button class="icon-btn" aria-label="Действия с источником">⋯</button>
+              </div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-card-head">
+                <span class="metric-card-title">Шаги</span>
+                <span class="metric-card-date">24.07</span>
+              </div>
+              <div class="metric-value-row">
+                <span class="metric-value-lg">9 140</span>
+                <span class="metric-unit">шагов</span>
+              </div>
+              <span class="badge badge-source"><span class="badge-dot"></span>Из Google Fit</span>
+              <div class="confirm-btns">
+                <button class="confirm-btn"><svg viewBox="0 0 24 24" fill="none" stroke="var(--steady)" stroke-width="2.4" stroke-linecap="round"><path d="M4 12l5 5 11-11"/></svg>Ок</button>
+                <button class="confirm-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20l4-1L20 7l-3-3L5 16l-1 4z"/></svg>Не ок</button>
+              </div>
             </div>
           </div>
 
@@ -235,15 +349,11 @@
           <div class="segmented">
             <button id="seg-week" onclick="setPeriod('week')">Неделя</button>
             <button id="seg-month" class="active" onclick="setPeriod('month')">Месяц</button>
-            <button id="seg-all" onclick="setPeriod('all')">Весь срок</button>
+            <button id="seg-all" onclick="setPeriod('all')">3 мес</button>
           </div>
 
           <div class="chart-block">
             <div id="trendChart"></div>
-            <div class="chart-labels">
-              <span id="trendLabelStart">25 ИЮН</span>
-              <span id="trendLabelEnd">24 ИЮЛ</span>
-            </div>
           </div>
 
           <div class="metrics-section">
@@ -267,6 +377,17 @@
         <div class="panel" id="panel-settings">
           <h1 class="title">Настройки</h1>
 
+          <!-- Фаза 6: блок «Тема» — первый блок экрана -->
+          <section class="settings-block">
+            <p class="settings-caption">Тема</p>
+            <div class="segmented" role="group" aria-label="Режим темы">
+              <button class="active" type="button">Системная</button>
+              <button type="button">Светлая</button>
+              <button type="button">Тёмная</button>
+            </div>
+            <p class="settings-hint">Тёмная включается вместе с системной</p>
+          </section>
+
           <section class="settings-block">
             <p class="settings-caption">Цель</p>
             <label class="field-label" style="font-family:var(--f-mono); font-size:11px; letter-spacing:.05em; text-transform:uppercase; color:var(--noise); display:block; margin-bottom:8px;">Целевой вес</label>
@@ -286,6 +407,23 @@
             </div>
             <input type="range" min="0.3" max="1.4" step="0.1" value="0.6" id="paceSlider" class="range-slider" oninput="updatePaceSlider(this.value)">
             <div class="range-labels"><span>0.3%</span><span>1.4%</span></div>
+          </section>
+
+          <!-- Фаза 6: источники данных Health Connect -->
+          <section class="settings-block">
+            <p class="settings-caption">Источники данных Health Connect</p>
+            <div class="settings-row source-row" role="button" tabindex="0">
+              <div class="settings-row-title">Вес</div>
+              <div class="settings-row-value">Авто
+                <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg>
+              </div>
+            </div>
+            <div class="settings-row source-row" role="button" tabindex="0">
+              <div class="settings-row-title">Шаги</div>
+              <div class="settings-row-value">Google Fit
+                <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg>
+              </div>
+            </div>
           </section>
 
           <section class="settings-block">
@@ -336,6 +474,127 @@
       </div>
     </div>
 
+    <!-- Фаза 6: подэкран выбора источника (переход из «Настроек») -->
+    <div class="phone-frame">
+      <div class="phone-notch"></div>
+      <div class="phone-screen">
+        <div class="panel active">
+          <div class="subscreen-head">
+            <button class="back-btn" aria-label="Назад к настройкам">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M15 6l-6 6 6 6"/></svg>
+            </button>
+            <h1 class="subscreen-title">Источник: Вес</h1>
+          </div>
+          <p class="subscreen-lede">Выбор конкретного источника означает доверие — карточка «Вес» больше не будет спрашивать «Ок / Не ок». Дефолт — «Авто»: приложение выбирает источник само.</p>
+
+          <div class="radio-row">
+            <span class="radio selected"><span class="radio-dot"></span></span>
+            <span class="radio-texts">
+              <span class="src-name">Авто</span>
+              <span class="src-package">приложение выбирает источник само</span>
+            </span>
+          </div>
+          <div class="radio-row">
+            <span class="radio"></span>
+            <span class="radio-texts">
+              <span class="src-name">Google Fit</span>
+              <span class="src-package">com.google.android.apps.fitness</span>
+            </span>
+            <span class="src-status ok"><span class="st-dot"></span>Доверяем</span>
+          </div>
+          <div class="radio-row refused">
+            <span class="radio disabled"></span>
+            <span class="radio-texts">
+              <span class="src-name">Mi Fitness</span>
+              <span class="src-package">com.xiaomi.mifit</span>
+            </span>
+            <span class="src-status bad"><span class="st-dot"></span>Отклонён</span>
+            <button class="icon-btn" aria-label="Сбросить решение">⋯</button>
+          </div>
+          <div class="radio-row">
+            <span class="radio"></span>
+            <span class="radio-texts">
+              <span class="src-name">Samsung Health</span>
+              <span class="src-package">com.sec.android.app.shealth</span>
+            </span>
+            <span class="src-status"><span class="st-dot"></span>Спрашивает</span>
+          </div>
+
+          <p class="subscreen-note">Отклонённый источник выбрать нельзя — сначала сбросьте решение: «⋯» в строке → «Сбросить решение». Список строится из источников, найденных в данных Health Connect, без дополнительных запросов.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Фаза 6: «Сегодня» в тёмной теме («приборная» тёмно-серая) -->
+    <div class="phone-frame">
+      <div class="phone-notch"></div>
+      <div class="phone-screen dark">
+        <div class="panel active">
+          <p class="date-caption">Сегодня · 24 июл</p>
+          <div class="big-metric" id="bigMetricDark">—</div>
+          <p class="big-metric-unit">кг · сглаженный вес</p>
+          <p class="raw-today">Сырое значение сегодня: <b id="rawTodayDark">—</b> кг</p>
+
+          <div class="chart-block">
+            <div id="todayChartDark"></div>
+          </div>
+
+          <div class="metric-cards">
+            <div class="metric-card">
+              <div class="metric-card-head">
+                <span class="metric-card-title">Вес</span>
+                <span class="metric-card-date">24.07</span>
+              </div>
+              <div class="metric-value-row">
+                <span class="metric-value-lg" id="cardWeightDark">78.4</span>
+                <span class="metric-unit">кг</span>
+              </div>
+              <div class="metric-card-foot">
+                <span class="confirmed-line"><span class="st-dot" style="background:var(--steady)"></span>Подтверждено · Google Fit</span>
+                <button class="icon-btn" aria-label="Действия с источником">⋯</button>
+              </div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-card-head">
+                <span class="metric-card-title">Шаги</span>
+                <span class="metric-card-date">24.07</span>
+              </div>
+              <div class="metric-value-row">
+                <span class="metric-value-lg">9 140</span>
+                <span class="metric-unit">шагов</span>
+              </div>
+              <span class="badge badge-source"><span class="badge-dot"></span>Из Google Fit</span>
+              <div class="confirm-btns">
+                <button class="confirm-btn"><svg viewBox="0 0 24 24" fill="none" stroke="var(--steady)" stroke-width="2.4" stroke-linecap="round"><path d="M4 12l5 5 11-11"/></svg>Ок</button>
+                <button class="confirm-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20l4-1L20 7l-3-3L5 16l-1 4z"/></svg>Не ок</button>
+              </div>
+            </div>
+          </div>
+
+          <button class="btn btn-primary">Открыть саммари</button>
+        </div>
+
+        <nav class="bottom-nav">
+          <button class="nav-item active" type="button">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="2.2" fill="currentColor" stroke="none"/></svg>
+            Сегодня
+          </button>
+          <button class="nav-item" type="button">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><circle cx="4" cy="16" r="1.4" fill="currentColor" stroke="none"/><circle cx="10" cy="10" r="1.4" fill="currentColor" stroke="none"/><circle cx="16" cy="14" r="1.4" fill="currentColor" stroke="none"/><path d="M4,16 C8,13 12,9 16,14 C18,16.5 19,17 21,15"/></svg>
+            Тренд
+          </button>
+          <button class="nav-item" type="button">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><rect x="5" y="4" width="14" height="16" rx="2"/><line x1="8" y1="9" x2="16" y2="9"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="13" y2="17"/></svg>
+            Саммари
+          </button>
+          <button class="nav-item" type="button">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><line x1="4" y1="7" x2="20" y2="7"/><circle cx="9" cy="7" r="2" fill="var(--surface-0)"/><line x1="4" y1="12" x2="20" y2="12"/><circle cx="15" cy="12" r="2" fill="var(--surface-0)"/><line x1="4" y1="17" x2="20" y2="17"/><circle cx="11" cy="17" r="2" fill="var(--surface-0)"/></svg>
+            Настройки
+          </button>
+        </nav>
+      </div>
+    </div>
+
     <aside class="annotations">
       <h3>Ключевые решения</h3>
       <div class="note"><span class="note-mark"></span><p>Вес на «Сегодня» доминирует размером (60px), а не цветом — остаётся в Deep Ink. Cobalt зарезервирован только под тренд-линию, основную кнопку и число в саммари — как явно указано в разделе 4 ТЗ.</p></div>
@@ -346,9 +605,44 @@
       <div class="note"><span class="note-mark"></span><p>График «Сегодня» использует те же принципы сглаживания (EMA), что и HealthDataProcessor в коде — большое число на экране это и есть последняя точка сглаженной линии.</p></div>
       <div class="note"><span class="note-mark"></span><p>«Тренд» переключает период тем же переиспользуемым чарт-компонентом (раздел 10 ТЗ) — меняются только данные, не сама визуализация.</p></div>
       <div class="note"><span class="note-mark"></span><p>Сон / шаги / активность — значения в Deep Ink, не Cobalt: акцент остаётся только за весом. Это второстепенные метрики экрана (раздел 5, пункт 3).</p></div>
-      <div class="note"><span class="note-mark"></span><p>На «Весь срок» (180 дней) сырые точки прорежены — иначе на ширине экрана они слипаются в сплошную полосу и сами становятся визуальным шумом, а не фоном для сигнала.</p></div>
+      <div class="note"><span class="note-mark"></span><p>На «3 мес» (90 дней) сырые точки прорежены — иначе на ширине экрана они слипаются в сплошную полосу и сами становятся визуальным шумом, а не фоном для сигнала.</p></div>
       <div class="note"><span class="note-mark"></span><p>Настройки применяются мгновенно, без кнопки «Сохранить» — лишний тап-подтверждение противоречит принципу «минимум действий, максимум готового результата» (раздел 3 ТЗ).</p></div>
       <div class="note"><span class="note-mark"></span><p>Слайдер темпа закрашен Cobalt — это тот же «темп», что позже становится числом в саммари. Кнопка «Отключить» рядом с Health-сервисом остаётся нейтральной: Alert Rust зарезервирован строго под отклонение темпа, а не под любые осторожные действия.</p></div>
+
+      <h3 style="margin-top:var(--sp-8);">Ключевые решения — Фаза 6</h3>
+      <div class="note"><span class="note-mark"></span><p><b>Ось дат</b> (паттерн из дизайн-системы): обычный день — только число, граница месяца — «1 ИЮЛ» (Ink Muted, показывается всегда, вытесняет ближайшую обычную метку), ≤8 меток на ширину графика, тонкая вертикальная линия сетки на границе месяца, тултип по тапу — «17 июл · 78.4 кг». Устраняет «смазывание» тридцати меток на «Сегодня» и «Тренде» (7/30/90 дн).</p></div>
+      <div class="note"><span class="note-mark"></span><p><b>Кеш подтверждений:</b> «Ок» запоминает решение на пару (метрика + приложение-источник) — карточка становится тихой: «Подтверждено · Google Fit» (steady-точка) + меню «⋯». Новый источник в данных — карточка снова спросит.</p></div>
+      <div class="note"><span class="note-mark"></span><p><b>«Не ок» = постоянный отказ источника</b> для метрики: снекбар «Данные Google Fit больше не используются — изменить можно в Настройках», карточка сразу открывает ручной ввод. Каждый новый день — ручной ввод, решение меняется в карточке («⋯») и в Настройках.</p></div>
+      <div class="note"><span class="note-mark"></span><p><b>Источники:</b> один источник на метрику (вес, шаги), дефолт «Авто» — вся текущая логика. Подэкран в Настройках: радио «Авто» + найденные приложения со статусом решения (Доверяем / Отклонён / Спрашивает). Выбор источника = доверие (карточка не спрашивает «Ок/Не ок»); отклонённый выбрать нельзя — сначала «Сбросить решение» (⋯ в строке).</p></div>
+      <div class="note"><span class="note-mark"></span><p><b>Тема:</b> «Системная · Светлая · Тёмная», дефолт — системная, выбор персистентен. Тёмная — «приборная» тёмно-серая (фон #101214, карточки светлее, Deep Ink инвертируется) — токены и превью в дизайн-системе; тёмный фрейм «Сегодня» справа сверяется с ней.</p></div>
+
+      <h3>Третье состояние карточки — sourceRefused</h3>
+      <div class="mini-cards">
+        <div class="metric-card mini-card">
+          <div class="metric-card-head">
+            <span class="metric-card-title">Вес</span>
+            <span class="metric-card-date">24.07</span>
+          </div>
+          <div style="display:flex; align-items:center; gap:var(--sp-2);">
+            <input class="field-input" type="text" value="78.4" readonly aria-label="Вес, кг" style="flex:1;">
+            <button class="icon-btn" aria-label="Сохранить" style="color:var(--signal); border-color:transparent; background:transparent;">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 12l5 5 11-11"/></svg>
+            </button>
+            <button class="icon-btn" aria-label="Отмена" style="border-color:transparent; background:transparent;">✕</button>
+          </div>
+          <div class="metric-card-foot">
+            <span class="refused-line"><span class="st-dot" style="background:var(--alert)"></span>Источник отклонён · введите значение</span>
+            <button class="icon-btn" aria-label="Действия с источником">⋯</button>
+          </div>
+          <!-- меню «⋯», открыто статично для макета; доступно в autoConfirmed и sourceRefused -->
+          <div class="menu-card">
+            <button class="menu-item" type="button">Доверять этому источнику</button>
+            <button class="menu-item danger" type="button">Отклонить источник (вводить вручную)</button>
+            <hr class="divider" style="margin:var(--sp-1) 0;">
+            <button class="menu-item" type="button">Настроить источники…</button>
+          </div>
+        </div>
+      </div>
 
       <div class="demo-tool">
         <span class="demo-tool-label">Служебный тумблер (не часть интерфейса)</span>
@@ -361,8 +655,8 @@
 
 <script>
   function showPanel(name){
-    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
-    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    document.querySelectorAll('#appFrame .panel').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('#appFrame .nav-item').forEach(n => n.classList.remove('active'));
     document.getElementById('panel-' + name).classList.add('active');
     document.getElementById('nav-' + name).classList.add('active');
   }
@@ -390,8 +684,49 @@
     }
     return d;
   }
+  // ---------- Фаза 6: ось дат (паттерн дизайн-системы) ----------
+  const RU_MON = ['ЯНВ','ФЕВ','МАР','АПР','МАЙ','ИЮН','ИЮЛ','АВГ','СЕН','ОКТ','НОЯ','ДЕК'];
+  const RU_MON_LC = ['янв','фев','мар','апр','май','июн','июл','авг','сен','окт','ноя','дек'];
+  const MOCK_END = new Date(2026, 6, 24); // «сегодня» макета — 24 июля
+
+  // Метки оси: прореживание (шаг = ceil(days/7)), границы месяца — всегда,
+  // вытесняют ближайшую обычную метку; итог — не более 8 меток.
+  function axisLabels(days){
+    const step = Math.max(1, Math.ceil(days / 7));
+    const dates = [];
+    for(let i=0;i<days;i++){ const d = new Date(MOCK_END); d.setDate(MOCK_END.getDate() - (days-1-i)); dates.push(d); }
+    const bounds = [];
+    dates.forEach((d,i)=>{ if(d.getDate()===1) bounds.push(i); });
+    const labels = [];
+    for(let i=0;i<days;i+=step) labels.push(i);
+    if(labels[labels.length-1] !== days-1) labels.push(days-1);
+    bounds.forEach(b=>{
+      let best=-1, bestDist=1e9;
+      labels.forEach((v,k)=>{
+        if(bounds.indexOf(v)>=0) return;
+        const dist=Math.abs(v-b);
+        if(dist<bestDist){bestDist=dist;best=k;}
+      });
+      if(best>=0 && bestDist<=step) labels.splice(best,1);
+      if(labels.indexOf(b)<0) labels.push(b);
+    });
+    labels.sort((a,b)=>a-b);
+    while(labels.length>8){
+      let worst=-1, worstGap=1e9;
+      for(let k=1;k<labels.length-1;k++){
+        if(bounds.indexOf(labels[k])>=0) continue;
+        const gap = labels[k+1]-labels[k-1];
+        if(gap<worstGap){worstGap=gap;worst=k;}
+      }
+      if(worst<0) break;
+      labels.splice(worst,1);
+    }
+    return {dates, labels, bounds};
+  }
+
   function renderChart(containerId, opts){
-    const width = opts.width || 336, height = opts.height || 150, days = opts.days;
+    const width = opts.width || 336, plotH = opts.height || 150, days = opts.days;
+    const axisH = 26, height = plotH + axisH;
     const rand = mulberry32(opts.seed);
     const raw = [];
     for(let i=0;i<days;i++){ raw.push(opts.start + opts.slope*i + (rand()-0.5)*opts.noiseAmp*2); }
@@ -403,7 +738,7 @@
     const max = Math.max.apply(null, raw.concat(ema)) + 0.3;
     const padX = 4, padY = 10;
     const xStep = (width - padX*2) / (days-1);
-    const yFor = v => padY + (height - padY*2) * (1 - (v-min)/(max-min));
+    const yFor = v => padY + (plotH - padY*2) * (1 - (v-min)/(max-min));
 
     // Thin out raw dots on long ranges so the chart stays legible, not noisy
     const dotR = days > 60 ? 1.6 : (days > 20 ? 2.6 : 3.2);
@@ -417,9 +752,42 @@
     const linePath = smoothPath(emaPoints);
     const last = emaPoints[emaPoints.length-1];
 
+    // Ось дат: линии сетки на границах месяцев + метки
+    const ax = axisLabels(days);
+    let axis = '';
+    ax.bounds.forEach(b=>{
+      const x = (padX + b*xStep).toFixed(1);
+      axis += '<line class="ax-grid" x1="' + x + '" y1="' + padY + '" x2="' + x + '" y2="' + (plotH - padY) + '"/>';
+    });
+    ax.labels.forEach(i=>{
+      const d = ax.dates[i];
+      const x = (padX + i*xStep).toFixed(1);
+      const isMonth = d.getDate()===1;
+      axis += '<text class="' + (isMonth?'ax-month':'ax-day') + '" x="' + x + '" y="' + (plotH + 18) + '" text-anchor="middle">'
+        + (isMonth ? '1 ' + RU_MON[d.getMonth()] : d.getDate()) + '</text>';
+    });
+
+    // Тултип по тапу (статичный образец для «Сегодня»): полная дата + значение
+    let tooltip = '';
+    if(opts.tooltip){
+      const ti = Math.min(days-3, 22);
+      const tx = padX + ti*xStep, ty = yFor(raw[ti]);
+      const td = ax.dates[ti];
+      const label = td.getDate() + ' ' + RU_MON_LC[td.getMonth()] + ' · ' + raw[ti].toFixed(1) + ' кг';
+      const rw = 116;
+      const rx = Math.max(2, Math.min(width - rw - 2, tx - rw/2));
+      const ry = Math.max(2, ty - 34);
+      tooltip = '<circle cx="' + tx.toFixed(1) + '" cy="' + ty.toFixed(1) + '" r="5" fill="none" stroke="var(--signal)" stroke-width="1.5"/>'
+        + '<line x1="' + tx.toFixed(1) + '" y1="' + (ry+20).toFixed(1) + '" x2="' + tx.toFixed(1) + '" y2="' + (ty-6).toFixed(1) + '" stroke="var(--outline)"/>'
+        + '<rect class="ax-tip" x="' + rx.toFixed(1) + '" y="' + ry.toFixed(1) + '" width="' + rw + '" height="20" rx="6"/>'
+        + '<text class="ax-tip-text" x="' + (rx + rw/2).toFixed(1) + '" y="' + (ry+13.5).toFixed(1) + '" text-anchor="middle">' + label + '</text>';
+    }
+
     document.getElementById(containerId).innerHTML =
       '<svg class="anim" width="' + width + '" height="' + height + '" viewBox="0 0 ' + width + ' ' + height + '">' +
+      axis +
       dots +
+      tooltip +
       '<path class="trend-path" stroke-width="3" d="' + linePath + '"/>' +
       '<circle cx="' + last[0].toFixed(1) + '" cy="' + last[1].toFixed(1) + '" r="4.5" fill="var(--signal)"/>' +
       '</svg>';
@@ -427,28 +795,31 @@
     return { raw, ema };
   }
 
+  function renderTodayInto(chartId, metricId, rawId, cardId){
+    const result = renderChart(chartId, {days:30, start:80.5, slope:-0.0724, noiseAmp:0.45, seed:11, tooltip:true});
+    document.getElementById(metricId).textContent = result.ema[result.ema.length-1].toFixed(1);
+    document.getElementById(rawId).textContent = result.raw[result.raw.length-1].toFixed(1);
+    document.getElementById(cardId).textContent = result.raw[result.raw.length-1].toFixed(1);
+  }
   function renderTodayChart(){
-    const result = renderChart('todayChart', {days:30, start:80.5, slope:-0.0724, noiseAmp:0.45, seed:11});
-    document.getElementById('bigMetric').textContent = result.ema[result.ema.length-1].toFixed(1);
-    document.getElementById('rawToday').textContent = result.raw[result.raw.length-1].toFixed(1);
+    renderTodayInto('todayChart', 'bigMetric', 'rawToday', 'cardWeight');
+    renderTodayInto('todayChartDark', 'bigMetricDark', 'rawTodayDark', 'cardWeightDark'); // Фаза 6: тёмный фрейм
   }
   renderTodayChart();
 
   // ---------- Trend screen: same chart component, different period ----------
   const periodConfigs = {
-    week:  { days:7,   start:78.9, slope:-0.0430, noiseAmp:0.35, seed:3,  labelStart:'17 ИЮЛ', labelEnd:'24 ИЮЛ', sleep:7.1, steps:8620, activity:38 },
-    month: { days:30,  start:80.5, slope:-0.0724, noiseAmp:0.45, seed:11, labelStart:'25 ИЮН', labelEnd:'24 ИЮЛ', sleep:7.3, steps:9140, activity:45 },
-    all:   { days:180, start:86.0, slope:-0.0430, noiseAmp:0.55, seed:22, labelStart:'26 ЯНВ', labelEnd:'24 ИЮЛ', sleep:7.0, steps:8890, activity:41 }
+    week:  { days:7,   start:78.9, slope:-0.0430, noiseAmp:0.35, seed:3,  sleep:7.1, steps:8620, activity:38 },
+    month: { days:30,  start:80.5, slope:-0.0724, noiseAmp:0.45, seed:11, sleep:7.3, steps:9140, activity:45 },
+    all:   { days:90,  start:86.0, slope:-0.0430, noiseAmp:0.55, seed:22, sleep:7.0, steps:8890, activity:41 }
   };
 
   function setPeriod(key){
     const cfg = periodConfigs[key];
-    document.querySelectorAll('.segmented button').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('#panel-trend .segmented button').forEach(b => b.classList.remove('active'));
     document.getElementById('seg-' + key).classList.add('active');
 
     renderChart('trendChart', cfg);
-    document.getElementById('trendLabelStart').textContent = cfg.labelStart;
-    document.getElementById('trendLabelEnd').textContent = cfg.labelEnd;
     document.getElementById('metricSleep').innerHTML = cfg.sleep.toFixed(1) + '<small>ч</small>';
     document.getElementById('metricSteps').textContent = cfg.steps.toLocaleString('ru-RU');
     document.getElementById('metricActivity').innerHTML = cfg.activity + '<small>мин</small>';

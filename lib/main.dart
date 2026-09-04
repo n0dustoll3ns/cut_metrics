@@ -3,6 +3,7 @@ import 'package:cut_metrics/domain/recommendation_config.dart';
 import 'package:cut_metrics/repo/health_repository_impl.dart';
 import 'package:cut_metrics/services/debug_log.dart';
 import 'package:cut_metrics/services/settings_service.dart';
+import 'package:cut_metrics/services/theme_controller.dart';
 import 'package:cut_metrics/ui/settings_screen.dart';
 import 'package:cut_metrics/ui/summary_screen.dart';
 import 'package:cut_metrics/ui/theme.dart';
@@ -24,16 +25,21 @@ void main() {
 
 /// Корневой виджет приложения.
 ///
-/// Настраивает Provider с [DashboardViewModel] и [SettingsService], тему
-/// дизайн-системы, нижнюю навигацию из 4 вкладок (Фаза 5):
-/// Сегодня · Тренд · Саммари · Настройки.
+/// Настраивает Provider'ы ([DashboardViewModel], [ThemeController]) и
+/// [SettingsService], светлую/тёмную/системную тему (Фаза 6, D),
+/// нижнюю навигацию из 4 вкладок (Фаза 5): Сегодня · Тренд · Саммари · Настройки.
 class CutMetricsApp extends StatelessWidget {
   const CutMetricsApp({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final settings = SettingsService();
+
     return MultiProvider(
       providers: [
+        ChangeNotifierProvider<ThemeController>(
+          create: (_) => ThemeController(settingsService: settings)..load(),
+        ),
         ChangeNotifierProvider<DashboardViewModel>(
           create: (_) {
             final health = Health();
@@ -44,16 +50,22 @@ class CutMetricsApp extends StatelessWidget {
               ),
               processor: HealthDataProcessor(appPackageId: 'com.example.cut_metrics'),
               health: health,
-              settingsService: SettingsService(),
+              settingsService: settings,
             );
           },
         ),
       ],
-      child: MaterialApp(
-        title: 'Cut Metrics',
-        debugShowCheckedModeBanner: false,
-        theme: cmTheme(),
-        home: const _AppShell(),
+      // Consumer внутри: MaterialApp перестраивается при смене themeMode —
+      // выбор в «Настройках» применяется мгновенно (D.2).
+      child: Consumer<ThemeController>(
+        builder: (context, themeController, _) => MaterialApp(
+          title: 'Cut Metrics',
+          debugShowCheckedModeBanner: false,
+          theme: cmTheme(Brightness.light),
+          darkTheme: cmTheme(Brightness.dark),
+          themeMode: themeController.mode,
+          home: const _AppShell(),
+        ),
       ),
     );
   }

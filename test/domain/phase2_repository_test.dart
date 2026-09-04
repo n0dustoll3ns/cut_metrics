@@ -29,46 +29,48 @@ void main() {
   // ==========================================================================
 
   group('recordingMethod в точках', () {
-    test('addManualWeight → manual + appPackageId', () {
+    test('addManualWeight → manual + наш пакет в sourceName', () {
       mock.addManualWeight(testDate.value, 72.0);
       final point = mock.points.first;
       expect(point.recordingMethod, RecordingMethod.manual);
-      expect(point.sourceId, kAppPackageId);
+      expect(point.sourceName, kAppPackageId);
+      // A0: на реальном Android sourceId пустой — пакет в sourceName.
+      expect(point.sourceId, isEmpty);
     });
 
-    test('addExternalWeight → automatic + внешний sourceId', () {
+    test('addExternalWeight → automatic + внешний пакет', () {
       mock.addExternalWeight(testDate.value, 70.0);
       final point = mock.points.first;
       expect(point.recordingMethod, RecordingMethod.automatic);
-      expect(point.sourceId, kExternalSourceId);
+      expect(point.sourceName, kExternalSourceId);
     });
 
-    test('addManualSteps → manual + appPackageId', () {
+    test('addManualSteps → manual + наш пакет в sourceName', () {
       mock.addManualSteps(testDate.value, 10000);
       final point = mock.points.first;
       expect(point.recordingMethod, RecordingMethod.manual);
-      expect(point.sourceId, kAppPackageId);
+      expect(point.sourceName, kAppPackageId);
     });
 
-    test('addExternalSteps → automatic + внешний sourceId', () {
+    test('addExternalSteps → automatic + внешний пакет', () {
       mock.addExternalSteps(testDate.value, 8000);
       final point = mock.points.first;
       expect(point.recordingMethod, RecordingMethod.automatic);
-      expect(point.sourceId, kExternalSourceId);
+      expect(point.sourceName, kExternalSourceId);
     });
 
     test('writeManualRecord (weight) → manual', () async {
       await mock.writeManualRecord(testDate, MetricType.weight, 72.0);
       final point = mock.points.first;
       expect(point.recordingMethod, RecordingMethod.manual);
-      expect(point.sourceId, kAppPackageId);
+      expect(point.sourceName, kAppPackageId);
     });
 
     test('writeManualRecord (steps) → manual', () async {
       await mock.writeManualRecord(testDate, MetricType.steps, 10000);
       final point = mock.points.first;
       expect(point.recordingMethod, RecordingMethod.manual);
-      expect(point.sourceId, kAppPackageId);
+      expect(point.sourceName, kAppPackageId);
     });
   });
 
@@ -102,7 +104,9 @@ void main() {
         endDate: DateTime(2026, 1, 31),
       );
 
-      final manualPoints = points.where((p) => p.sourceId == kAppPackageId).toList();
+      final manualPoints = points
+          .where((p) => HealthDataProcessor.sourcePackageOf(p) == kAppPackageId)
+          .toList();
       expect(manualPoints.length, 1);
       expect(
         (manualPoints.first.value as NumericHealthValue).numericValue.toInt(),
@@ -110,24 +114,22 @@ void main() {
       );
     });
 
-    test('резолюция через writeManualRecord (полный цикл)', () async {
-      mock.setAggregateExternalSteps(testDate, 8000);
+    test('резолюция через writeManualRecord (полный цикл, сырые точки)', () async {
+      mock.addExternalSteps(testDate.value, 8000);
       var points = await loadStepsPoints(DateTime(2026, 1, 1), DateTime(2026, 1, 31));
-      var aggregated = await mock.aggregateExternalSteps(testDate);
-      var result = processor.resolveStepsForDate(testDate, points, aggregated);
+      var result = processor.resolveStepsForDate(testDate, points);
       expect(result!.source, DataSource.external);
+      expect(result.steps, 8000);
 
       await mock.writeManualRecord(testDate, MetricType.steps, 10000);
       points = await loadStepsPoints(DateTime(2026, 1, 1), DateTime(2026, 1, 31));
-      aggregated = await mock.aggregateExternalSteps(testDate);
-      result = processor.resolveStepsForDate(testDate, points, aggregated);
+      result = processor.resolveStepsForDate(testDate, points);
       expect(result!.source, DataSource.manual);
       expect(result.steps, 10000);
 
       await mock.deleteManualRecord(testDate, MetricType.steps);
       points = await loadStepsPoints(DateTime(2026, 1, 1), DateTime(2026, 1, 31));
-      aggregated = await mock.aggregateExternalSteps(testDate);
-      result = processor.resolveStepsForDate(testDate, points, aggregated);
+      result = processor.resolveStepsForDate(testDate, points);
       expect(result!.source, DataSource.external);
     });
   });

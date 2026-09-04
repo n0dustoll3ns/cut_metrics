@@ -1,4 +1,5 @@
 import 'package:cut_metrics/domain/date_key.dart';
+import 'package:cut_metrics/domain/health_data_processor.dart';
 import 'package:cut_metrics/domain/metric_type.dart';
 import 'package:cut_metrics/repo/health_repository.dart';
 import 'package:cut_metrics/services/debug_log.dart';
@@ -21,21 +22,23 @@ class HealthRepositoryException implements Exception {
 
 /// Реализация [HealthRepository] поверх пакета `health` (Health Connect).
 ///
-/// Фаза 2: чтение и запись в Health Connect.
+/// Фаза 2: чтение и запись в Health Connect. Фаза 6: шаги — только сырые точки
+/// (aggregate-методы удалены), запись идемпотентна (delete-then-write), наш
+/// пакет распознаётся по `sourceName` (A0: `sourceId` на Android пуст).
 ///
 /// **Tier 1** (ручной ввод):
-/// - [writeManualRecord] — пишет через `writeHealthData` с `RecordingMethod.manual`.
-/// - [hasManualRecord] — читает точки и фильтрует по `sourceId == appPackageId`.
+/// - [writeManualRecord] — delete-then-write + `writeHealthData` с
+///   `RecordingMethod.manual`.
+/// - [hasManualRecord] — читает точки и фильтрует по
+///   `HealthDataProcessor.sourcePackageOf(p) == appPackageId`.
 /// - [deleteManualRecord] — удаляет через `delete`.
 ///
 /// **Tier 2** (внешние источники):
-/// - [fetchRawData] — `getHealthDataFromTypes` (вес и др.).
-/// - [aggregateExternalSteps] — `getTotalStepsInInterval` (нативный `aggregate()`).
+/// - [fetchRawData] — `getHealthDataFromTypes` для всех метрик; резолюция
+///   шагов по сырым точкам — в `HealthDataProcessor` («один источник на день»).
 ///
-/// ⚠️ Три технических риска, требующих проверки на устройстве (см. `techContext.md`):
-/// 1. `sourceId` — равен ли package name приложения.
-/// 2. `getTotalStepsInInterval` — использует ли нативный `aggregate()` с приоритетом источников.
-/// 3. `delete()` — ограничен ли только записями своего приложения.
+/// ⚠️ Техриск №3 (см. `techContext.md`): `delete()` ограничен записями своего
+/// приложения — проверить на устройстве при UX «отменить правку».
 class HealthRepositoryImpl implements HealthRepository {
   final Health health;
   final String appPackageId;
@@ -54,14 +57,14 @@ class HealthRepositoryImpl implements HealthRepository {
       endTime: date.endOfDay,
       types: [_toHealthDataType(type)],
     );
-    final has = points.any((p) => p.sourceId == appPackageId);
-    // Техриск №1 (techContext.md): видно реальные sourceId за дату и совпадение
-    // с package name нашего приложения.
+    // Фаза 6, A0: наш пакет распознаётся по sourceName (sourceId на Android
+    // всегда пустой — баг пакета health 13.3.1/13.3.2).
+    final has = points.any((p) => HealthDataProcessor.sourcePackageOf(p) == appPackageId);
     DebugLog.instance.log(
       'repo',
       'hasManualRecord $date ${_toHealthDataType(type).name}: '
       '${points.length} точек, '
-      'sourceId=[${points.map((p) => p.sourceId).toSet().join(', ')}], '
+      'sourceName=[${points.map(HealthDataProcessor.sourcePackageOf).toSet().join(', ')}], '
       'наш пакет=$appPackageId → $has',
     );
     return has;
@@ -71,6 +74,24 @@ class HealthRepositoryImpl implements HealthRepository {
   Future<void> writeManualRecord(DateKey date, MetricType type, num value) async {
     final healthType = _toHealthDataType(type);
     final isSteps = type == MetricType.steps;
+
+    // Идемпотентность (Фаза 6, A1.1): сначала удаляем наши записи за дату,
+    // иначе повторный submit дописывает новую запись и плодит дубли.
+    // `delete` платформенно ограничен записями нашего приложения, внешние
+    // данные за эту дату не затрагиваются; false — как правило «своих записей
+    // нет», это не ошибка (log warn, не throw).
+    final deleted = await health.delete(
+      type: healthType,
+      startTime: date.startOfDay,
+      endTime: date.endOfDay,
+    );
+    if (!deleted) {
+      DebugLog.instance.warn(
+        'repo',
+        'writeManualRecord $date ${healthType.name}: delete-then-write — '
+        'delete вернул false (своих записей на дату, вероятно, нет)',
+      );
+    }
 
     DebugLog.instance.log(
       'repo',
@@ -151,7 +172,7 @@ class HealthRepositoryImpl implements HealthRepository {
         endTime: endDate,
         types: types,
       );
-      final sources = points.map((p) => p.sourceId).toSet().join(', ');
+      final sources = points.map(HealthDataProcessor.sourcePackageOf).toSet().join(', ');
       DebugLog.instance.log(
         'repo',
         'fetchRawData $names: ${points.length} точек, '
@@ -160,73 +181,6 @@ class HealthRepositoryImpl implements HealthRepository {
       return points;
     } catch (e) {
       DebugLog.instance.error('repo', 'fetchRawData $names: исключение $e');
-      rethrow;
-    }
-  }
-
-  @override
-  Future<int?> aggregateExternalSteps(DateKey date) async {
-    final result =
-        await health.getTotalStepsInInterval(date.startOfDay, date.endOfDay);
-    // Техриск №2: getTotalStepsInInterval должен использовать нативный
-    // aggregate() с приоритетом источников, а не сумму сырых записей.
-    DebugLog.instance.log(
-      'repo',
-      'aggregateExternalSteps $date (getTotalStepsInInterval) → $result',
-    );
-    return result;
-  }
-
-  @override
-  Future<Map<DateKey, int>> aggregateExternalStepsForRange(
-    DateTime startDate,
-    DateTime endDate,
-  ) async {
-    // Один запрос к Health Connect на весь диапазон с бакетами по дням
-    // (interval = 1440 минут = 1 сутки). Фаза 4, DoD 3 — не более 1–2 вызовов
-    // на метрику при загрузке диапазона.
-    //
-    // ⚠️ Техриск №4 (см. techContext.md): неизвестно, использует ли
-    // getHealthIntervalDataFromTypes тот же нативный aggregate() с приоритетом
-    // источников, что и getTotalStepsInInterval, или суммирует сырые записи.
-    // Результат по дням виден в DebugLog — там должно быть одно значение
-    // на день, а не сумма нескольких источников.
-    DebugLog.instance.log(
-      'repo',
-      'aggregateExternalStepsForRange ${_fmt(startDate)} → ${_fmt(endDate)} '
-      '(getHealthIntervalDataFromTypes, interval=1440)…',
-    );
-    try {
-      final points = await health.getHealthIntervalDataFromTypes(
-        startDate: startDate,
-        endDate: endDate,
-        types: const [HealthDataType.STEPS],
-        interval: 1440,
-      );
-
-      final result = <DateKey, int>{};
-      for (final p in points) {
-        if (p.value is NumericHealthValue) {
-          final steps = (p.value as NumericHealthValue).numericValue.toInt();
-          if (steps > 0) {
-            result[DateKey(p.dateFrom)] = steps;
-          }
-        }
-      }
-      final days = result.entries
-          .map((e) => '${e.key.value.month}-${e.key.value.day}:${e.value}')
-          .join(' ');
-      DebugLog.instance.log(
-        'repo',
-        'aggregateExternalStepsForRange: ${result.length} дней с шагами'
-        '${result.isEmpty ? '' : ': $days'}',
-      );
-      return result;
-    } catch (e) {
-      DebugLog.instance.error(
-        'repo',
-        'aggregateExternalStepsForRange: исключение $e',
-      );
       rethrow;
     }
   }

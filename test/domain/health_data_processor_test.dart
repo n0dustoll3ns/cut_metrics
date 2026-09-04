@@ -1,15 +1,20 @@
+import 'package:cut_metrics/domain/confirm_decision.dart';
 import 'package:cut_metrics/domain/data_source.dart';
 import 'package:cut_metrics/domain/date_key.dart';
 import 'package:cut_metrics/domain/health_data_processor.dart';
 import 'package:cut_metrics/domain/metric_type.dart';
+import 'package:cut_metrics/domain/source_selection.dart';
 import 'package:cut_metrics/domain/weight_day.dart';
 import 'package:cut_metrics/repo/mock_health_repository.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:health/health.dart';
 
-/// Тесты резолюции приоритета источников (Фаза 1, Definition of Done).
+/// Тесты резолюции приоритета источников (Фаза 1 DoD + Фаза 6, A0/A2/B/C).
 ///
-/// Сценарии — по спеке `docs/phase1_data_model_spec.md`, раздел 10.
+/// Сценарии — по спекам `docs/phase1_data_model_spec.md` (раздел 10) и
+/// `docs/phase6_implementation_task.md` (части A–C). Мок создаёт точки
+/// «как на реальном Android»: `sourceId` пустой, пакет — в `sourceName`
+/// (итог A0-лога), поэтому все тесты гоняют путь `sourcePackageOf`.
 void main() {
   late MockHealthRepository mock;
   late HealthDataProcessor processor;
@@ -94,8 +99,8 @@ void main() {
 
     test('last-wins: несколько внешних записей → последняя по времени', () async {
       // Две внешние записи в один день, разные источники
-      mock.addExternalWeight(testDate.value, 70.0, sourceId: 'com.scale.app');
-      mock.addExternalWeight(testDate.value, 71.0, sourceId: 'com.other.app');
+      mock.addExternalWeight(testDate.value, 70.0, sourcePackage: 'com.scale.app');
+      mock.addExternalWeight(testDate.value, 71.0, sourcePackage: 'com.other.app');
 
       final points = await loadWeightPoints(rangeStart, rangeEnd);
       final result = processor.resolveWeightForDate(testDate, points);
@@ -104,6 +109,84 @@ void main() {
       expect(result!.source, DataSource.external);
       // last-wins: вторая запись позже по времени (добавлена позже)
       expect(result.weight, 71.0);
+      // Фаза 6, C.2: sourcePackage = пакет итоговой точки
+      expect(result.sourcePackage, 'com.other.app');
+    });
+  });
+
+  // ==========================================================================
+  // ВЕС — Фаза 6: refused-фильтр и выбор источника
+  // ==========================================================================
+
+  group('resolveWeightForDate: решения и выбор источника (Фаза 6)', () {
+    final rangeStart = DateTime(2026, 1, 1);
+    final rangeEnd = DateTime(2026, 1, 31);
+
+    test('отклонённый источник исключается из резолюции', () async {
+      mock.addExternalWeight(testDate.value, 70.0, sourcePackage: 'com.refused.app');
+
+      final points = await loadWeightPoints(rangeStart, rangeEnd);
+      final decisions = {'com.refused.app': ConfirmDecision.refused};
+
+      expect(
+        processor.resolveWeightForDate(testDate, points, decisions: decisions),
+        isNull,
+      );
+    });
+
+    test('отказ одного источника → last-wins среди оставшихся', () async {
+      mock.addExternalWeight(testDate.value, 70.0, sourcePackage: 'com.refused.app');
+      mock.addExternalWeight(testDate.value, 71.0, sourcePackage: 'com.ok.app');
+
+      final points = await loadWeightPoints(rangeStart, rangeEnd);
+      final decisions = {'com.refused.app': ConfirmDecision.refused};
+
+      final result = processor.resolveWeightForDate(testDate, points, decisions: decisions);
+
+      expect(result, isNotNull);
+      expect(result!.weight, 71.0);
+      expect(result.sourcePackage, 'com.ok.app');
+    });
+
+    test('подтверждённый источник не исключается (resolves как обычно)', () async {
+      mock.addExternalWeight(testDate.value, 70.0, sourcePackage: 'com.ok.app');
+
+      final points = await loadWeightPoints(rangeStart, rangeEnd);
+      final decisions = {'com.ok.app': ConfirmDecision.confirmed};
+
+      final result = processor.resolveWeightForDate(testDate, points, decisions: decisions);
+
+      expect(result, isNotNull);
+      expect(result!.weight, 70.0);
+    });
+
+    test('выбран источник → только его точки (last-wins внутри источника)', () async {
+      mock.addExternalWeight(testDate.value, 70.0, sourcePackage: 'com.scale.app');
+      mock.addExternalWeight(testDate.value, 69.0, sourcePackage: 'com.watch.app');
+
+      final points = await loadWeightPoints(rangeStart, rangeEnd);
+      final result = processor.resolveWeightForDate(
+        testDate,
+        points,
+        selection: const SourceSelection.app('com.scale.app'),
+      );
+
+      expect(result, isNotNull);
+      expect(result!.weight, 70.0);
+      expect(result.sourcePackage, 'com.scale.app');
+    });
+
+    test('выбран источник без данных за дату → null (не фолбэк на другие)', () async {
+      mock.addExternalWeight(testDate.value, 70.0, sourcePackage: 'com.scale.app');
+
+      final points = await loadWeightPoints(rangeStart, rangeEnd);
+      final result = processor.resolveWeightForDate(
+        testDate,
+        points,
+        selection: const SourceSelection.app('com.watch.app'),
+      );
+
+      expect(result, isNull);
     });
   });
 
@@ -115,39 +198,38 @@ void main() {
     final rangeStart = DateTime(2026, 1, 1);
     final rangeEnd = DateTime(2026, 1, 31);
 
-    test('(a) только внешние записи (агрегированные) → source: external', () async {
-      // Шаги Tier 2 приходят через aggregate(), не через сырые точки
-      mock.setAggregateExternalSteps(testDate, 8500);
+    test('(a) только внешние записи → source: external, сумма одного источника', () async {
+      // Фаза 6, A2: резолюция по сырым точкам, без aggregate-API
+      mock.addExternalSteps(testDate.value, 5000, sourcePackage: 'com.phone.pedometer');
+      mock.addExternalSteps(testDate.value, 3500, sourcePackage: 'com.phone.pedometer');
 
       final points = await loadStepsPoints(rangeStart, rangeEnd);
-      final aggregated = await mock.aggregateExternalSteps(testDate);
-      final result = processor.resolveStepsForDate(testDate, points, aggregated);
+      final result = processor.resolveStepsForDate(testDate, points);
 
       expect(result, isNotNull);
       expect(result!.source, DataSource.external);
       expect(result.steps, 8500);
+      expect(result.sourcePackage, 'com.phone.pedometer');
     });
 
     test('(b) только ручная запись → source: manual', () async {
       mock.addManualSteps(testDate.value, 10000);
 
       final points = await loadStepsPoints(rangeStart, rangeEnd);
-      final aggregated = await mock.aggregateExternalSteps(testDate);
-      final result = processor.resolveStepsForDate(testDate, points, aggregated);
+      final result = processor.resolveStepsForDate(testDate, points);
 
       expect(result, isNotNull);
       expect(result!.source, DataSource.manual);
       expect(result.steps, 10000);
+      expect(result.sourcePackage, kAppPackageId);
     });
 
     test('(c) есть обе → побеждает manual, внешние игнорируются', () async {
       mock.addExternalSteps(testDate.value, 8000);
       mock.addManualSteps(testDate.value, 10000);
-      mock.setAggregateExternalSteps(testDate, 8000);
 
       final points = await loadStepsPoints(rangeStart, rangeEnd);
-      final aggregated = await mock.aggregateExternalSteps(testDate);
-      final result = processor.resolveStepsForDate(testDate, points, aggregated);
+      final result = processor.resolveStepsForDate(testDate, points);
 
       expect(result, isNotNull);
       expect(result!.source, DataSource.manual);
@@ -156,41 +238,91 @@ void main() {
 
     test('(d) нет записей → null', () async {
       final points = await loadStepsPoints(rangeStart, rangeEnd);
-      final aggregated = await mock.aggregateExternalSteps(testDate);
-      final result = processor.resolveStepsForDate(testDate, points, aggregated);
+      final result = processor.resolveStepsForDate(testDate, points);
 
       expect(result, isNull);
     });
 
-    test('(e) несколько внешних источников → не задваивается', () async {
-      // Два внешних источника по 5000 шагов каждый.
-      // aggregate() должен вернуть одно значение (приоритет ОС), не сумму.
-      // Имитируем это через override:
-      mock.addExternalSteps(testDate.value, 5000, sourceId: 'com.phone.pedometer');
-      mock.addExternalSteps(testDate.value, 5000, sourceId: 'com.watch.app');
-      // aggregate() резолвит приоритет — возвращаем 5000, а не 10000
-      mock.setAggregateExternalSteps(testDate, 5000);
+    test('(e) «Авто»: несколько источников → максимальная сумма, не сумма всех', () async {
+      // Два внешних источника: телефон 5000, часы 9000 → берём 9000.
+      mock.addExternalSteps(testDate.value, 5000, sourcePackage: 'com.phone.pedometer');
+      mock.addExternalSteps(testDate.value, 9000, sourcePackage: 'com.watch.app');
 
+      var warned = false;
       final points = await loadStepsPoints(rangeStart, rangeEnd);
-      final aggregated = await mock.aggregateExternalSteps(testDate);
-      final result = processor.resolveStepsForDate(testDate, points, aggregated);
+      final result = processor.resolveStepsForDate(
+        testDate,
+        points,
+        onWarn: (_) => warned = true,
+      );
 
       expect(result, isNotNull);
-      expect(result!.source, DataSource.external);
-      expect(result.steps, 5000); // НЕ 10000 — нет задвоения
+      expect(result!.steps, 9000);
+      expect(result.sourcePackage, 'com.watch.app');
+      // Диагностика выбора: несколько источников → warn (C.2)
+      expect(warned, isTrue);
     });
 
-    test('aggregate вернул null → null', () async {
-      final points = <HealthDataPoint>[];
-      final result = processor.resolveStepsForDate(testDate, points, null);
+    test('(f) выбран источник → сумма только его точек', () async {
+      mock.addExternalSteps(testDate.value, 5000, sourcePackage: 'com.phone.pedometer');
+      mock.addExternalSteps(testDate.value, 9000, sourcePackage: 'com.watch.app');
+
+      final points = await loadStepsPoints(rangeStart, rangeEnd);
+      final result = processor.resolveStepsForDate(
+        testDate,
+        points,
+        selection: const SourceSelection.app('com.phone.pedometer'),
+      );
+
+      expect(result, isNotNull);
+      expect(result!.steps, 5000);
+      expect(result.sourcePackage, 'com.phone.pedometer');
+    });
+
+    test('(g) отклонённый источник исключается из резолюции', () async {
+      mock.addExternalSteps(testDate.value, 8000, sourcePackage: 'com.refused.app');
+
+      final points = await loadStepsPoints(rangeStart, rangeEnd);
+      final result = processor.resolveStepsForDate(
+        testDate,
+        points,
+        decisions: {'com.refused.app': ConfirmDecision.refused},
+      );
 
       expect(result, isNull);
     });
 
-    test('aggregate вернул 0 → null', () async {
-      final points = <HealthDataPoint>[];
-      final result = processor.resolveStepsForDate(testDate, points, 0);
+    test('(h) отказ одного источника → максимальная сумма среди оставшихся', () async {
+      mock.addExternalSteps(testDate.value, 12000, sourcePackage: 'com.refused.app');
+      mock.addExternalSteps(testDate.value, 4000, sourcePackage: 'com.phone.pedometer');
+      mock.addExternalSteps(testDate.value, 3000, sourcePackage: 'com.phone.pedometer');
 
+      final points = await loadStepsPoints(rangeStart, rangeEnd);
+      final result = processor.resolveStepsForDate(
+        testDate,
+        points,
+        decisions: {'com.refused.app': ConfirmDecision.refused},
+      );
+
+      expect(result, isNotNull);
+      expect(result!.steps, 7000);
+      expect(result.sourcePackage, 'com.phone.pedometer');
+    });
+
+    test('шаги: manual → deleteManualRecord → null (нет внешних)', () async {
+      // 1. Только ручная → manual
+      mock.addManualSteps(testDate.value, 10000);
+
+      var points = await loadStepsPoints(rangeStart, rangeEnd);
+      var result = processor.resolveStepsForDate(testDate, points);
+      expect(result!.source, DataSource.manual);
+
+      // 2. Удаляем ручную
+      await mock.deleteManualRecord(testDate, MetricType.steps);
+
+      // 3. Нет данных → null
+      points = await loadStepsPoints(rangeStart, rangeEnd);
+      result = processor.resolveStepsForDate(testDate, points);
       expect(result, isNull);
     });
   });
@@ -243,21 +375,19 @@ void main() {
     test('шаги: manual → deleteManualRecord → external', () async {
       // 1. Обе записи → manual
       mock.addManualSteps(testDate.value, 10000);
-      mock.setAggregateExternalSteps(testDate, 8000);
+      mock.addExternalSteps(testDate.value, 8000);
 
       var points = await loadStepsPoints(rangeStart, rangeEnd);
-      var aggregated = await mock.aggregateExternalSteps(testDate);
-      var result = processor.resolveStepsForDate(testDate, points, aggregated);
+      var result = processor.resolveStepsForDate(testDate, points);
       expect(result!.source, DataSource.manual);
       expect(result.steps, 10000);
 
       // 2. Удаляем ручную
       await mock.deleteManualRecord(testDate, MetricType.steps);
 
-      // 3. Теперь → external (из aggregate)
+      // 3. Теперь → external (по сырым точкам)
       points = await loadStepsPoints(rangeStart, rangeEnd);
-      aggregated = await mock.aggregateExternalSteps(testDate);
-      result = processor.resolveStepsForDate(testDate, points, aggregated);
+      result = processor.resolveStepsForDate(testDate, points);
       expect(result!.source, DataSource.external);
       expect(result.steps, 8000);
     });
@@ -267,8 +397,7 @@ void main() {
       mock.addManualSteps(testDate.value, 10000);
 
       var points = await loadStepsPoints(rangeStart, rangeEnd);
-      var aggregated = await mock.aggregateExternalSteps(testDate);
-      var result = processor.resolveStepsForDate(testDate, points, aggregated);
+      var result = processor.resolveStepsForDate(testDate, points);
       expect(result!.source, DataSource.manual);
 
       // 2. Удаляем ручную
@@ -276,8 +405,7 @@ void main() {
 
       // 3. Нет данных → null
       points = await loadStepsPoints(rangeStart, rangeEnd);
-      aggregated = await mock.aggregateExternalSteps(testDate);
-      result = processor.resolveStepsForDate(testDate, points, aggregated);
+      result = processor.resolveStepsForDate(testDate, points);
       expect(result, isNull);
     });
   });
@@ -313,7 +441,9 @@ void main() {
       );
 
       // Должна быть только одна ручная запись с новым значением
-      final manualPoints = points.where((p) => p.sourceId == kAppPackageId).toList();
+      // (delete-then-write, A1.1; свой пакет — по sourceName, A0)
+      final manualPoints =
+          points.where((p) => HealthDataProcessor.sourcePackageOf(p) == kAppPackageId).toList();
       expect(manualPoints.length, 1);
       expect(
         (manualPoints.first.value as NumericHealthValue).numericValue.toDouble(),
@@ -372,21 +502,17 @@ void main() {
     });
 
     test('шаги: несколько дат с разными источниками', () async {
-      final day1 = DateKey(DateTime(2026, 1, 10)); // только external (aggregate)
+      final day1 = DateKey(DateTime(2026, 1, 10)); // только external (сырые точки)
       final day2 = DateKey(DateTime(2026, 1, 11)); // только manual
       final day3 = DateKey(DateTime(2026, 1, 12)); // обе → manual
 
-      mock.setAggregateExternalSteps(day1, 8000);
+      mock.addExternalSteps(day1.value, 8000);
       mock.addManualSteps(day2.value, 10000);
       mock.addManualSteps(day3.value, 10000);
-      mock.setAggregateExternalSteps(day3, 8000);
+      mock.addExternalSteps(day3.value, 8000);
 
       final points = await loadStepsPoints(DateTime(2026, 1, 1), DateTime(2026, 1, 31));
-      final aggregated = <DateKey, int>{
-        day1: 8000,
-        day3: 8000,
-      };
-      final result = processor.resolveStepsForAllDates(points, aggregated);
+      final result = processor.resolveStepsForAllDates(points);
 
       expect(result.length, 3);
       expect(result[day1]?.source, DataSource.external);
@@ -395,6 +521,26 @@ void main() {
       expect(result[day2]?.steps, 10000);
       expect(result[day3]?.source, DataSource.manual);
       expect(result[day3]?.steps, 10000);
+    });
+  });
+
+  // ==========================================================================
+  // СПИСОК НАЙДЕННЫХ ИСТОЧНИКОВ — externalSources (Фаза 6, C.1)
+  // ==========================================================================
+
+  group('externalSources (Фаза 6, C.1)', () {
+    test('уникальные пакеты без нашего, отсортированы', () async {
+      mock.addExternalWeight(DateTime(2026, 1, 15), 70.0, sourcePackage: 'com.watch.app');
+      mock.addExternalWeight(DateTime(2026, 1, 15), 70.5, sourcePackage: 'com.scale.app');
+      mock.addExternalWeight(DateTime(2026, 1, 16), 71.0, sourcePackage: 'com.watch.app');
+      mock.addManualWeight(DateTime(2026, 1, 17), 72.0);
+
+      final points = await loadWeightPoints(DateTime(2026, 1, 1), DateTime(2026, 1, 31));
+      expect(processor.externalSources(points), ['com.scale.app', 'com.watch.app']);
+    });
+
+    test('пустой список точек → пустой список источников', () {
+      expect(processor.externalSources([]), isEmpty);
     });
   });
 
@@ -430,6 +576,23 @@ void main() {
         source: DataSource.external,
       );
       expect(a, isNot(equals(b)));
+    });
+
+    test('разный sourcePackage → не равны (Фаза 6)', () {
+      final a = WeightDay(
+        date: DateKey(DateTime(2026, 1, 15)),
+        weight: 70.5,
+        source: DataSource.external,
+        sourcePackage: 'com.scale.app',
+      );
+      final b = WeightDay(
+        date: DateKey(DateTime(2026, 1, 15)),
+        weight: 70.5,
+        source: DataSource.external,
+        sourcePackage: 'com.watch.app',
+      );
+      expect(a, isNot(equals(b)));
+      expect(a.hashCode, isNot(b.hashCode));
     });
   });
 }

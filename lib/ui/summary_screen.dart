@@ -1,5 +1,6 @@
 import 'package:cut_metrics/domain/recommendation_engine.dart';
 import 'package:cut_metrics/domain/recommendation_config.dart';
+import 'package:cut_metrics/ui/months.dart';
 import 'package:cut_metrics/ui/theme.dart';
 import 'package:cut_metrics/ui/today_screen.dart';
 import 'package:cut_metrics/viewmodel/dashboard_view_model.dart';
@@ -18,15 +19,12 @@ class SummaryScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final vm = context.watch<DashboardViewModel>();
+    final colors = context.cmColors;
     final summary = vm.computeWeeklySummary();
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('Саммари', style: CMFonts.heading(size: 19)),
-        backgroundColor: CMColors.surface0,
-        foregroundColor: CMColors.ink,
-        elevation: 0,
-        scrolledUnderElevation: 0,
+        title: Text('Саммари', style: CMFonts.heading(size: 19, color: colors.ink)),
       ),
       body: ListView(
         padding: const EdgeInsets.all(CMSpacing.sp4),
@@ -49,12 +47,13 @@ class SummaryScreen extends StatelessWidget {
 class _NotReady extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
+    final colors = context.cmColors;
     return Center(
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: CMSpacing.sp12),
         child: Text(
           RecommendationConfig.summaryNotReadyMessage,
-          style: CMFonts.body(size: 14, color: CMColors.noise),
+          style: CMFonts.body(size: 14, color: colors.noise),
           textAlign: TextAlign.center,
         ),
       ),
@@ -82,12 +81,6 @@ class _SummaryBody extends StatelessWidget {
         PaceStatus.tooFast => 'Слишком быстро',
       };
 
-  Color get _statusColor => switch (summary.status) {
-        PaceStatus.inPace => CMColors.steady,
-        PaceStatus.tooSlow => CMColors.alert,
-        PaceStatus.tooFast => CMColors.alert,
-      };
-
   /// Знак темпа: снижение — «−», рост — «+».
   String get _paceValue {
     final v = summary.actualPacePercent;
@@ -104,6 +97,12 @@ class _SummaryBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.cmColors;
+    final statusColor = switch (summary.status) {
+      PaceStatus.inPace => colors.steady,
+      PaceStatus.tooSlow => colors.alert,
+      PaceStatus.tooFast => colors.alert,
+    };
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(CMSpacing.sp6),
@@ -111,7 +110,7 @@ class _SummaryBody extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Диапазон окна
-            Text(_dateRange, style: CMFonts.caption(size: 12)),
+            Text(_dateRange, style: CMFonts.caption(size: 12, color: colors.noise)),
             const SizedBox(height: CMSpacing.sp4),
 
             // Статус: точка-индикатор + заголовок
@@ -120,10 +119,10 @@ class _SummaryBody extends StatelessWidget {
                 Container(
                   width: 10,
                   height: 10,
-                  decoration: BoxDecoration(color: _statusColor, shape: BoxShape.circle),
+                  decoration: BoxDecoration(color: statusColor, shape: BoxShape.circle),
                 ),
                 const SizedBox(width: CMSpacing.sp2),
-                Text(_statusTitle, style: CMFonts.heading(size: 20)),
+                Text(_statusTitle, style: CMFonts.heading(size: 20, color: colors.ink)),
               ],
             ),
             const SizedBox(height: CMSpacing.sp4),
@@ -135,13 +134,13 @@ class _SummaryBody extends StatelessWidget {
               children: [
                 Text(
                   _paceValue,
-                  style: CMFonts.metric(size: 44, color: CMColors.signal),
+                  style: CMFonts.metric(size: 44, color: colors.signal),
                 ),
                 const SizedBox(width: CMSpacing.sp3),
                 Expanded(
                   child: Text(
                     _kgChange,
-                    style: CMFonts.body(size: 14, color: CMColors.inkMuted),
+                    style: CMFonts.body(size: 14, color: colors.inkMuted),
                   ),
                 ),
               ],
@@ -151,21 +150,21 @@ class _SummaryBody extends StatelessWidget {
             // Вывод
             Text(
               summary.conclusionText,
-              style: CMFonts.body(size: 14, color: CMColors.inkMuted),
+              style: CMFonts.body(size: 14, color: colors.inkMuted),
             ),
             const SizedBox(height: CMSpacing.sp4),
-            const Divider(color: CMColors.outline, height: 1),
+            Divider(color: colors.outline, height: 1),
             const SizedBox(height: CMSpacing.sp4),
 
             // Рекомендация
             Text(
               RecommendationConfig.summaryRecLabel.toUpperCase(),
-              style: CMFonts.caption(size: 11),
+              style: CMFonts.caption(size: 11, color: colors.noise),
             ),
             const SizedBox(height: CMSpacing.sp2),
             Text(
               summary.recommendationText,
-              style: CMFonts.body(size: 15, color: CMColors.ink),
+              style: CMFonts.body(size: 15, color: colors.ink),
             ),
           ],
         ),

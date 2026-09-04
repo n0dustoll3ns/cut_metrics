@@ -1,4 +1,5 @@
 import 'package:cut_metrics/domain/date_key.dart';
+import 'package:cut_metrics/domain/health_data_processor.dart';
 import 'package:cut_metrics/domain/metric_type.dart';
 import 'package:cut_metrics/repo/health_repository.dart';
 import 'package:health/health.dart';
@@ -6,7 +7,7 @@ import 'package:health/health.dart';
 /// Идентификатор пакета приложения — определяет Tier 1 записи.
 const kAppPackageId = 'com.example.cut_metrics';
 
-/// Внешний источник по умолчанию для мока.
+/// Внешний источник по умолчанию для мока (Google Fit).
 const kExternalSourceId = 'com.google.android.apps.fitness';
 
 /// Mock-реализация [HealthRepository] для юнит-тестов.
@@ -14,29 +15,26 @@ const kExternalSourceId = 'com.google.android.apps.fitness';
 /// В отличие от реального репозитория, хранит данные в памяти и позволяет
 /// тестам напрямую управлять содержимым через методы `add*`.
 ///
-/// Ключевое: генерирует записи с разным `sourceId` (пакет приложения / внешние)
-/// и разным `recordingMethod` (manual / automatic), что необходимо для
-/// тестирования резолюции приоритета источников (Фаза 2, секция 5).
+/// Ключевое: генерирует записи с разным пакетом источника (пакет приложения /
+/// внешние приложения) и разным `recordingMethod` (manual / automatic), что
+/// необходимо для тестирования резолюции приоритета источников.
+///
+/// Фаза 6: точки создаются как на реальном Android (A0-лог) — `sourceId`
+/// пустой, пакет приложения приходит в `sourceName` (= `dataOrigin.packageName`).
+/// Это заставляет тесты гонять реальный путь определения источника
+/// (`HealthDataProcessor.sourcePackageOf`).
 class MockHealthRepository implements HealthRepository {
   /// Идентификатор пакета приложения — определяет Tier 1.
   final String appPackageId;
 
-  /// Счётчики вызовов методов (для тестов Фазы 4, DoD 3).
+  /// Счётчик вызовов `fetchRawData` (для тестов Фазы 4, DoD 3).
   int fetchRawDataCallCount = 0;
-  int aggregateExternalStepsCallCount = 0;
-  int aggregateExternalStepsForRangeCallCount = 0;
 
   /// Внутреннее хранилище всех точек данных.
   final List<HealthDataPoint> _points = [];
 
   /// Доступ только для чтения к внутреннему хранилищу (для тестов).
   List<HealthDataPoint> get points => List.unmodifiable(_points);
-
-  /// Переопределённые результаты `aggregateExternalSteps` для тестов.
-  ///
-  /// Если для даты задано значение — возвращается оно.
-  /// Иначе — авто-расчёт из [_points].
-  final Map<DateKey, int> _aggregateStepsOverride = {};
 
   MockHealthRepository({this.appPackageId = kAppPackageId});
 
@@ -46,9 +44,9 @@ class MockHealthRepository implements HealthRepository {
   void addPoint(HealthDataPoint point) => _points.add(point);
 
   /// Добавляет внешнюю запись веса (Tier 2).
-  void addExternalWeight(DateTime date, double weight, {String? sourceId}) {
+  void addExternalWeight(DateTime date, double weight, {String? sourcePackage}) {
     addPoint(
-      _makeWeightPoint(date, weight, sourceId ?? kExternalSourceId, RecordingMethod.automatic),
+      _makeWeightPoint(date, weight, sourcePackage ?? kExternalSourceId, RecordingMethod.automatic),
     );
   }
 
@@ -58,9 +56,9 @@ class MockHealthRepository implements HealthRepository {
   }
 
   /// Добавляет внешнюю запись шагов (Tier 2).
-  void addExternalSteps(DateTime date, int steps, {String? sourceId}) {
+  void addExternalSteps(DateTime date, int steps, {String? sourcePackage}) {
     addPoint(
-      _makeStepsPoint(date, steps, sourceId ?? kExternalSourceId, RecordingMethod.automatic),
+      _makeStepsPoint(date, steps, sourcePackage ?? kExternalSourceId, RecordingMethod.automatic),
     );
   }
 
@@ -77,7 +75,7 @@ class MockHealthRepository implements HealthRepository {
     DateTime from,
     DateTime to, {
     HealthDataType type = HealthDataType.SLEEP_LIGHT,
-    String sourceId = kExternalSourceId,
+    String sourcePackage = kExternalSourceId,
   }) {
     assert(
       type == HealthDataType.SLEEP_DEEP ||
@@ -85,48 +83,43 @@ class MockHealthRepository implements HealthRepository {
           type == HealthDataType.SLEEP_REM,
       'addSleepStage expects a sleep stage type, got $type',
     );
-    addPoint(_makeIntervalPoint(from, to, type, sourceId));
+    addPoint(_makeIntervalPoint(from, to, type, sourcePackage));
   }
 
   /// Добавляет интервал общей длительности сна (`SLEEP_ASLEEP`) — внешний трекер.
   void addSleepAsleep(
     DateTime from,
     DateTime to, {
-    String sourceId = kExternalSourceId,
+    String sourcePackage = kExternalSourceId,
   }) {
-    addPoint(_makeIntervalPoint(from, to, HealthDataType.SLEEP_ASLEEP, sourceId));
-  }
-
-  /// Переопределяет результат `aggregateExternalSteps` для конкретной даты.
-  ///
-  /// Позволяет тесту напрямую задать «агрегированное» значение,
-  /// имитируя результат нативного Health Connect `aggregate()`.
-  void setAggregateExternalSteps(DateKey date, int steps) {
-    _aggregateStepsOverride[date] = steps;
+    addPoint(_makeIntervalPoint(from, to, HealthDataType.SLEEP_ASLEEP, sourcePackage));
   }
 
   /// Очищает все данные (для изоляции тестов).
   void clear() {
     _points.clear();
-    _aggregateStepsOverride.clear();
   }
 
   // ─── Реализация HealthRepository ────────────────────────────────────────────
+
+  /// Наша ли точка (Tier 1) — по пакету источника, как на Android (A0).
+  bool _isOurPoint(HealthDataPoint p) =>
+      HealthDataProcessor.sourcePackageOf(p) == appPackageId;
 
   @override
   Future<bool> hasManualRecord(DateKey date, MetricType type) async {
     final healthType = _toHealthDataType(type);
     return _points.any(
-      (p) => p.sourceId == appPackageId && p.type == healthType && DateKey(p.dateFrom) == date,
+      (p) => _isOurPoint(p) && p.type == healthType && DateKey(p.dateFrom) == date,
     );
   }
 
   @override
   Future<void> writeManualRecord(DateKey date, MetricType type, num value) async {
     final healthType = _toHealthDataType(type);
-    // Удаляем существующую ручную запись на эту дату (перезапись).
+    // Delete-then-write (идемпотентность, A1.1) — как в реальном репозитории.
     _points.removeWhere(
-      (p) => p.sourceId == appPackageId && p.type == healthType && DateKey(p.dateFrom) == date,
+      (p) => _isOurPoint(p) && p.type == healthType && DateKey(p.dateFrom) == date,
     );
     final point = _makePoint(date.value, healthType, value, appPackageId);
     _points.add(point);
@@ -136,7 +129,7 @@ class MockHealthRepository implements HealthRepository {
   Future<void> deleteManualRecord(DateKey date, MetricType type) async {
     final healthType = _toHealthDataType(type);
     _points.removeWhere(
-      (p) => p.sourceId == appPackageId && p.type == healthType && DateKey(p.dateFrom) == date,
+      (p) => _isOurPoint(p) && p.type == healthType && DateKey(p.dateFrom) == date,
     );
   }
 
@@ -156,70 +149,7 @@ class MockHealthRepository implements HealthRepository {
     }).toList();
   }
 
-  @override
-  Future<int?> aggregateExternalSteps(DateKey date) async {
-    aggregateExternalStepsCallCount++;
-    return _resolveAggregatedSteps(date);
-  }
-
-  @override
-  Future<Map<DateKey, int>> aggregateExternalStepsForRange(
-    DateTime startDate,
-    DateTime endDate,
-  ) async {
-    aggregateExternalStepsForRangeCallCount++;
-    final result = <DateKey, int>{};
-
-    // Итерируем по дням, используя общую логику резолюции (_resolveAggregatedSteps)
-    // напрямую, а не через aggregateExternalSteps — чтобы не увеличивать
-    // счётчик подневных вызовов. В реальном репозитории это один батчевый запрос.
-    final start = DateKey(startDate);
-    final end = DateKey(endDate);
-    final dayCount = end.value.difference(start.value).inDays;
-
-    for (var d = 0; d <= dayCount; d++) {
-      final date = DateKey(start.value.add(Duration(days: d)));
-      final agg = await _resolveAggregatedSteps(date);
-      if (agg != null && agg > 0) result[date] = agg;
-    }
-
-    return result;
-  }
-
   // ─── Вспомогательные методы ─────────────────────────────────────────────────
-
-  /// Общая логика резолюции агрегированных внешних шагов для даты.
-  ///
-  /// 1. Если тест задал override для даты — возвращает его (или null если <= 0).
-  /// 2. Иначе — авто-расчёт: суммирование внешних записей шагов за день.
-  ///
-  /// ⚠️ В реальном Health Connect `aggregate()` резолвит приоритет источников
-  /// и не суммирует. Для тестов предпочтительнее `setAggregateExternalSteps`.
-  /// Этот метод не инкрементит счётчики вызовов — это ответственность
-  /// публичных методов [aggregateExternalSteps] / [aggregateExternalStepsForRange].
-  Future<int?> _resolveAggregatedSteps(DateKey date) async {
-    if (_aggregateStepsOverride.containsKey(date)) {
-      final v = _aggregateStepsOverride[date]!;
-      return v > 0 ? v : null;
-    }
-
-    final externalPoints = _points.where(
-      (p) =>
-          p.type == HealthDataType.STEPS &&
-          p.sourceId != appPackageId &&
-          DateKey(p.dateFrom) == date,
-    );
-
-    if (externalPoints.isEmpty) return null;
-
-    int total = 0;
-    for (final p in externalPoints) {
-      if (p.value is NumericHealthValue) {
-        total += (p.value as NumericHealthValue).numericValue.toInt();
-      }
-    }
-    return total > 0 ? total : null;
-  }
 
   HealthDataType _toHealthDataType(MetricType type) => switch (type) {
     MetricType.weight => HealthDataType.WEIGHT,
@@ -230,30 +160,32 @@ class MockHealthRepository implements HealthRepository {
     DateTime date,
     HealthDataType type,
     num value,
-    String sourceId, {
+    String sourcePackage, {
     RecordingMethod recordingMethod = RecordingMethod.manual,
   }) {
     return switch (type) {
       HealthDataType.WEIGHT =>
-        _makeWeightPoint(date, value.toDouble(), sourceId, recordingMethod),
-      HealthDataType.STEPS => _makeStepsPoint(date, value.toInt(), sourceId, recordingMethod),
+        _makeWeightPoint(date, value.toDouble(), sourcePackage, recordingMethod),
+      HealthDataType.STEPS => _makeStepsPoint(date, value.toInt(), sourcePackage, recordingMethod),
       _ => throw ArgumentError('Unsupported type for mock: $type'),
     };
   }
 
+  /// Точка «как на реальном Android» (A0-лог): `sourceId` пустой, пакет
+  /// приложения-источника приходит в `sourceName`.
   HealthDataPoint _makeWeightPoint(
     DateTime date,
     double weight,
-    String sourceId,
+    String sourcePackage,
     RecordingMethod recordingMethod,
   ) {
     final dayStart = DateTime(date.year, date.month, date.day);
     final dayEnd = dayStart.add(const Duration(hours: 23, minutes: 59));
     return HealthDataPoint(
-      sourceName: sourceId,
+      sourceName: sourcePackage,
       uuid: '',
       sourceDeviceId: '',
-      sourceId: sourceId,
+      sourceId: '',
       sourcePlatform: HealthPlatformType.googleHealthConnect,
       value: NumericHealthValue(numericValue: weight),
       dateFrom: dayStart,
@@ -268,13 +200,13 @@ class MockHealthRepository implements HealthRepository {
     DateTime from,
     DateTime to,
     HealthDataType type,
-    String sourceId,
+    String sourcePackage,
   ) {
     return HealthDataPoint(
-      sourceName: sourceId,
+      sourceName: sourcePackage,
       uuid: '',
       sourceDeviceId: '',
-      sourceId: sourceId,
+      sourceId: '',
       sourcePlatform: HealthPlatformType.googleHealthConnect,
       value: NumericHealthValue(numericValue: to.difference(from).inMinutes),
       dateFrom: from,
@@ -288,16 +220,16 @@ class MockHealthRepository implements HealthRepository {
   HealthDataPoint _makeStepsPoint(
     DateTime date,
     int steps,
-    String sourceId,
+    String sourcePackage,
     RecordingMethod recordingMethod,
   ) {
     final dayStart = DateTime(date.year, date.month, date.day);
     final dayEnd = dayStart.add(const Duration(hours: 23, minutes: 59));
     return HealthDataPoint(
-      sourceName: sourceId,
+      sourceName: sourcePackage,
       uuid: '',
       sourceDeviceId: '',
-      sourceId: sourceId,
+      sourceId: '',
       sourcePlatform: HealthPlatformType.googleHealthConnect,
       value: NumericHealthValue(numericValue: steps),
       dateFrom: dayStart,

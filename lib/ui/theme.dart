@@ -1,42 +1,228 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-/// Дизайн-токены Cut Metrics — перенос значений из `docs/design-system.html`.
+/// Цветовые роли дизайн-системы Cut Metrics — ThemeExtension (Фаза 6, D.1).
 ///
-/// 6 брендовых цветов + производные нейтральные. Не изобретать новые hex —
-/// всё нужное для текущих фаз уже есть в дизайн-системе (см. techContext.md).
-class CMColors {
-  CMColors._();
+/// Значения — точно из `docs/design-system.html` (секция «Тёмная тема»):
+/// светлая — базовая, тёмная — производная «приборная» (фон #101214,
+/// карточки светлее фона, Deep Ink инвертируется в светлый текст, брендовые
+/// signal/steady/alert осветлены до AA, tint-подложки затемнены).
+/// Новых ролей относительно Фаз 3–5 нет — добавлен только `onSignal`
+/// (текст на primary-кнопке; в тёмной теме инвертируется).
+///
+/// Доступ из UI — `context.cmColors` (extension ниже). Статических ссылок на
+/// цвета не использовать: одна и та же роль меняет значение в зависимости
+/// от яркости темы.
+@immutable
+class CMThemeColors extends ThemeExtension<CMThemeColors> {
+  /// Фон/канва.
+  final Color bg;
 
-  // ─── Core palette ───────────────────────────────────────────────────────────
-  static const bg = Color(0xFFF3F5F6); // Instrument Grey — фон/канва
-  static const ink = Color(0xFF14171A); // Deep Ink — основной текст
-  static const noise = Color(0xFF9CA3AF); // Noise Grey — сырые точки, второстепенное
-  static const signal = Color(0xFF2A5DB0); // Signal Cobalt — тренд, CTA
-  static const steady = Color(0xFF1F9D6C); // Steady Green — статус "в темпе"
-  static const alert = Color(0xFFB23A2E); // Alert Rust — отклонение
+  /// Карточки.
+  final Color surface0;
 
-  // ─── Derived neutrals (surface layer) ───────────────────────────────────────
-  static const surface0 = Color(0xFFFFFFFF); // карточки
-  static const surface1 = bg; // = Instrument Grey
-  static const surface2 = Color(0xFFE7EAEC); // ховеры, заполненные области
-  static const outline = Color(0xFFD7DBDE);
-  static const outlineStrong = Color(0xFFC2C7CC);
-  static const inkMuted = Color(0xFF4B5259);
+  /// = bg (заливки внутри карточек).
+  final Color surface1;
 
-  // ─── Derived signal tones ───────────────────────────────────────────────────
-  static const signalHover = Color(0xFF234C8D);
-  static const signalPress = Color(0xFF1D3F73);
-  static const signalTint = Color(0xFFE7EEF8);
+  /// Ховеры, заполнения, беджи внешних источников.
+  final Color surface2;
 
-  // ─── Status tint backgrounds (для badge-ей) ─────────────────────────────────
-  static const steadyTint = Color(0xFFE4F5EE);
-  static const steadyBorder = Color(0xFFBEE3D2);
-  static const alertTint = Color(0xFFFBEAE8);
-  static const alertBorder = Color(0xFFEFC5BF);
+  /// Линии, сетка графика.
+  final Color outline;
 
-  // ─── Alpha variants ─────────────────────────────────────────────────────────
-  static const noiseLight = Color(0x559CA3AF); // точки на графике (полупрозрачные)
+  /// Рамки полей ввода.
+  final Color outlineStrong;
+
+  /// Основной текст (Deep Ink / инверсия).
+  final Color ink;
+
+  /// Второстепенный текст.
+  final Color inkMuted;
+
+  /// Сырые точки, подписи осей.
+  final Color noise;
+
+  /// Акцент, тренд, CTA (Signal Cobalt / осветлённый).
+  final Color signal;
+
+  final Color signalHover;
+  final Color signalPress;
+
+  /// Подложка ручного ввода.
+  final Color signalTint;
+
+  /// Текст/иконки на primary-кнопке (в тёмной — тёмный на светлой кнопке).
+  final Color onSignal;
+
+  /// Статус «в темпе» (Steady Green / осветлённый).
+  final Color steady;
+  final Color steadyTint;
+  final Color steadyBorder;
+
+  /// Ошибки, отклонения (Alert Rust / осветлённый).
+  final Color alert;
+  final Color alertTint;
+  final Color alertBorder;
+
+  /// Полупрозрачные точки графика (noise @55%).
+  final Color noiseLight;
+
+  const CMThemeColors({
+    required this.bg,
+    required this.surface0,
+    required this.surface1,
+    required this.surface2,
+    required this.outline,
+    required this.outlineStrong,
+    required this.ink,
+    required this.inkMuted,
+    required this.noise,
+    required this.signal,
+    required this.signalHover,
+    required this.signalPress,
+    required this.signalTint,
+    required this.onSignal,
+    required this.steady,
+    required this.steadyTint,
+    required this.steadyBorder,
+    required this.alert,
+    required this.alertTint,
+    required this.alertBorder,
+    required this.noiseLight,
+  });
+
+  /// Светлая тема — базовая (значения Фаз 3–5).
+  static const CMThemeColors light = CMThemeColors(
+    bg: Color(0xFFF3F5F6),
+    surface0: Color(0xFFFFFFFF),
+    surface1: Color(0xFFF3F5F6),
+    surface2: Color(0xFFE7EAEC),
+    outline: Color(0xFFD7DBDE),
+    outlineStrong: Color(0xFFC2C7CC),
+    ink: Color(0xFF14171A),
+    inkMuted: Color(0xFF4B5259),
+    noise: Color(0xFF9CA3AF),
+    signal: Color(0xFF2A5DB0),
+    signalHover: Color(0xFF234C8D),
+    signalPress: Color(0xFF1D3F73),
+    signalTint: Color(0xFFE7EEF8),
+    onSignal: Color(0xFFFFFFFF),
+    steady: Color(0xFF1F9D6C),
+    steadyTint: Color(0xFFE4F5EE),
+    steadyBorder: Color(0xFFBEE3D2),
+    alert: Color(0xFFB23A2E),
+    alertTint: Color(0xFFFBEAE8),
+    alertBorder: Color(0xFFEFC5BF),
+    noiseLight: Color(0x559CA3AF),
+  );
+
+  /// Тёмная тема — «приборная» (маппинг из `docs/design-system.html`, §06).
+  static const CMThemeColors dark = CMThemeColors(
+    bg: Color(0xFF101214),
+    surface0: Color(0xFF191C1F),
+    surface1: Color(0xFF101214),
+    surface2: Color(0xFF23272C),
+    outline: Color(0xFF2B3036),
+    outlineStrong: Color(0xFF3A4046),
+    ink: Color(0xFFE8EAEC),
+    inkMuted: Color(0xFF9AA1A9),
+    noise: Color(0xFF6E757D),
+    signal: Color(0xFF7EA4E6),
+    signalHover: Color(0xFF8FB2EB),
+    signalPress: Color(0xFF6F97DE),
+    signalTint: Color(0xFF1C2836),
+    onSignal: Color(0xFF101214),
+    steady: Color(0xFF52C695),
+    steadyTint: Color(0xFF142E25),
+    steadyBorder: Color(0xFF24584A),
+    alert: Color(0xFFE57F72),
+    alertTint: Color(0xFF38211E),
+    alertBorder: Color(0xFF6E372F),
+    noiseLight: Color(0x556E757D),
+  );
+
+  @override
+  CMThemeColors copyWith({
+    Color? bg,
+    Color? surface0,
+    Color? surface1,
+    Color? surface2,
+    Color? outline,
+    Color? outlineStrong,
+    Color? ink,
+    Color? inkMuted,
+    Color? noise,
+    Color? signal,
+    Color? signalHover,
+    Color? signalPress,
+    Color? signalTint,
+    Color? onSignal,
+    Color? steady,
+    Color? steadyTint,
+    Color? steadyBorder,
+    Color? alert,
+    Color? alertTint,
+    Color? alertBorder,
+    Color? noiseLight,
+  }) {
+    return CMThemeColors(
+      bg: bg ?? this.bg,
+      surface0: surface0 ?? this.surface0,
+      surface1: surface1 ?? this.surface1,
+      surface2: surface2 ?? this.surface2,
+      outline: outline ?? this.outline,
+      outlineStrong: outlineStrong ?? this.outlineStrong,
+      ink: ink ?? this.ink,
+      inkMuted: inkMuted ?? this.inkMuted,
+      noise: noise ?? this.noise,
+      signal: signal ?? this.signal,
+      signalHover: signalHover ?? this.signalHover,
+      signalPress: signalPress ?? this.signalPress,
+      signalTint: signalTint ?? this.signalTint,
+      onSignal: onSignal ?? this.onSignal,
+      steady: steady ?? this.steady,
+      steadyTint: steadyTint ?? this.steadyTint,
+      steadyBorder: steadyBorder ?? this.steadyBorder,
+      alert: alert ?? this.alert,
+      alertTint: alertTint ?? this.alertTint,
+      alertBorder: alertBorder ?? this.alertBorder,
+      noiseLight: noiseLight ?? this.noiseLight,
+    );
+  }
+
+  @override
+  CMThemeColors lerp(ThemeExtension<CMThemeColors>? other, double t) {
+    if (other is! CMThemeColors) return this;
+    return CMThemeColors(
+      bg: Color.lerp(bg, other.bg, t)!,
+      surface0: Color.lerp(surface0, other.surface0, t)!,
+      surface1: Color.lerp(surface1, other.surface1, t)!,
+      surface2: Color.lerp(surface2, other.surface2, t)!,
+      outline: Color.lerp(outline, other.outline, t)!,
+      outlineStrong: Color.lerp(outlineStrong, other.outlineStrong, t)!,
+      ink: Color.lerp(ink, other.ink, t)!,
+      inkMuted: Color.lerp(inkMuted, other.inkMuted, t)!,
+      noise: Color.lerp(noise, other.noise, t)!,
+      signal: Color.lerp(signal, other.signal, t)!,
+      signalHover: Color.lerp(signalHover, other.signalHover, t)!,
+      signalPress: Color.lerp(signalPress, other.signalPress, t)!,
+      signalTint: Color.lerp(signalTint, other.signalTint, t)!,
+      onSignal: Color.lerp(onSignal, other.onSignal, t)!,
+      steady: Color.lerp(steady, other.steady, t)!,
+      steadyTint: Color.lerp(steadyTint, other.steadyTint, t)!,
+      steadyBorder: Color.lerp(steadyBorder, other.steadyBorder, t)!,
+      alert: Color.lerp(alert, other.alert, t)!,
+      alertTint: Color.lerp(alertTint, other.alertTint, t)!,
+      alertBorder: Color.lerp(alertBorder, other.alertBorder, t)!,
+      noiseLight: Color.lerp(noiseLight, other.noiseLight, t)!,
+    );
+  }
+}
+
+/// Доступ к ролям темы из BuildContext: `context.cmColors.ink`.
+extension CMColorsContext on BuildContext {
+  CMThemeColors get cmColors =>
+      Theme.of(this).extension<CMThemeColors>() ?? CMThemeColors.light;
 }
 
 /// Радиусы — сдержанные, "инструментальные" (не мягкие/игривые).
@@ -68,6 +254,10 @@ class CMSpacing {
 /// - Space Grotesk — числа (tabular-nums), главный герой интерфейса.
 /// - Inter — текст (заголовки, body).
 /// - Space Mono — подписи, даты, единицы (uppercase, моноширинный).
+///
+/// `color` — обязательный параметр: дефолт из статических цветов убран
+/// (Фаза 6, D.1) — вызывающий код берёт роль из `context.cmColors`, иначе
+/// в тёмной теме молча получался бы тёмный текст на тёмном фоне.
 class CMFonts {
   CMFonts._();
 
@@ -75,7 +265,7 @@ class CMFonts {
   static TextStyle metric({
     double size = 26,
     FontWeight weight = FontWeight.w500,
-    Color color = CMColors.ink,
+    required Color color,
   }) =>
       GoogleFonts.spaceGrotesk(
         fontSize: size,
@@ -89,7 +279,7 @@ class CMFonts {
   /// Заголовок: Inter 600.
   static TextStyle heading({
     double size = 19,
-    Color color = CMColors.ink,
+    required Color color,
   }) =>
       GoogleFonts.inter(
         fontSize: size,
@@ -100,7 +290,7 @@ class CMFonts {
   /// Body: Inter 400.
   static TextStyle body({
     double size = 16,
-    Color color = CMColors.ink,
+    required Color color,
   }) =>
       GoogleFonts.inter(
         fontSize: size,
@@ -112,7 +302,7 @@ class CMFonts {
   /// Label/бейдж: Inter 600 — статус-беджи, метки (`.badge` дизайн-системы).
   static TextStyle label({
     double size = 13,
-    Color color = CMColors.ink,
+    required Color color,
   }) =>
       GoogleFonts.inter(
         fontSize: size,
@@ -123,7 +313,7 @@ class CMFonts {
   /// Caption/моно: Space Mono uppercase — даты, единицы, подписи.
   static TextStyle caption({
     double size = 12,
-    Color color = CMColors.noise,
+    required Color color,
   }) =>
       GoogleFonts.spaceMono(
         fontSize: size,
@@ -133,55 +323,92 @@ class CMFonts {
 }
 
 /// Тема приложения — Material 3, настроенная на токены дизайн-системы.
-ThemeData cmTheme() {
+///
+/// Фаза 6, D.1: `MaterialApp.theme` = `cmTheme(Brightness.light)`,
+/// `MaterialApp.darkTheme` = `cmTheme(Brightness.dark)` — один конструктор
+/// на обе темы, роли приходят из [CMThemeColors]. AppBar, NavigationBar,
+/// снекбары и карточки настроены здесь — экраны не хардкодят цвета.
+ThemeData cmTheme(Brightness brightness) {
+  final c = brightness == Brightness.dark ? CMThemeColors.dark : CMThemeColors.light;
+  final isDark = brightness == Brightness.dark;
+
   final base = ThemeData(
     useMaterial3: true,
-    scaffoldBackgroundColor: CMColors.bg,
-    colorScheme: ColorScheme.light(
-      primary: CMColors.signal,
-      onPrimary: Colors.white,
-      secondary: CMColors.signal,
-      surface: CMColors.surface0,
-      onSurface: CMColors.ink,
-      error: CMColors.alert,
-      outline: CMColors.outline,
+    brightness: brightness,
+    scaffoldBackgroundColor: c.bg,
+    colorScheme: (isDark ? ColorScheme.dark : ColorScheme.light)(
+      primary: c.signal,
+      onPrimary: c.onSignal,
+      secondary: c.signal,
+      surface: c.surface0,
+      onSurface: c.ink,
+      error: c.alert,
+      outline: c.outline,
     ),
   );
 
   return base.copyWith(
     textTheme: GoogleFonts.interTextTheme(base.textTheme),
+    appBarTheme: AppBarTheme(
+      backgroundColor: c.surface0,
+      foregroundColor: c.ink,
+      elevation: 0,
+      scrolledUnderElevation: 0,
+      titleTextStyle: GoogleFonts.inter(
+        fontSize: 19,
+        fontWeight: FontWeight.w600,
+        color: c.ink,
+      ),
+    ),
+    navigationBarTheme: NavigationBarThemeData(
+      backgroundColor: c.surface0,
+      indicatorColor: c.signalTint,
+      iconTheme: WidgetStatePropertyAll(IconThemeData(color: c.inkMuted)),
+      labelTextStyle: WidgetStatePropertyAll(
+        GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: c.ink),
+      ),
+    ),
+    snackBarTheme: SnackBarThemeData(
+      behavior: SnackBarBehavior.floating,
+      backgroundColor: isDark ? c.surface2 : c.ink,
+      contentTextStyle: GoogleFonts.inter(
+        fontSize: 14,
+        color: isDark ? c.ink : CMThemeColors.light.bg,
+      ),
+    ),
+    dividerTheme: DividerThemeData(color: c.outline, thickness: 1),
     cardTheme: CardThemeData(
-      color: CMColors.surface0,
+      color: c.surface0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(CMRadius.lg),
-        side: const BorderSide(color: CMColors.outline),
+        side: BorderSide(color: c.outline),
       ),
       margin: EdgeInsets.zero,
     ),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
-      fillColor: CMColors.surface0,
+      fillColor: c.surface0,
       contentPadding: const EdgeInsets.symmetric(
         horizontal: CMSpacing.sp4,
         vertical: CMSpacing.sp3,
       ),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(CMRadius.md),
-        borderSide: const BorderSide(color: CMColors.outlineStrong),
+        borderSide: BorderSide(color: c.outlineStrong),
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(CMRadius.md),
-        borderSide: const BorderSide(color: CMColors.outlineStrong),
+        borderSide: BorderSide(color: c.outlineStrong),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(CMRadius.md),
-        borderSide: const BorderSide(color: CMColors.signal, width: 2),
+        borderSide: BorderSide(color: c.signal, width: 2),
       ),
     ),
     elevatedButtonTheme: ElevatedButtonThemeData(
       style: ElevatedButton.styleFrom(
-        backgroundColor: CMColors.signal,
-        foregroundColor: Colors.white,
+        backgroundColor: c.signal,
+        foregroundColor: c.onSignal,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(CMRadius.md),
         ),
@@ -194,8 +421,8 @@ ThemeData cmTheme() {
     ),
     outlinedButtonTheme: OutlinedButtonThemeData(
       style: OutlinedButton.styleFrom(
-        foregroundColor: CMColors.ink,
-        side: const BorderSide(color: CMColors.outlineStrong),
+        foregroundColor: c.ink,
+        side: BorderSide(color: c.outlineStrong),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(CMRadius.md),
         ),
@@ -204,9 +431,10 @@ ThemeData cmTheme() {
     ),
     textButtonTheme: TextButtonThemeData(
       style: TextButton.styleFrom(
-        foregroundColor: CMColors.signal,
+        foregroundColor: c.signal,
         textStyle: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 14),
       ),
     ),
+    extensions: [c],
   );
 }

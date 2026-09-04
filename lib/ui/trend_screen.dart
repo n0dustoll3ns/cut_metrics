@@ -13,8 +13,8 @@ import 'package:provider/provider.dart';
 ///
 /// Сегменты Неделя / Месяц / 3 месяца («Весь срок» убран по решению
 /// пользователя: полный диапазон — тяжёлый запрос и пересчёт EMA).
-/// График веса+EMA, тап по точке → карточка метрики (U1). Ниже —
-/// среднесуточные показатели: Сон, Шаги, Активность (ккал).
+/// График веса+EMA с осью дат Фазы 6 (A3), тап по точке → карточка метрики
+/// (U1). Ниже — среднесуточные показатели: Сон, Шаги, Активность (ккал).
 class TrendScreen extends StatefulWidget {
   const TrendScreen({super.key});
 
@@ -35,14 +35,11 @@ class _TrendScreenState extends State<TrendScreen> {
   @override
   Widget build(BuildContext context) {
     final vm = context.watch<DashboardViewModel>();
+    final colors = context.cmColors;
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('Тренд', style: CMFonts.heading(size: 19)),
-        backgroundColor: CMColors.surface0,
-        foregroundColor: CMColors.ink,
-        elevation: 0,
-        scrolledUnderElevation: 0,
+        title: Text('Тренд', style: CMFonts.heading(size: 19, color: colors.ink)),
       ),
       body: ListView(
         padding: const EdgeInsets.all(CMSpacing.sp4),
@@ -73,7 +70,7 @@ class _TrendScreenState extends State<TrendScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text('Среднесуточные показатели',
-                      style: CMFonts.heading(size: 16)),
+                      style: CMFonts.heading(size: 16, color: colors.ink)),
                   const SizedBox(height: CMSpacing.sp3),
                   Row(
                     children: [
@@ -161,19 +158,20 @@ class _AvgMetric extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.cmColors;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: CMFonts.caption(size: 10)),
+        Text(label, style: CMFonts.caption(size: 10, color: colors.noise)),
         const SizedBox(height: CMSpacing.sp1),
         Row(
           crossAxisAlignment: CrossAxisAlignment.baseline,
           textBaseline: TextBaseline.alphabetic,
           children: [
-            Text(value, style: CMFonts.metric(size: 20, color: CMColors.ink)),
+            Text(value, style: CMFonts.metric(size: 20, color: colors.ink)),
             if (unit.isNotEmpty) ...[
               const SizedBox(width: CMSpacing.sp1),
-              Text(unit, style: CMFonts.caption(size: 11)),
+              Text(unit, style: CMFonts.caption(size: 11, color: colors.noise)),
             ],
           ],
         ),

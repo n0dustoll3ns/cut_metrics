@@ -2,22 +2,19 @@ import 'package:cut_metrics/domain/date_key.dart';
 import 'package:cut_metrics/domain/metric_type.dart';
 import 'package:cut_metrics/services/app_settings_opener.dart';
 import 'package:cut_metrics/ui/metric_card.dart';
+import 'package:cut_metrics/ui/months.dart';
 import 'package:cut_metrics/ui/theme.dart';
 import 'package:cut_metrics/ui/weight_chart.dart';
 import 'package:cut_metrics/viewmodel/dashboard_view_model.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-const kMonthsShort = [
-  'янв', 'фев', 'мар', 'апр', 'мая', 'июн',
-  'июл', 'авг', 'сен', 'окт', 'ноя', 'дек',
-];
-
 /// Экран «Сегодня» — макет `docs/screen-today-graph-summary-settings.html`.
 ///
 /// Большое число — сглаженный вес (последняя точка EMA-линии), ниже — сырое
-/// значение за сегодня, график веса за 30 дней, кнопка «Открыть саммари» и
-/// карточки метрик Фазы 3 (U1: подтверждение остаётся здесь, инлайн).
+/// значение за сегодня, график веса за 30 дней (ось дат Фазы 6, A3),
+/// кнопка «Открыть саммари» и карточки метрик Фазы 3 (U1: подтверждение
+/// остаётся здесь, инлайн; состояния Фазы 6 — B.4).
 class TodayScreen extends StatelessWidget {
   /// Переход на вкладку «Саммари» (с проверкой готовности — гейт в main).
   final VoidCallback onOpenSummary;
@@ -27,6 +24,7 @@ class TodayScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final vm = context.watch<DashboardViewModel>();
+    final colors = context.cmColors;
     final today = DateKey(DateTime.now());
 
     final d = today.value;
@@ -37,11 +35,7 @@ class TodayScreen extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('Сегодня', style: CMFonts.heading(size: 19)),
-        backgroundColor: CMColors.surface0,
-        foregroundColor: CMColors.ink,
-        elevation: 0,
-        scrolledUnderElevation: 0,
+        title: Text('Сегодня', style: CMFonts.heading(size: 19, color: colors.ink)),
       ),
       body: ListView(
         padding: const EdgeInsets.all(CMSpacing.sp4),
@@ -49,7 +43,7 @@ class TodayScreen extends StatelessWidget {
           // Дата
           Padding(
             padding: const EdgeInsets.only(bottom: CMSpacing.sp4),
-            child: Text(dateStr, style: CMFonts.caption(size: 12)),
+            child: Text(dateStr, style: CMFonts.caption(size: 12, color: colors.noise)),
           ),
 
           // Баннер «нет разрешений» — кнопка в системные настройки (2026-08-26).
@@ -63,9 +57,9 @@ class TodayScreen extends StatelessWidget {
           // Сглаженный вес — большое число
           Text(
             smoothed == null ? '—' : smoothed.toStringAsFixed(1),
-            style: CMFonts.metric(size: 60, color: CMColors.ink),
+            style: CMFonts.metric(size: 60, color: colors.ink),
           ),
-          Text('кг · сглаженный вес', style: CMFonts.caption(size: 12)),
+          Text('кг · сглаженный вес', style: CMFonts.caption(size: 12, color: colors.noise)),
           const SizedBox(height: CMSpacing.sp2),
 
           // Сырое значение за сегодня
@@ -73,7 +67,7 @@ class TodayScreen extends StatelessWidget {
             rawToday == null
                 ? 'Сырое значение сегодня: —'
                 : 'Сырое значение сегодня: ${rawToday.value.toStringAsFixed(1)} кг',
-            style: CMFonts.body(size: 14, color: CMColors.inkMuted),
+            style: CMFonts.body(size: 14, color: colors.inkMuted),
           ),
           const SizedBox(height: CMSpacing.sp4),
 
@@ -132,21 +126,22 @@ class ErrorBox extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.cmColors;
     return Container(
       padding: const EdgeInsets.all(CMSpacing.sp4),
       decoration: BoxDecoration(
-        color: CMColors.alertTint,
+        color: colors.alertTint,
         borderRadius: BorderRadius.circular(CMRadius.md),
-        border: Border.all(color: CMColors.alertBorder),
+        border: Border.all(color: colors.alertBorder),
       ),
       child: Row(
         children: [
-          const Icon(Icons.error_outline, color: CMColors.alert, size: 20),
+          Icon(Icons.error_outline, color: colors.alert, size: 20),
           const SizedBox(width: CMSpacing.sp2),
           Expanded(
             child: Text(
               message,
-              style: CMFonts.body(size: 14, color: CMColors.alert),
+              style: CMFonts.body(size: 14, color: colors.alert),
             ),
           ),
         ],
@@ -169,21 +164,22 @@ class PermissionsBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.cmColors;
     return Container(
       padding: const EdgeInsets.all(CMSpacing.sp4),
       decoration: BoxDecoration(
-        color: CMColors.alertTint,
+        color: colors.alertTint,
         borderRadius: BorderRadius.circular(CMRadius.md),
-        border: Border.all(color: CMColors.alertBorder),
+        border: Border.all(color: colors.alertBorder),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              const Icon(
+              Icon(
                 Icons.health_and_safety_outlined,
-                color: CMColors.alert,
+                color: colors.alert,
                 size: 20,
               ),
               const SizedBox(width: CMSpacing.sp2),
@@ -191,7 +187,7 @@ class PermissionsBanner extends StatelessWidget {
                 child: Text(
                   'Нет разрешений для доступа к Health Connect. Откройте '
                   'настройки приложения и разрешите доступ к данным о здоровье.',
-                  style: CMFonts.body(size: 14, color: CMColors.alert),
+                  style: CMFonts.body(size: 14, color: colors.alert),
                 ),
               ),
             ],

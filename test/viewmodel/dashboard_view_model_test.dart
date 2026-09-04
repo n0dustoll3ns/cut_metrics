@@ -1,9 +1,11 @@
 import 'package:cut_metrics/domain/activity_level.dart';
+import 'package:cut_metrics/domain/confirm_decision.dart';
 import 'package:cut_metrics/domain/data_source.dart';
 import 'package:cut_metrics/domain/date_key.dart';
 import 'package:cut_metrics/domain/health_data_processor.dart';
 import 'package:cut_metrics/domain/metric_type.dart';
 import 'package:cut_metrics/domain/recommendation_engine.dart';
+import 'package:cut_metrics/domain/source_selection.dart';
 import 'package:cut_metrics/repo/mock_health_repository.dart';
 import 'package:cut_metrics/viewmodel/dashboard_view_model.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -142,28 +144,48 @@ void main() {
     });
   });
 
-  group('"Ok" has no side effects', () {
-    test('ViewModel has no public ok-confirm method that writes data', () async {
+  group('"Ок" пишет решение, а не данные (Фаза 6, B.2)', () {
+    test('confirmSource: решение confirmed, записи данных нет, карточка тихая', () async {
       await setupViewModel(externalWeights: [80]);
-      expect(vm.submitManualValue, isA<Function>());
-      expect(vm.cancelManualValue, isA<Function>());
+      final today = DateKey(DateTime.now());
+      final value = vm.getResolvedValue(today, MetricType.weight);
+      final package = value!.sourcePackage!;
+      final pointsBefore = repo.points.length;
+
+      await vm.confirmSource(MetricType.weight, package);
+
+      // Пишет решение — данные не пишет (Фаза 6, B.2).
+      expect(vm.decisionFor(MetricType.weight, package), ConfirmDecision.confirmed);
+      expect(repo.points.length, pointsBefore);
+      expect(vm.isSourceTrusted(MetricType.weight, package), isTrue);
+
+      // Значение не изменилось (тот же источник и величина).
+      final after = vm.getResolvedValue(today, MetricType.weight);
+      expect(after!.value, 80.0);
+    });
+
+    test('confirmSource: новый источник без решения снова «спрашивает»', () async {
+      await setupViewModel(externalWeights: [80]);
+      final package =
+          vm.getResolvedValue(DateKey(DateTime.now()), MetricType.weight)!.sourcePackage!;
+      await vm.confirmSource(MetricType.weight, package);
+      expect(vm.isSourceTrusted(MetricType.weight, package), isTrue);
+      // Другой источник не доверен:
+      expect(vm.isSourceTrusted(MetricType.weight, 'com.unknown.app'), isFalse);
     });
   });
 
-  group('Batch steps aggregation (Phase 4, DoD 3)', () {
-    test('load() uses one aggregateExternalStepsForRange call, not N per-day calls', () async {
+  group('Шаги из сырых точек, батчевость (Фаза 6, A2 / Фаза 4 DoD 3)', () {
+    test('load() резолвит шаги по сырым точкам без aggregate-вызовов', () async {
       await setupViewModel(externalWeights: [80, 79, 78, 77, 76]);
 
-      // Добавляем внешние шаги на несколько дней.
       final now = DateTime.now();
       for (var i = 0; i < 5; i++) {
         final date = now.subtract(Duration(days: 4 - i));
         repo.addExternalSteps(date, 1000 * (i + 1));
       }
 
-      // Перезагружаем ViewModel.
-      repo.aggregateExternalStepsForRangeCallCount = 0;
-      repo.aggregateExternalStepsCallCount = 0;
+      repo.fetchRawDataCallCount = 0;
       vm = DashboardViewModel(
         repository: repo,
         processor: processor,
@@ -171,10 +193,11 @@ void main() {
       );
       await vm.load();
 
-      // Батчевый вызов должен быть вызван ровно 1 раз.
-      expect(repo.aggregateExternalStepsForRangeCallCount, 1);
-      // Покдневный aggregateExternalSteps не должен вызываться напрямую из load().
-      expect(repo.aggregateExternalStepsCallCount, 0);
+      // Вес + шаги + сон = 3 батчевых чтения, aggregate-API удалены.
+      expect(repo.fetchRawDataCallCount, 3);
+
+      // Шаги за сегодня = 5000 (последний день) из сырых точек.
+      expect(vm.getResolvedValue(DateKey(now), MetricType.steps)!.value, 5000);
     });
 
     test('load() makes exactly 3 fetchRawData calls (weight + steps + sleep)', () async {
@@ -190,6 +213,118 @@ void main() {
 
       // Один вызов для WEIGHT + один для STEPS + один для SLEEP = 3 (Фаза 5).
       expect(repo.fetchRawDataCallCount, 3);
+    });
+  });
+
+  group('Фаза 6, B/C: отказ, выбор источника, перерезолюция', () {
+    test('refuseSource: данные источника исчезают, isSourceRefused = true', () async {
+      await setupViewModel(externalWeights: [80]);
+      final today = DateKey(DateTime.now());
+      final package =
+          vm.getResolvedValue(today, MetricType.weight)!.sourcePackage!;
+
+      await vm.refuseSource(MetricType.weight, package);
+
+      expect(vm.decisionFor(MetricType.weight, package), ConfirmDecision.refused);
+      expect(vm.getResolvedValue(today, MetricType.weight), isNull);
+      expect(vm.isSourceRefused(today, MetricType.weight), isTrue);
+    });
+
+    test('refuseSource не трогает другие источники', () async {
+      final repo2 = MockHealthRepository();
+      final processor2 = HealthDataProcessor(appPackageId: kAppPackageId);
+      final now = DateTime.now();
+      repo2.addExternalWeight(now, 70.0, sourcePackage: 'com.bad.app');
+      repo2.addExternalWeight(now, 71.0, sourcePackage: 'com.good.app');
+      final vm2 = DashboardViewModel(
+        repository: repo2,
+        processor: processor2,
+        autoLoad: false,
+      );
+      await vm2.load();
+
+      await vm2.refuseSource(MetricType.weight, 'com.bad.app');
+
+      final value = vm2.getResolvedValue(DateKey(now), MetricType.weight);
+      expect(value, isNotNull);
+      expect(value!.sourcePackage, 'com.good.app');
+      expect(value.value, 71.0);
+    });
+
+    test('setSourceSelection перерезолвляет без обращений к репозиторию', () async {
+      final repo2 = MockHealthRepository();
+      final processor2 = HealthDataProcessor(appPackageId: kAppPackageId);
+      final now = DateTime.now();
+      repo2.addExternalWeight(now, 70.0, sourcePackage: 'com.scale.app');
+      repo2.addExternalWeight(now, 71.0, sourcePackage: 'com.watch.app');
+      final vm2 = DashboardViewModel(
+        repository: repo2,
+        processor: processor2,
+        autoLoad: false,
+      );
+      await vm2.load();
+      expect(repo2.fetchRawDataCallCount, 3);
+
+      // Выбор источника — только из памяти, без новых запросов.
+      final callsBefore = repo2.fetchRawDataCallCount;
+      await vm2.setSourceSelection(
+        MetricType.weight,
+        const SourceSelection.app('com.scale.app'),
+      );
+
+      expect(repo2.fetchRawDataCallCount, callsBefore);
+      expect(vm2.selectionFor(MetricType.weight).package, 'com.scale.app');
+      final value = vm2.getResolvedValue(DateKey(now), MetricType.weight);
+      expect(value!.sourcePackage, 'com.scale.app');
+      expect(value.value, 70.0);
+      // Выбор = доверие: карточка тихая (C.4).
+      expect(vm2.isSourceTrusted(MetricType.weight, 'com.scale.app'), isTrue);
+    });
+
+    test('resetDecision возвращает «спрашивать» и данные источника', () async {
+      await setupViewModel(externalWeights: [80]);
+      final today = DateKey(DateTime.now());
+      final package =
+          vm.getResolvedValue(today, MetricType.weight)!.sourcePackage!;
+
+      await vm.refuseSource(MetricType.weight, package);
+      expect(vm.getResolvedValue(today, MetricType.weight), isNull);
+
+      await vm.resetDecision(MetricType.weight, package);
+      expect(vm.decisionFor(MetricType.weight, package), ConfirmDecision.none);
+      expect(vm.getResolvedValue(today, MetricType.weight), isNotNull);
+      expect(vm.isSourceTrusted(MetricType.weight, package), isFalse);
+    });
+
+    test('availableSources: список из сырых точек сессии, без нашего пакета', () async {
+      final repo2 = MockHealthRepository();
+      final processor2 = HealthDataProcessor(appPackageId: kAppPackageId);
+      final now = DateTime.now();
+      repo2.addExternalWeight(now, 70.0, sourcePackage: 'com.scale.app');
+      repo2.addExternalWeight(now, 70.5, sourcePackage: 'com.watch.app');
+      repo2.addManualWeight(now.subtract(const Duration(days: 1)), 72.0);
+      final vm2 = DashboardViewModel(
+        repository: repo2,
+        processor: processor2,
+        autoLoad: false,
+      );
+      await vm2.load();
+
+      expect(
+        vm2.availableSources(MetricType.weight),
+        ['com.scale.app', 'com.watch.app'],
+      );
+    });
+
+    test('submitManualValue возвращает true при успехе', () async {
+      await setupViewModel(externalWeights: [80]);
+      final today = DateKey(DateTime.now());
+      final ok = await vm.submitManualValue(today, MetricType.weight, 77.0);
+      expect(ok, isTrue);
+      expect(
+        vm.getResolvedValue(today, MetricType.weight)!.source,
+        DataSource.manual,
+      );
     });
   });
 

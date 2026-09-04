@@ -1,5 +1,8 @@
 import 'package:cut_metrics/domain/activity_level.dart';
+import 'package:cut_metrics/domain/confirm_decision.dart';
+import 'package:cut_metrics/domain/metric_type.dart';
 import 'package:cut_metrics/domain/recommendation_config.dart';
+import 'package:cut_metrics/domain/source_selection.dart';
 import 'package:cut_metrics/services/settings_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -27,6 +30,21 @@ void main() {
     test('lastSummaryShownDate = null (ни разу не показывали)', () async {
       expect(await service.loadLastSummaryShownDate(), isNull);
     });
+
+    test('Фаза 6: решения по источникам пусты', () async {
+      expect(await service.loadSourceDecisions(MetricType.weight), isEmpty);
+    });
+
+    test('Фаза 6: выбор источника = Авто', () async {
+      expect(
+        await service.loadSourceSelection(MetricType.steps),
+        const SourceSelection.auto(),
+      );
+    });
+
+    test('Фаза 6: режим темы = system', () async {
+      expect(await service.loadThemeModeName(), 'system');
+    });
   });
 
   group('roundtrip save/load', () {
@@ -46,6 +64,55 @@ void main() {
       final loaded = await service.loadLastSummaryShownDate();
       expect(loaded, isNotNull);
       expect(loaded!.millisecondsSinceEpoch, date.millisecondsSinceEpoch);
+    });
+
+    test('Фаза 6: решение confirmed/refused по паре (метрика, источник)', () async {
+      await service.saveSourceDecision(
+        MetricType.weight, 'com.google.android.apps.fitness', ConfirmDecision.confirmed);
+      await service.saveSourceDecision(
+        MetricType.weight, 'com.watch.app', ConfirmDecision.refused);
+
+      final decisions = await service.loadSourceDecisions(MetricType.weight);
+      expect(decisions['com.google.android.apps.fitness'],
+          ConfirmDecision.confirmed);
+      expect(decisions['com.watch.app'], ConfirmDecision.refused);
+
+      // Решения метрик не смешиваются.
+      expect(await service.loadSourceDecisions(MetricType.steps), isEmpty);
+    });
+
+    test('Фаза 6: решение none удаляет ключ (сброс)', () async {
+      await service.saveSourceDecision(
+        MetricType.steps, 'com.watch.app', ConfirmDecision.refused);
+      await service.saveSourceDecision(
+        MetricType.steps, 'com.watch.app', ConfirmDecision.none);
+
+      expect(await service.loadSourceDecisions(MetricType.steps), isEmpty);
+    });
+
+    test('Фаза 6: выбор источника app/auto roundtrip', () async {
+      await service.saveSourceSelection(
+        MetricType.weight, const SourceSelection.app('com.scale.app'));
+      expect(
+        await service.loadSourceSelection(MetricType.weight),
+        const SourceSelection.app('com.scale.app'),
+      );
+
+      await service.saveSourceSelection(
+        MetricType.weight, const SourceSelection.auto());
+      expect(
+        await service.loadSourceSelection(MetricType.weight),
+        const SourceSelection.auto(),
+      );
+    });
+
+    test('Фаза 6: режим темы roundtrip', () async {
+      await service.saveThemeModeName('dark');
+      expect(await service.loadThemeModeName(), 'dark');
+      await service.saveThemeModeName('light');
+      expect(await service.loadThemeModeName(), 'light');
+      await service.saveThemeModeName('system');
+      expect(await service.loadThemeModeName(), 'system');
     });
   });
 }

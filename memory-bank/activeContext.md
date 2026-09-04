@@ -4,10 +4,50 @@
 
 ## Текущий фокус
 
-**Фазы 1–5 завершены.** Текущий фокус — **Фаза 6 «Стабилизация и полировка»** по итогам
-отчёта `docs/test_report_26-09-02.md`: задание №1 (дизайн) —
-`docs/phase6_design_system_and_mockups_task.md`, задание №2 (реализация) —
-`docs/phase6_implementation_task.md`.
+**Фазы 1–5 и Фаза 6 (задания №1 и №2) завершены.** Задание №2 «Реализация
+и исправления» (A→E) выполнено 2026-09-03 по `docs/phase6_implementation_task.md`
+(одним заходом по решению пользователя, без промежуточных сборок-чекпоинтов).
+**Следующий шаг — проверка на устройстве по DoD чек-листу** (пользователь):
+руки пользователя — финальная сборка APK собрана
+(`build\app\outputs\flutter-apk\app-release.apk`).
+
+**Итог задания №2 (2026-09-03):**
+- **A (багфиксы):** Tier 1 по `sourcePackageOf` = `sourceName` с fallback
+  `sourceId` (A0: `sourceId` на Android пуст) — ручной ввод снова побеждает;
+  `writeManualRecord` = delete-then-write (идемпотентность, A1.1);
+  `submitManualValue`/`cancelManualValue` возвращают bool, снекбар
+  «Не удалось сохранить» на карточке (A1.3); шаги — резолюция по сырым
+  точкам «один источник на день», aggregate-методы удалены из контракта/
+  impl/мока (A2, техриски №2/№4 закрыты архитектурно); ось дат в
+  `WeightChart` (числа, «1 АВГ» всегда + вытеснение соседа, ≤8 меток
+  (шаг ceil(n/7)), вертикальная линия сетки на границе месяца, тултип
+  «17 июл», A3); DebugLog: «Ок»/«Не ок» для веса и шагов (тег `vm`),
+  `sourceName` в логах `repo` (A0 п.4). A1.2/A1.4 не делались (закрыты
+  A0-логом), ключ `our_source_id` не понадобился.
+- **B (кеш подтверждений):** `ConfirmDecision` + ключ
+  `src_decision.<metric>.<package>`; VM: сырые точки сессии
+  (`_rawWeightPoints`/`_rawStepsPoints`), `confirmSource`/`refuseSource`/
+  `resetDecision` — пишут решение (не данные), перерезолюция из памяти;
+  карточка: `autoConfirmed` («Подтверждено · Google Fit» + «⋯») и
+  `sourceRefused` («Источник отклонён · введите значение» + ввод + «⋯»);
+  «Не ок» = отказ + снекбар + сразу ввод; меню «⋯»: доверять/отклонить/
+  настроить источники.
+- **C (источники):** `SourceSelection` + `src_selection.<metric>`; процессор:
+  refused-фильтр → выбранный источник → «Авто» (вес last-wins, шаги
+  максимальная сумма + warn); `sourcePackage` в WeightDay/StepsDay/
+  ResolvedValue; `source_names.dart` (словарь + fallback + обрезка);
+  подэкран `SourceSettingsScreen` (радио «Авто» + статусы Доверяем/
+  Отклонён/Спрашивает, «Сбросить решение», отклонённый выбрать нельзя);
+  блок «Источники данных HC» в Настройках; бедж «Из Google Fit».
+- **D (тёмная тема):** `CMThemeColors` (ThemeExtension, light/dark из
+  дизайн-системы, включая `onSignal`), `context.cmColors`, обязательный
+  `color` в `CMFonts`, `cmTheme(Brightness)`, AppBar/NavBar/снекбары/
+  карточки из темы; `ThemeController` (дефолт system, персист `theme_mode`);
+  блок «Тема» (Системная·Светлая·Тёмная) первым в Настройках.
+- **E (тесты/доки):** 148 тестов зелёных (было 114, +34), analyze 4 info /
+  0 errors (= базлайн); обновлены `phase3_confirmation_ux_spec.md` (§11
+  «Изменения Фазы 6»), `phase4_no_cache_spec_v2.md` (§8 примечание),
+  `systemPatterns.md` (3 паттерна), README, этот файл и `progress.md`.
 
 **Задание №1 (дизайн) выполнено 2026-09-02** (решение пользователя: этот заход — только
 дизайн, код не трогаем):
@@ -38,14 +78,12 @@
 подтверждён — A2 верный); `getTotalStepsInInterval` → 11 758. Требование пользователя:
 логировать «Ок»/«Не ок» для веса И шагов + `sourceName` в логах `repo`. Служебное: load 4.2 с.
 
-**Следующий шаг — задание №2 (реализация A→E)** по обновлённому ТЗ.
-
-Ключевые решения Фазы 6 (2026-09-02): кеш «Ок» на пару (метрика+источник); «Не ок» —
+**Ключевые решения Фазы 6 (2026-09-02): кеш «Ок» на пару (метрика+источник); «Не ок» —
 сразу постоянный отказ источника (изменение Фазы 3 §5, правка спеки — частью реализации);
 один источник на метрику (вес/шаги), дефолт «Авто»; шаги — резолюция по сырым точкам
 «один источник на день» вместо aggregate (техриски №2/№4 уходят с критического пути);
 тёмная тема «приборная» тёмно-серая через ThemeExtension, themeMode system/light/dark,
-дефолт system; AccessGate перенесён в финальную фазу «Монетизация».
+дефолт system; AccessGate перенесён в финальную фазу «Монетизация».**
 
 **Фаза 1 завершена** (2026-08-06): модель данных (`DataSource`, `WeightDay`, `StepsDay`),
 резолюция источников (`HealthDataProcessor`), контракт репозитория, `MockHealthRepository`,
@@ -313,6 +351,38 @@ Health Connect возвращает ПУСТОЙ granted-set (только пр�
 - Sleep / `SleepAnalyzer` — не трогать, ручной ввод сна не планируется.
 - Оптимизация пересчёта EMA — известный TODO, принимается как есть, не решается сейчас.
 - Логика рефидов (см. `productContext.md`) — открытый вопрос продукта, не задача разработки.
+
+## Изменённые файлы Фазы 6, задание №2 (2026-09-03)
+
+Новые файлы:
+- `lib/domain/confirm_decision.dart` — `ConfirmDecision`
+- `lib/domain/source_selection.dart` — `SourceSelection`
+- `lib/services/source_names.dart` — словарь имён источников + fallback + обрезка
+- `lib/services/theme_controller.dart` — `ThemeMode` + персист
+- `lib/ui/months.dart` — `kMonthsShort` (перенесён из today_screen)
+- `lib/ui/source_settings_screen.dart` — подэкран «Источник: Вес/Шаги»
+- `test/services/theme_controller_test.dart`, `test/services/source_names_test.dart`
+
+Существенно изменены:
+- `lib/domain/health_data_processor.dart` — резолюция v2 (`sourcePackageOf`,
+  refused-фильтр, selection, шаги по сырым точкам, `externalSources`)
+- `lib/domain/weight_day.dart`, `steps_day.dart` — `sourcePackage`
+- `lib/repo/health_repository.dart` + impl + mock — aggregate удалены;
+  delete-then-write; детект по `sourceName`; логи с `sourceName`
+- `lib/services/settings_service.dart` — решения/выбор/`theme_mode`
+- `lib/viewmodel/dashboard_view_model.dart` — сырые точки сессии,
+  `confirm/refuse/reset/setSourceSelection`, bool у submit/cancel
+- `lib/ui/theme.dart` — `CMThemeColors` (ThemeExtension) вместо `CMColors`
+- `lib/ui/metric_card.dart` + `metric_card_state.dart` — 7 состояний,
+  меню «⋯», снекбары
+- `lib/ui/weight_chart.dart` — ось дат A3
+- `lib/ui/settings_screen.dart` — блоки «Тема» и «Источники»
+- `lib/ui/today_screen.dart`, `trend_screen.dart`, `summary_screen.dart`,
+  `debug_log_screen.dart`, `source_badge.dart` — миграция на `context.cmColors`
+- `lib/main.dart` — `ThemeController`, `theme`/`darkTheme`/`themeMode`
+- тесты: `health_data_processor_test.dart`, `phase2_repository_test.dart`,
+  `dashboard_view_model_test.dart`, `settings_service_test.dart` — обновлены
+  под новый контракт + новые сценарии Фазы 6
 
 ## Как действовать при неоднозначности
 

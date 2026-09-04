@@ -163,3 +163,46 @@ merge обрезал бы стадии, лежащие внутри общего
 Общий принцип: никогда не полагаться на возвращаемое значение
 `requestAuthorization` — решение принимать по `hasPermissions` /
 `checkPermissionsPerType`.
+
+## Паттерн: шаги по сырым точкам, «один источник на день» (2026-09-03, Фаза 6 A2)
+
+Оба aggregate-API пакета `health` (`getTotalStepsInInterval` и
+`getHealthIntervalDataFromTypes(interval: 1440)`) ушли из архитектуры:
+последний на реальном устройстве возвращал 0 дней при 24 587 точках STEPS
+(техриск №4 подтверждён A0-логом). Вместо них `HealthDataProcessor`
+резолвит шаги по уже загруженным сырым точкам: Tier 1 (наша запись) →
+победа; иначе Tier 2 группируется по `sourcePackageOf`, источник с
+**максимальной суммой за день** побеждает (значение = сумма его точек, не
+сумма всех источников — защита от задвоения). Несколько источников в дне →
+warn в DebugLog через колбэк `onWarn` (процессор остаётся без Flutter-зависимостей).
+Выбранный источник (часть C) — сумма только его точек. Батчевость Фазы 4
+сохранена: один `fetchRawData(STEPS)` на диапазон.
+
+## Паттерн: ThemeExtension вместо статических CMColors (2026-09-03, Фаза 6 D.1)
+
+Статический класс `CMColors` заменён на `CMThemeColors extends
+ThemeExtension<CMThemeColors>` со static-инстансами `light`/`dark`
+(значения — точно из `docs/design-system.html` §06, включая `onSignal` —
+текст primary-кнопки, инвертирующийся в тёмной). Доступ — только через
+`context.cmColors` (extension на BuildContext); `CMFonts.*` требуют `color`
+обязательно (дефолт по светлой теме молча ломал бы тёмную). Один
+конструктор `cmTheme(Brightness)` собирает обе темы: `MaterialApp.theme` =
+light, `darkTheme` = dark, `themeMode` — из `ThemeController` (персист
+`theme_mode`, дефолт system). AppBar/NavigationBar/снекбары/карточки
+настроены в теме — экраны не хардкодят цвета (включая fl_chart).
+
+## Паттерн: кеш подтверждений как настройка (2026-09-03, Фаза 6 B/C)
+
+Решения «Ок/Не ок» — не кеш данных (Фаза 4 не нарушена), а настройка:
+`src_decision.<metric>.<package>` = `confirmed`|`refused` и
+`src_selection.<metric>` = `auto`|`<package>` в SharedPreferences. Ключ —
+пара (метрика, пакет источника): новый источник снова спрашивает. «Ок»
+пишет только решение (тихая карточка autoConfirmed); «Не ок» = постоянный
+отказ (точки источника исключаются из резолюции, каждый день — ручной
+ввод, состояние sourceRefused). Смена решения/выбора источника
+перерезолвляет кеши из сырых точек сессии, хранящихся в памяти VM
+(`_rawWeightPoints`/`_rawStepsPoints`) — без обращений к Health Connect.
+Список найденных источников строится по тем же точкам (`externalSources`).
+Пакет источника точки — `HealthDataProcessor.sourcePackageOf`:
+`sourceName` (на Android реальный `dataOrigin.packageName`; `sourceId`
+всегда пуст — баг health 13.3.1/13.3.2), fallback `sourceId` (iOS).

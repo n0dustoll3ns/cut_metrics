@@ -3,21 +3,35 @@
 > Flutter-приложение для отслеживания метрик здоровья (вес, шаги, сон, активность).
 > Данные берутся из Health Connect (Android) через пакет `health`.
 > Последний code review + применение фиксов: 2026-06-29. Фаза 5 реализована: 2026-08-21.
-> Фаза 6 «Стабилизация и полировка»: ТЗ составлены 2026-09-02 — дизайн (`docs/phase6_design_system_and_mockups_task.md`) и реализация (`docs/phase6_implementation_task.md`) по отчёту `docs/test_report_26-09-02.md`.
-> **Задание №1 (дизайн) выполнено 2026-09-02:** обновлены `docs/design-system.html` (секция «Тёмная тема» — маппинг 18 токенов + AA-контраст + превью в двух темах; паттерн «ось дат»; бедж источника) и `docs/screen-today-graph-summary-settings.html` (ось дат на «Сегодня»/«Тренде», карточки autoConfirmed/autoUnconfirmed/sourceRefused + меню «⋯», блоки «Тема» и «Источники данных», подэкран «Источник: Вес», тёмный фрейм «Сегодня»). A0-лог с устройства разобран (`memory-bank/debug.log`): `sourceId` у пакета `health` на Android всегда пуст — источники определять по `sourceName` (итоги — в `docs/phase6_implementation_task.md` → A0). Задание №2 (реализация) — следующий шаг.
+> Фаза 6 «Стабилизация и полировка»: задание №1 (дизайн) выполнено 2026-09-02.
+> **Задание №2 (реализация A–E) выполнено 2026-09-03** по `docs/phase6_implementation_task.md`:
+> багфиксы из отчёта `docs/test_report_26-09-02.md` (ручной ввод побеждает — Tier 1 теперь по
+> `sourceName`, т.к. `sourceId` на Android всегда пуст; `writeManualRecord` идемпотентен
+> delete-then-write; снекбар ошибки записи), кеш подтверждений «Ок/Не ок» на пару
+> (метрика+источник), «Не ок» = постоянный отказ источника; выбор источника на метрику
+> («Авто»/приложение) со словарём имён; шаги — резолюция по сырым точкам «один источник
+> на день» (aggregate-API удалены, техриски №2/№4 закрыты); ось дат на графиках
+> (числа + «1 АВГ» на границе месяца, ≤8 меток, тултип «17 июл»); тёмная тема
+> «приборная» через ThemeExtension (system/light/dark, дефолт system); DebugLog пишет
+> «Ок»/«Не ок» и `sourceName`. Тесты: 148 зелёных, `flutter analyze` 4 info / 0 errors.
 
 ---
 
-## Текущая структура (Фазы 1–5, актуальная)
+## Текущая структура (Фазы 1–6, актуальная)
 
 ```
 lib/
   main.dart                        — 4 вкладки: Сегодня · Тренд · Саммари · Настройки
+                                     + ThemeController (theme/darkTheme/themeMode)
   domain/
     data_source.dart               — DataSource { manual, external } (Tier 1/2)
     date_key.dart                  — DateKey + OnlyDate
-    weight_day.dart, steps_day.dart— модели с source + ==/hashCode
-    health_data_processor.dart     — резолюция Tier1→Tier2, батч, computeEma
+    confirm_decision.dart          — ConfirmDecision { none, confirmed, refused } (Фаза 6 B)
+    source_selection.dart          — SourceSelection { auto | app(package) } (Фаза 6 C)
+    weight_day.dart, steps_day.dart— модели с source + sourcePackage + ==/hashCode
+    health_data_processor.dart     — резолюция v2: sourcePackageOf (sourceName!),
+                                     refused-фильтр, выбор источника, шаги «один
+                                     источник на день» по сырым точкам, батч, computeEma
     sleep_analyzer.dart            — сон (перенос из old_proj + ASLEEP-приоритет, слои merge)
     sleep_day.dart                 — SleepDay (total = asleep | deep+light+rem)
     recommendation_engine.dart     — WeeklySummary/PaceStatus (чистый Dart)
@@ -25,26 +39,41 @@ lib/
     activity_level.dart            — уровни 1–5 + калории (шаги×вес×0.0005 + добавка)
     metric_type.dart
   repo/
-    health_repository.dart         — контракт
-    health_repository_impl.dart    — Health Connect через `health`
-    mock_health_repository.dart    — мок (+хелперы сна)
+    health_repository.dart         — контракт (aggregate-методы удалены в Фазе 6)
+    health_repository_impl.dart    — Health Connect через `health`; writeManualRecord
+                                     идемпотентен (delete-then-write); наш пакет —
+                                     по sourcePackageOf; логи с sourceName
+    mock_health_repository.dart    — мок «как на Android» (sourceId='', пакет в
+                                     sourceName) (+хелперы сна)
     health_permissions.dart        — permissions: kSleepTypes, kPermissionGroups
                                      (раздельные тихие проверки по каждому типу)
   services/
-    settings_service.dart          — targetPace/activityLevel/lastSummaryShown (SharedPreferences)
+    settings_service.dart          — targetPace/activityLevel/lastSummaryShown +
+                                     решения src_decision.<metric>.<package>,
+                                     выбор src_selection.<metric>, theme_mode
+    source_names.dart              — словарь package → имя (Google Fit и др.),
+                                     fallback по последнему сегменту, обрезка беджа
+    theme_controller.dart          — ThemeMode (system/light/dark) + персист
     debug_log.dart                 — in-memory журнал отладки (кольцевой буфер 1000, ChangeNotifier)
     app_settings_opener.dart       — MethodChannel → настройки приложения Android (кнопка разрешений)
   viewmodel/
-    dashboard_view_model.dart      — кеши (вес/шаги/сон/EMA), setRange, средние,
-                                     computeWeeklySummary, setTargetPace/setActivityLevel
+    dashboard_view_model.dart      — кеши (вес/шаги/сон/EMA), сырые точки сессии,
+                                     setRange, средние, computeWeeklySummary,
+                                     confirm/refuse/reset + setSourceSelection
+                                     (перерезолюция без похода в HC)
   ui/
-    theme.dart                     — токены дизайн-системы (+CMFonts.label)
-    source_badge.dart              — беджи «Из Health Connect»/«Ручной ввод» (B.2/B.3)
-    metric_card.dart, metric_card_state.dart — 5 состояний + бедж источника (B.6)
+    theme.dart                     — CMThemeColors (ThemeExtension, light/dark) +
+                                     context.cmColors, cmTheme(Brightness)
+    months.dart                    — kMonthsShort (даты интерфейса)
+    source_badge.dart              — беджи «Из Google Fit»/«Ручной ввод» (имя источника)
+    metric_card.dart, metric_card_state.dart — 7 состояний + бедж + меню «⋯»
     today_screen.dart              — сглаженный вес 60px + график 30д + карточки + баннер разрешений HC
     trend_screen.dart              — Неделя/Месяц/3 мес + среднесуточные (сон/шаги/ккал)
     summary_screen.dart            — саммари (статус, %/нед, ±кг, рекомендация)
-    settings_screen.dart           — слайдер темпа 0.3–1.4 + уровень активности + подпись версии
+    settings_screen.dart           — блок «Тема» + «Источники данных HC» + слайдер
+                                     темпа + уровень активности + подпись версии
+    source_settings_screen.dart    — подэкран «Источник: Вес/Шаги»: радио «Авто» +
+                                     приложения со статусами Доверяем/Отклонён/Спрашивает
     debug_log_screen.dart          — журнал отладки: чипы-теги, «Только ошибки», «Копировать всё»
 ```
 

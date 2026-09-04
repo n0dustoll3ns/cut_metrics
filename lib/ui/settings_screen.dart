@@ -1,8 +1,12 @@
 import 'dart:async';
 
 import 'package:cut_metrics/domain/activity_level.dart';
+import 'package:cut_metrics/domain/metric_type.dart';
 import 'package:cut_metrics/domain/recommendation_config.dart';
+import 'package:cut_metrics/services/source_names.dart';
+import 'package:cut_metrics/services/theme_controller.dart';
 import 'package:cut_metrics/ui/debug_log_screen.dart';
+import 'package:cut_metrics/ui/source_settings_screen.dart';
 import 'package:cut_metrics/ui/theme.dart';
 import 'package:cut_metrics/viewmodel/dashboard_view_model.dart';
 import 'package:flutter/material.dart';
@@ -10,27 +14,32 @@ import 'package:provider/provider.dart';
 
 /// Экран «Настройки» — макет `docs/screen-today-graph-summary-settings.html`.
 ///
-/// Целевой темп (слайдер 0.3–1.4%, шаг 0.1) и уровень активности (1–5).
+/// Блоки: «Тема» (Фаза 6, D.3 — первый блок, сегмент Системная·Светлая·
+/// Тёмная, дефолт системная), «Источники данных Health Connect» (Фаза 6, C.4 —
+/// строки Вес/Шаги → подэкран выбора источника), целевой темп
+/// (слайдер 0.3–1.4%, шаг 0.1) и уровень активности (1–5).
 /// Без кнопки «Сохранить» — применение мгновенное (аннотация макета).
-/// Блоки «Целевой вес», «Подписка», «Health-сервис» — вне скоупа Фазы 5.
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
     final vm = context.watch<DashboardViewModel>();
+    final colors = context.cmColors;
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text('Настройки', style: CMFonts.heading(size: 19)),
-        backgroundColor: CMColors.surface0,
-        foregroundColor: CMColors.ink,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-      ),
+      appBar: AppBar(title: Text('Настройки', style: CMFonts.heading(size: 19, color: colors.ink))),
       body: ListView(
         padding: const EdgeInsets.all(CMSpacing.sp4),
         children: [
+          // ─── Тема (Фаза 6, D.3) ──────────────────────────────────────────────
+          const _ThemeBlock(),
+          const SizedBox(height: CMSpacing.sp4),
+
+          // ─── Источники данных Health Connect (Фаза 6, C.4) ──────────────────
+          _SourcesBlock(colors: colors),
+          const SizedBox(height: CMSpacing.sp4),
+
           // ─── Целевой темп ────────────────────────────────────────────────────
           Card(
             child: Padding(
@@ -39,31 +48,31 @@ class SettingsScreen extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text('Целевой темп изменения веса',
-                      style: CMFonts.heading(size: 16)),
+                      style: CMFonts.heading(size: 16, color: colors.ink)),
                   const SizedBox(height: CMSpacing.sp2),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
                         '${RecommendationConfig.sliderMin.toStringAsFixed(1)}%',
-                        style: CMFonts.caption(size: 11),
+                        style: CMFonts.caption(size: 11, color: colors.noise),
                       ),
                       Text(
                         '${vm.targetPace.toStringAsFixed(1)}%',
-                        style: CMFonts.metric(size: 26, color: CMColors.signal),
+                        style: CMFonts.metric(size: 26, color: colors.signal),
                       ),
                       Text(
                         '${RecommendationConfig.sliderMax.toStringAsFixed(1)}%',
-                        style: CMFonts.caption(size: 11),
+                        style: CMFonts.caption(size: 11, color: colors.noise),
                       ),
                     ],
                   ),
                   SliderTheme(
                     data: SliderThemeData(
-                      activeTrackColor: CMColors.signal,
-                      inactiveTrackColor: CMColors.outline,
-                      thumbColor: CMColors.signal,
-                      overlayColor: CMColors.signalTint,
+                      activeTrackColor: colors.signal,
+                      inactiveTrackColor: colors.outline,
+                      thumbColor: colors.signal,
+                      overlayColor: colors.signalTint,
                       trackHeight: 4,
                     ),
                     child: Slider(
@@ -84,7 +93,7 @@ class SettingsScreen extends StatelessWidget {
                   ),
                   Text(
                     'Процент изменения веса в неделю. Применяется сразу.',
-                    style: CMFonts.body(size: 13, color: CMColors.inkMuted),
+                    style: CMFonts.body(size: 13, color: colors.inkMuted),
                   ),
                 ],
               ),
@@ -99,11 +108,11 @@ class SettingsScreen extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Уровень активности', style: CMFonts.heading(size: 16)),
+                  Text('Уровень активности', style: CMFonts.heading(size: 16, color: colors.ink)),
                   const SizedBox(height: CMSpacing.sp2),
                   Text(
                     'Добавка расхода калорий на тренировки. Применяется сразу.',
-                    style: CMFonts.body(size: 13, color: CMColors.inkMuted),
+                    style: CMFonts.body(size: 13, color: colors.inkMuted),
                   ),
                   const SizedBox(height: CMSpacing.sp2),
                   RadioGroup<ActivityLevel>(
@@ -117,10 +126,10 @@ class SettingsScreen extends StatelessWidget {
                           ListTile(
                             contentPadding: EdgeInsets.zero,
                             dense: true,
-                            title: Text(level.title, style: CMFonts.label(size: 15)),
+                            title: Text(level.title, style: CMFonts.label(size: 15, color: colors.ink)),
                             subtitle: Text(
                               level.description,
-                              style: CMFonts.body(size: 13, color: CMColors.inkMuted),
+                              style: CMFonts.body(size: 13, color: colors.inkMuted),
                             ),
                             trailing: Radio<ActivityLevel>(value: level),
                             onTap: () => vm.setActivityLevel(level),
@@ -135,6 +144,105 @@ class SettingsScreen extends StatelessWidget {
           const SizedBox(height: CMSpacing.sp8),
           const _VersionLabel(),
         ],
+      ),
+    );
+  }
+}
+
+/// Блок «Тема» (Фаза 6, D.3): сегмент Системная · Светлая · Тёмная,
+/// дефолт системный («Тёмная включается вместе с системной»).
+class _ThemeBlock extends StatelessWidget {
+  const _ThemeBlock();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = context.watch<ThemeController>();
+    final colors = context.cmColors;
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(CMSpacing.sp4),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Тема', style: CMFonts.heading(size: 16, color: colors.ink)),
+            const SizedBox(height: CMSpacing.sp2),
+            SegmentedButton<ThemeMode>(
+              segments: const [
+                ButtonSegment(value: ThemeMode.system, label: Text('Системная')),
+                ButtonSegment(value: ThemeMode.light, label: Text('Светлая')),
+                ButtonSegment(value: ThemeMode.dark, label: Text('Тёмная')),
+              ],
+              selected: {theme.mode},
+              onSelectionChanged: (selection) => theme.setMode(selection.first),
+            ),
+            const SizedBox(height: CMSpacing.sp2),
+            Text(
+              'Тёмная включается вместе с системной',
+              style: CMFonts.body(size: 12, color: colors.inkMuted),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Блок «Источники данных Health Connect» (Фаза 6, C.4): строки «Вес» и
+/// «Шаги», справа текущее значение («Авто» или имя приложения), шеврон.
+/// Тап → [SourceSettingsScreen].
+class _SourcesBlock extends StatelessWidget {
+  final CMThemeColors colors;
+
+  const _SourcesBlock({required this.colors});
+
+  @override
+  Widget build(BuildContext context) {
+    final vm = context.watch<DashboardViewModel>();
+
+    String currentLabel(MetricType metric) {
+      final selection = vm.selectionFor(metric);
+      return selection.isAuto
+          ? 'Авто'
+          : displaySourceName(selection.package ?? '');
+    }
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(CMSpacing.sp4),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Источники данных Health Connect',
+                style: CMFonts.heading(size: 16, color: colors.ink)),
+            const SizedBox(height: CMSpacing.sp2),
+            for (final metric in MetricType.values)
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                dense: true,
+                title: Text(
+                  metric == MetricType.weight ? 'Вес' : 'Шаги',
+                  style: CMFonts.label(size: 15, color: colors.ink),
+                ),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      currentLabel(metric),
+                      style: CMFonts.body(size: 13, color: colors.inkMuted),
+                    ),
+                    const SizedBox(width: CMSpacing.sp1),
+                    Icon(Icons.chevron_right, size: 20, color: colors.noise),
+                  ],
+                ),
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => SourceSettingsScreen(metric: metric),
+                  ),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -191,7 +299,7 @@ class _VersionLabelState extends State<_VersionLabel> {
       child: Center(
         child: Text(
           'Cut Metrics $_version',
-          style: CMFonts.caption(size: 12, color: CMColors.noise),
+          style: CMFonts.caption(size: 12, color: context.cmColors.noise),
         ),
       ),
     );

@@ -1,11 +1,13 @@
 import 'package:collection/collection.dart';
 import 'package:cut_metrics/domain/activity_level.dart';
+import 'package:cut_metrics/domain/confirm_decision.dart';
 import 'package:cut_metrics/domain/data_source.dart';
 import 'package:cut_metrics/domain/date_key.dart';
 import 'package:cut_metrics/domain/health_data_processor.dart';
 import 'package:cut_metrics/domain/metric_type.dart';
 import 'package:cut_metrics/domain/recommendation_config.dart';
 import 'package:cut_metrics/domain/recommendation_engine.dart';
+import 'package:cut_metrics/domain/source_selection.dart';
 import 'package:cut_metrics/domain/sleep_analyzer.dart';
 import 'package:cut_metrics/domain/sleep_day.dart';
 import 'package:cut_metrics/domain/steps_day.dart';
@@ -20,15 +22,21 @@ import 'package:health/health.dart';
 /// Результат резолюции значения для конкретной даты и метрики.
 ///
 /// Обёртка над значением + источник, возвращаемая [DashboardViewModel.getResolvedValue].
-/// UI использует это для определения состояния карточки метрики (Фаза 3, секция 3).
+/// UI использует это для определения состояния карточки метрики (Фаза 3, секция 3;
+/// Фаза 6 — [sourcePackage] для беджа и решений по источнику).
 class ResolvedValue<T> {
   final T value;
   final DataSource source;
 
-  const ResolvedValue({required this.value, required this.source});
+  /// Пакет приложения-источника итогового значения (Фаза 6, C.2):
+  /// наш пакет для ручного ввода, пакет внешнего приложения для внешних данных.
+  final String? sourcePackage;
+
+  const ResolvedValue({required this.value, required this.source, this.sourcePackage});
 
   @override
-  String toString() => 'ResolvedValue(value: $value, source: $source)';
+  String toString() =>
+      'ResolvedValue(value: $value, source: $source, sourcePackage: $sourcePackage)';
 }
 
 /// ViewModel дашборда: состояние UI + оркестрация репозитория и процессора.
@@ -70,6 +78,24 @@ class DashboardViewModel extends ChangeNotifier {
 
   double _targetPace = RecommendationConfig.defaultTargetPacePercent;
   ActivityLevel _activityLevel = ActivityLevel.level1;
+
+  // ─── Фаза 6, B/C: сырые точки сессии + решения/выбор источников ─────────────
+
+  /// Сырые точки веса за сессию (последний `load()`/`_reloadDate`).
+  ///
+  /// Нужны для перерезолюции при смене решения/выбора источника — без
+  /// нового похода в Health Connect («Список найденных источников» тоже
+  /// строится по ним). Сессионный кеш, не персистентность (Фаза 4).
+  List<HealthDataPoint> _rawWeightPoints = const [];
+
+  /// Сырые точки шагов за сессию.
+  List<HealthDataPoint> _rawStepsPoints = const [];
+
+  /// Решения по источникам на метрику: пакет → решение (B.1).
+  final Map<MetricType, Map<String, ConfirmDecision>> _decisions = {};
+
+  /// Выбранный источник на метрику: «Авто» или приложение (C.1).
+  final Map<MetricType, SourceSelection> _selections = {};
 
   // ─── Публичное состояние ────────────────────────────────────────────────────
 
@@ -176,10 +202,15 @@ class DashboardViewModel extends ChangeNotifier {
     notifyListeners();
 
     try {
-      // Настройки Фазы 5 (целевой темп, уровень активности).
+      // Настройки Фазы 5 (целевой темп, уровень активности) и Фазы 6
+      // (решения по источникам, выбор источника на метрику).
       if (_settings != null) {
         _targetPace = await _settings.loadTargetPace();
         _activityLevel = await _settings.loadActivityLevel();
+        for (final metric in MetricType.values) {
+          _decisions[metric] = await _settings.loadSourceDecisions(metric);
+          _selections[metric] = await _settings.loadSourceSelection(metric);
+        }
       }
 
       // Permissions — только если есть реальный Health (не тест с моком).
@@ -213,19 +244,12 @@ class DashboardViewModel extends ChangeNotifier {
         endDate: _end,
       );
 
-      // Загружаем сырые точки шагов + агрегированные значения по каждой дате.
+      // Загружаем сырые точки шагов одним батчевым запросом (Фаза 6, A2:
+      // aggregate-API удалены, резолюция «один источник на день» — по точкам).
       final stepsPoints = await _repo.fetchRawData(
         types: const [HealthDataType.STEPS],
         startDate: loadStart,
         endDate: _end,
-      );
-
-      // Агрегация шагов за весь диапазон одним запросом (Фаза 4, DoD 3).
-      // Ранее был цикл из N вызовов aggregateExternalSteps по одному на день —
-      // теперь один батчевый вызов к Health Connect.
-      final aggregatedByDate = await _repo.aggregateExternalStepsForRange(
-        loadStart,
-        _end,
       );
 
       // Сон: с запасом −1 день — ночь, начавшаяся в 23:00, относится к
@@ -236,11 +260,22 @@ class DashboardViewModel extends ChangeNotifier {
         endDate: _end,
       );
 
-      // Резолюция приоритета источников (Tier 1 → Tier 2).
-      final weightResolved = _processor.resolveWeightForAllDates(weightPoints);
+      // Сырые точки сессии — для перерезолюции при смене решений/выбора.
+      _rawWeightPoints = weightPoints;
+      _rawStepsPoints = stepsPoints;
+
+      // Резолюция приоритета источников (Tier 1 → Tier 2) с решениями и
+      // выбором источников (Фаза 6, B/C).
+      final weightResolved = _processor.resolveWeightForAllDates(
+        weightPoints,
+        decisions: _decisions[MetricType.weight] ?? const {},
+        selection: _selections[MetricType.weight] ?? const SourceSelection.auto(),
+      );
       final stepsResolved = _processor.resolveStepsForAllDates(
         stepsPoints,
-        aggregatedByDate,
+        decisions: _decisions[MetricType.steps] ?? const {},
+        selection: _selections[MetricType.steps] ?? const SourceSelection.auto(),
+        onWarn: (message) => DebugLog.instance.warn('vm', message),
       );
       final sleepResolved = _sleepAnalyzer.analyze(
         rawPoints: sleepPoints,
@@ -322,14 +357,22 @@ class DashboardViewModel extends ChangeNotifier {
   ///
   /// Не очищает весь кеш — только обновляет значение для конкретной даты,
   /// затем пересчитывает EMA (для веса — по всему кешу, т.к. EMA скользящее).
+  /// Сырые точки даты в сессионном списке заменяются свежими — перерезолюция
+  /// при смене решений остаётся консистентной.
   Future<void> _reloadDate(DateKey date, MetricType type) async {
+    final dayPoints = await _repo.fetchRawData(
+      types: [_healthDataTypeOf(type)],
+      startDate: date.startOfDay,
+      endDate: date.endOfDay,
+    );
     if (type == MetricType.weight) {
-      final weightPoints = await _repo.fetchRawData(
-        types: const [HealthDataType.WEIGHT],
-        startDate: date.startOfDay,
-        endDate: date.endOfDay,
+      _rawWeightPoints = _replacePointsForDate(_rawWeightPoints, date, dayPoints);
+      final resolved = _processor.resolveWeightForDate(
+        date,
+        _rawWeightPoints,
+        decisions: _decisions[MetricType.weight] ?? const {},
+        selection: _selections[MetricType.weight] ?? const SourceSelection.auto(),
       );
-      final resolved = _processor.resolveWeightForDate(date, weightPoints);
       if (resolved != null) {
         _weightCache[date] = resolved;
       } else {
@@ -339,13 +382,13 @@ class DashboardViewModel extends ChangeNotifier {
       _emaCache = _processor.computeEma(_weightCache, _emaPeriod);
     } else {
       // Шаги — не накопительны, пересчёт EMA не нужен.
-      final stepsPoints = await _repo.fetchRawData(
-        types: const [HealthDataType.STEPS],
-        startDate: date.startOfDay,
-        endDate: date.endOfDay,
+      _rawStepsPoints = _replacePointsForDate(_rawStepsPoints, date, dayPoints);
+      final resolved = _processor.resolveStepsForDate(
+        date,
+        _rawStepsPoints,
+        decisions: _decisions[MetricType.steps] ?? const {},
+        selection: _selections[MetricType.steps] ?? const SourceSelection.auto(),
       );
-      final agg = await _repo.aggregateExternalSteps(date);
-      final resolved = _processor.resolveStepsForDate(date, stepsPoints, agg);
       if (resolved != null) {
         _stepsCache[date] = resolved;
       } else {
@@ -355,6 +398,23 @@ class DashboardViewModel extends ChangeNotifier {
     _refreshChartData();
     notifyListeners();
   }
+
+  /// Заменяет в списке сырых точек все точки даты [date] на [dayPoints].
+  static List<HealthDataPoint> _replacePointsForDate(
+    List<HealthDataPoint> points,
+    DateKey date,
+    List<HealthDataPoint> dayPoints,
+  ) {
+    return [
+      ...points.where((p) => DateKey(p.dateFrom) != date),
+      ...dayPoints,
+    ];
+  }
+
+  static HealthDataType _healthDataTypeOf(MetricType type) => switch (type) {
+    MetricType.weight => HealthDataType.WEIGHT,
+    MetricType.steps => HealthDataType.STEPS,
+  };
 
   /// Фильтрует кеши по текущему диапазону дат для UI.
   void _refreshChartData() {
@@ -489,23 +549,35 @@ class DashboardViewModel extends ChangeNotifier {
   /// Уже резолвленное значение + источник для конкретной даты.
   ///
   /// Новых обращений к Health Connect не требует — значение из in-memory кеша.
-  /// Возвращает `null`, если данных нет (→ состояние `missing` в UI).
+  /// Возвращает `null`, если данных нет (→ состояние `missing`/`sourceRefused`
+  /// в UI, различает их [isSourceRefused]).
   ResolvedValue<num>? getResolvedValue(DateKey date, MetricType type) {
     switch (type) {
       case MetricType.weight:
         final w = _weightCache[date];
         if (w == null) return null;
-        return ResolvedValue(value: w.weight, source: w.source);
+        return ResolvedValue(
+          value: w.weight,
+          source: w.source,
+          sourcePackage: w.sourcePackage,
+        );
       case MetricType.steps:
         final s = _stepsCache[date];
         if (s == null) return null;
-        return ResolvedValue(value: s.steps, source: s.source);
+        return ResolvedValue(
+          value: s.steps,
+          source: s.source,
+          sourcePackage: s.sourcePackage,
+        );
     }
   }
 
   /// Пишет ручное значение (Tier 1) в Health Connect, обновляет кеш,
   /// при необходимости пересчитывает EMA, notifyListeners().
-  Future<void> submitManualValue(
+  ///
+  /// Возвращает `true` при успехе; `false` — запись не удалась (ошибка уже
+  /// в [error] и DebugLog, карточка показывает снекбар — A1.3).
+  Future<bool> submitManualValue(
     DateKey date,
     MetricType type,
     num value,
@@ -514,26 +586,164 @@ class DashboardViewModel extends ChangeNotifier {
     try {
       await _repo.writeManualRecord(date, type, value);
       await _reloadDate(date, type);
+      return true;
     } catch (e) {
       _error = 'Не удалось сохранить: $e';
       DebugLog.instance.error('vm', 'submit $date ${type.name} = $value: $e');
       debugPrint('DashboardViewModel.submitManualValue error: $e');
       notifyListeners();
+      return false;
     }
   }
 
   /// Удаляет ручную запись (Tier 1), откатывает на Tier 2/missing,
   /// обновляет кеш, пересчитывает EMA при необходимости, notifyListeners().
-  Future<void> cancelManualValue(DateKey date, MetricType type) async {
+  ///
+  /// Возвращает `true` при успехе, `false` — удаление не удалось.
+  Future<bool> cancelManualValue(DateKey date, MetricType type) async {
     DebugLog.instance.log('vm', 'cancel $date ${type.name}');
     try {
       await _repo.deleteManualRecord(date, type);
       await _reloadDate(date, type);
+      return true;
     } catch (e) {
       _error = 'Не удалось отменить: $e';
       DebugLog.instance.error('vm', 'cancel $date ${type.name}: $e');
       debugPrint('DashboardViewModel.cancelManualValue error: $e');
       notifyListeners();
+      return false;
     }
+  }
+
+  // ─── Фаза 6, B: кеш подтверждений «Ок / Не ок» ───────────────────────────────
+
+  /// Текущее решение для пары (метрика, источник). Отсутствие решения —
+  /// [ConfirmDecision.none] («спрашивать»).
+  ConfirmDecision decisionFor(MetricType metric, String package) =>
+      (_decisions[metric] ?? const {})[package] ?? ConfirmDecision.none;
+
+  /// Текущий выбор источника для метрики (дефолт «Авто»).
+  SourceSelection selectionFor(MetricType metric) =>
+      _selections[metric] ?? const SourceSelection.auto();
+
+  /// Источник «доверяем» (карточка тихая): решение `confirmed` ИЛИ источник
+  /// выбран явно (выбор = доверие, C.4).
+  bool isSourceTrusted(MetricType metric, String? package) {
+    if (package == null || package.isEmpty) return false;
+    if ((_selections[metric] ?? const SourceSelection.auto()).package == package) {
+      return true;
+    }
+    return decisionFor(metric, package) == ConfirmDecision.confirmed;
+  }
+
+  /// Все ли источники с данными за дату отклонены (состояние `sourceRefused`)?
+  ///
+  /// `true` — внешние точки за дату есть, но каждое их приложение получило
+  /// решение `refused` (резолюция вернёт `null` → карточка переходит в режим
+  /// ручного ввода). Ручные (Tier 1) точки не учитываются — они всегда свои.
+  bool isSourceRefused(DateKey date, MetricType type) {
+    final dayPoints = _rawPointsFor(type)
+        .where((p) => DateKey(p.dateFrom) == date)
+        .toList();
+    final external = dayPoints.where((p) => !_processor.isOurPoint(p)).toList();
+    if (external.isEmpty) return false;
+    return external.every(
+      (p) => decisionFor(type, HealthDataProcessor.sourcePackageOf(p)) ==
+          ConfirmDecision.refused,
+    );
+  }
+
+  /// «Ок» — доверяем источнику для метрики (B.2).
+  ///
+  /// Пишет ТОЛЬКО решение (данные не пишет), персистит, перерезолвляет кеши
+  /// из сырых точек сессии — без обращений к репозиторию. Карточка становится
+  /// тихой (`autoConfirmed`).
+  Future<void> confirmSource(MetricType metric, String package) async {
+    DebugLog.instance.log(
+      'vm',
+      'Ок: ${metric.name} ← $package (доверяем источнику)',
+    );
+    _decisions.putIfAbsent(metric, () => {})[package] = ConfirmDecision.confirmed;
+    await _settings?.saveSourceDecision(metric, package, ConfirmDecision.confirmed);
+    _reResolveFromRaw();
+  }
+
+  /// «Не ок» — постоянный отказ источника для метрики (B.3).
+  ///
+  /// Точки источника исключаются из резолюции (каждый день — ручной ввод),
+  /// решение персистится и меняется в Настройках или в карточке («⋯»).
+  Future<void> refuseSource(MetricType metric, String package) async {
+    DebugLog.instance.log(
+      'vm',
+      'Не ок: ${metric.name} ← $package (отклоняем источник)',
+    );
+    _decisions.putIfAbsent(metric, () => {})[package] = ConfirmDecision.refused;
+    await _settings?.saveSourceDecision(metric, package, ConfirmDecision.refused);
+    _reResolveFromRaw();
+  }
+
+  /// Сбрасывает решение по источнику («Сбросить решение» в подэкране
+  /// источников). Карточка снова спрашивает «Ок/Не ок».
+  Future<void> resetDecision(MetricType metric, String package) async {
+    DebugLog.instance.log(
+      'vm',
+      'сброс решения: ${metric.name} ← $package (снова спрашиваем)',
+    );
+    _decisions[metric]?.remove(package);
+    await _settings?.saveSourceDecision(metric, package, ConfirmDecision.none);
+    _reResolveFromRaw();
+  }
+
+  // ─── Фаза 6, C: выбор источника на метрику ──────────────────────────────────
+
+  /// Найденные внешние источники для метрики — по сырым точкам сессии,
+  /// без дополнительных запросов к Health Connect (C.1).
+  List<String> availableSources(MetricType metric) =>
+      _processor.externalSources(_rawPointsFor(metric));
+
+  /// Меняет выбранный источник (в т.ч. обратно на «Авто») — персистит и
+  /// перерезолвляет кеши из сырых точек сессии, без похода в Health Connect.
+  Future<void> setSourceSelection(MetricType metric, SourceSelection selection) async {
+    DebugLog.instance.log(
+      'vm',
+      'выбор источника ${metric.name}: '
+      '${selection.isAuto ? 'Авто' : selection.package}',
+    );
+    _selections[metric] = selection;
+    await _settings?.saveSourceSelection(metric, selection);
+    _reResolveFromRaw();
+  }
+
+  // ─── Фаза 6: перерезолюция из сырых точек сессии ────────────────────────────
+
+  List<HealthDataPoint> _rawPointsFor(MetricType metric) => switch (metric) {
+    MetricType.weight => _rawWeightPoints,
+    MetricType.steps => _rawStepsPoints,
+  };
+
+  /// Перерезолвляет кеши веса/шагов из сырых точек сессии с текущими
+  /// решениями/выбором источника. Вызывается при confirm/refuse/reset/setSelection —
+  /// данные уже в памяти, обращений к репозиторию нет (B.4/C.4).
+  void _reResolveFromRaw() {
+    final weightResolved = _processor.resolveWeightForAllDates(
+      _rawWeightPoints,
+      decisions: _decisions[MetricType.weight] ?? const {},
+      selection: _selections[MetricType.weight] ?? const SourceSelection.auto(),
+    );
+    final stepsResolved = _processor.resolveStepsForAllDates(
+      _rawStepsPoints,
+      decisions: _decisions[MetricType.steps] ?? const {},
+      selection: _selections[MetricType.steps] ?? const SourceSelection.auto(),
+      onWarn: (message) => DebugLog.instance.warn('vm', message),
+    );
+    _weightCache
+      ..clear()
+      ..addAll(weightResolved);
+    _stepsCache
+      ..clear()
+      ..addAll(stepsResolved);
+    _emaCache = _processor.computeEma(_weightCache, _emaPeriod);
+    _refreshChartData();
+    notifyListeners();
   }
 }

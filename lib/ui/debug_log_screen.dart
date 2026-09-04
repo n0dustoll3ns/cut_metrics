@@ -53,13 +53,10 @@ class _DebugLogScreenState extends State<DebugLogScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.cmColors;
     return Scaffold(
       appBar: AppBar(
-        title: Text('Журнал отладки', style: CMFonts.heading(size: 19)),
-        backgroundColor: CMColors.surface0,
-        foregroundColor: CMColors.ink,
-        elevation: 0,
-        scrolledUnderElevation: 0,
+        title: Text('Журнал отладки', style: CMFonts.heading(size: 19, color: colors.ink)),
         actions: [
           IconButton(
             icon: const Icon(Icons.copy),
@@ -77,6 +74,7 @@ class _DebugLogScreenState extends State<DebugLogScreen> {
         listenable: DebugLog.instance,
         builder: (context, _) {
           final entries = _filtered;
+          final colors = context.cmColors;
           final tags = DebugLog.instance.entries
               .map((e) => e.tag)
               .toSet()
@@ -84,7 +82,7 @@ class _DebugLogScreenState extends State<DebugLogScreen> {
             ..sort();
           return Column(
             children: [
-              _buildFilters(tags),
+              _buildFilters(tags, colors),
               Expanded(
                 child: entries.isEmpty
                     ? Center(
@@ -92,14 +90,14 @@ class _DebugLogScreenState extends State<DebugLogScreen> {
                           _errorsOnly || _selectedTags.isNotEmpty
                               ? 'Ничего не найдено'
                               : 'Журнал пуст',
-                          style: CMFonts.body(size: 14, color: CMColors.inkMuted),
+                          style: CMFonts.body(size: 14, color: colors.inkMuted),
                         ),
                       )
                     : SelectionArea(
                         child: ListView.separated(
                           itemCount: entries.length,
                           separatorBuilder: (_, _) =>
-                              const Divider(height: 1, color: CMColors.outline),
+                              Divider(height: 1, color: colors.outline),
                           itemBuilder: (context, i) =>
                               _EntryTile(entry: entries[i]),
                         ),
@@ -112,7 +110,7 @@ class _DebugLogScreenState extends State<DebugLogScreen> {
     );
   }
 
-  Widget _buildFilters(List<String> tags) {
+  Widget _buildFilters(List<String> tags, CMThemeColors colors) {
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       padding: const EdgeInsets.symmetric(
@@ -127,7 +125,7 @@ class _DebugLogScreenState extends State<DebugLogScreen> {
               child: FilterChip(
                 label: Text(
                   tag,
-                  style: CMFonts.caption(size: 12, color: CMColors.ink),
+                  style: CMFonts.caption(size: 12, color: colors.ink),
                 ),
                 selected: _selectedTags.contains(tag),
                 onSelected: (value) => setState(() {
@@ -156,10 +154,11 @@ class _EntryTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.cmColors;
     final (color, bold) = switch (entry.level) {
-      DebugLogLevel.info => (CMColors.ink, false),
-      DebugLogLevel.warn => (CMColors.signal, true),
-      DebugLogLevel.error => (CMColors.alert, true),
+      DebugLogLevel.info => (colors.ink, false),
+      DebugLogLevel.warn => (colors.signal, true),
+      DebugLogLevel.error => (colors.alert, true),
     };
     return Padding(
       padding: const EdgeInsets.symmetric(
@@ -171,7 +170,7 @@ class _EntryTile extends StatelessWidget {
         children: [
           Text(
             '${DebugLog.formatTime(entry.time)}  [${entry.tag}]',
-            style: CMFonts.caption(size: 11, color: CMColors.noise),
+            style: CMFonts.caption(size: 11, color: colors.noise),
           ),
           const SizedBox(height: CMSpacing.sp1),
           Text(

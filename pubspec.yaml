@@ -1,5 +1,5 @@
 name: cut_metrics
-description: "A new Flutter project."
+description: "Cut Metrics — трекер веса и шагов через Health Connect: сглаженный EMA-тренд и еженедельное саммари."
 publish_to: 'none'
 version: 0.1.0+1
 

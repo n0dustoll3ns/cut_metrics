@@ -11,6 +11,25 @@
 руки пользователя — финальная сборка APK собрана
 (`build\app\outputs\flutter-apk\app-release.apk`).
 
+**Полировка №3 (2026-09-07) — выполнено:** название приложения «Cut Metrics»
+(`android:label` манифеста, `MaterialApp.title` уже был; имя пакета
+`cut_metrics`/applicationId не тронуто); выделение выбранного таба — вариант A
+«полный кобальт» в обеих темах (`indicatorColor: signal`, выбранная иконка
+`onSignal`); откат светлой темы к виду до Фазы 6 (решение пользователя после
+разбора нестыковки с фиолетовым M3-навбаром «до Фазы 6»): `snackBarTheme`/
+`dividerTheme` настроены только для тёмной, `appBarTheme` — для обеих
+(дословно инлайн-стиль Фазы 5), `navigationBarTheme` — одна на обе темы;
+токены не менялись. Правило — `docs/design-system.html` §06. Проверки:
+148 тестов зелёные, analyze 4 info / 0 errors (= базлайн). Для проверки имени
+на лаунчере нужна пересборка APK.
+Дополнительно (2026-09-07): в `docs/design-system.html` — переключатель тем
+страницы: кнопка ☾/☀ (`.theme-switch`), класс `.dark` на `<html>` (селектор
+тёмных токенов `.theme-dark, .dark`), persist в localStorage + системный
+дефолт, анти-FOUC скрипт в `<head>`; «островки света» (`.theme-light`):
+палитра §01 (`swatch-grid`, `neutral-strip`), бренд-знак, обе `sig-stage`,
+светлая колонка превью §06; латентный фикс `.focus-static`
+(`color:#fff` → `var(--on-signal)`).
+
 **Итог задания №2 (2026-09-03):**
 - **A (багфиксы):** Tier 1 по `sourcePackageOf` = `sourceName` с fallback
   `sourceId` (A0: `sourceId` на Android пуст) — ручной ввод снова побеждает;

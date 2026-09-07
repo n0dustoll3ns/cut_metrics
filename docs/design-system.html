@@ -9,6 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Space+Mono:wght@400;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{
+    color-scheme:light;
     /* ===== Core palette — exact values from ТЗ ===== */
     --bg:#F3F5F6;            /* Instrument Grey */
     --ink:#14171A;           /* Deep Ink */
@@ -62,6 +63,7 @@
     margin:0; background:var(--bg); color:var(--ink);
     font-family:var(--f-body); font-size:16px; line-height:1.5;
     -webkit-font-smoothing:antialiased;
+    transition:background-color .15s ease, color .15s ease;
   }
   a{color:inherit;}
 
@@ -243,7 +245,11 @@
   @media (max-width:760px){ .theme-pair{grid-template-columns:1fr;} }
   .theme-col{border:1px solid var(--outline); border-radius:var(--r-lg); padding:var(--sp-6); display:flex; flex-direction:column; gap:var(--sp-5); align-items:flex-start; background:var(--bg);}
   .theme-col-title{font-family:var(--f-mono); font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:var(--noise);}
-  .theme-dark{
+  /* Селектор двойной: .theme-dark — «островок» для превью §06, .dark — режим
+     всей страницы (класс вешается на <html> кнопкой-переключателем). */
+  .theme-dark,
+  .dark{
+    color-scheme:dark;
     --bg:#101214; --surface-0:#191C1F; --surface-1:#101214; --surface-2:#23272C;
     --outline:#2B3036; --outline-strong:#3A4046;
     --ink:#E8EAEC; --ink-muted:#9AA1A9; --noise:#6E757D;
@@ -255,18 +261,58 @@
     --shadow-1:0 1px 2px rgba(0,0,0,.45), 0 1px 1px rgba(0,0,0,.35);
   }
 
+  /* «Островок светлой темы»: элементы-эталоны (палитра §01, бренд-знак,
+     сигнатура, светлая колонка превью §06) не перекрашиваются в тёмном
+     режиме страницы — значения дублируют :root. */
+  .theme-light{
+    --bg:#F3F5F6; --surface-0:#FFFFFF; --surface-1:#F3F5F6; --surface-2:#E7EAEC;
+    --outline:#D7DBDE; --outline-strong:#C2C7CC;
+    --ink:#14171A; --ink-muted:#4B5259; --noise:#9CA3AF;
+    --signal:#2A5DB0; --signal-hover:#234C8D; --signal-press:#1D3F73; --signal-tint:#E7EEF8;
+    --steady:#1F9D6C; --steady-tint:#E4F5EE; --steady-border:#BEE3D2;
+    --alert:#B23A2E; --alert-tint:#FBEAE8; --alert-border:#EFC5BF;
+    --on-signal:#FFFFFF;
+    --focus-ring:0 0 0 3px rgba(42,93,176,.35);
+    --shadow-1:0 1px 2px rgba(20,23,26,.06), 0 1px 1px rgba(20,23,26,.05);
+  }
+
+  /* ---------- Переключатель тем страницы ---------- */
+  .theme-switch{
+    position:fixed; top:var(--sp-4); right:var(--sp-4); z-index:100;
+    font-family:var(--f-mono); font-size:12px; letter-spacing:.03em;
+    background:var(--surface-0); color:var(--ink);
+    border:1px solid var(--outline-strong); border-radius:var(--r-sm);
+    padding:var(--sp-2) var(--sp-4); cursor:pointer; box-shadow:var(--shadow-1);
+  }
+  .theme-switch:hover{background:var(--surface-2);}
+  .theme-switch:focus-visible{outline:none; box-shadow:var(--focus-ring);}
+
   /* ---------- A11y ---------- */
   .focus-demo{display:flex; gap:var(--sp-6); align-items:center; flex-wrap:wrap;}
   .focus-static{
     font-family:var(--f-body); font-weight:600; font-size:14px; border-radius:var(--r-md);
-    padding:12px 22px; background:var(--signal); color:#fff; box-shadow:var(--focus-ring); border:1px solid transparent;
+    padding:12px 22px; background:var(--signal); color:var(--on-signal); box-shadow:var(--focus-ring); border:1px solid transparent;
   }
 
   footer{border-top:1px solid var(--outline); padding-top:var(--sp-8); color:var(--ink-muted); font-size:14px;}
   footer b{color:var(--ink);}
 </style>
+  <script>
+    // Применяем сохранённую (или системную) тему до первой отрисовки — без вспышки.
+    (function(){
+      var mode = null;
+      try{ mode = localStorage.getItem('cm-ds-theme'); }catch(e){}
+      if(!mode){
+        mode = (window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches)
+          ? 'dark' : 'light';
+      }
+      if(mode === 'dark'){ document.documentElement.classList.add('dark'); }
+    })();
+  </script>
 </head>
 <body>
+
+  <button class="theme-switch" id="themeSwitch" type="button" aria-pressed="false" title="Переключить на тёмную тему">☾ ТЁМНАЯ</button>
 <div class="layout">
 
   <nav class="toc">
@@ -287,7 +333,7 @@
       <p class="hero-thesis">«Ты не толстеешь и не худеешь. Ты просто теряешь время, гадая по весам.»</p>
       <p class="hero-sub">Дизайн Cut Metrics строится вокруг одной идеи: отделить сигнал от шума. Ниже — токены и компоненты, которые будут применяться на всех экранах приложения.</p>
       <div class="hero-mark-wrap">
-        <div class="hero-mark-frame">
+        <div class="hero-mark-frame theme-light">
           <svg class="anim" width="96" height="96" viewBox="0 0 120 120">
             <circle class="dot" cx="14" cy="42" r="3.2" style="animation-delay:.05s"/>
             <circle class="dot" cx="27" cy="30" r="3.6" style="animation-delay:.1s"/>
@@ -311,7 +357,7 @@
       <h2>Цвет</h2>
       <p class="lede">Шесть именованных значений из ТЗ — без добавления новых брендовых оттенков. Cobalt используется точечно, только там, где нужно сказать «этому выводу можно доверять».</p>
 
-      <div class="swatch-grid">
+      <div class="swatch-grid theme-light">
         <div class="swatch">
           <div class="swatch-color" style="background:var(--bg)"></div>
           <div class="swatch-body">
@@ -362,7 +408,7 @@
         </div>
       </div>
 
-      <div class="neutral-strip">
+      <div class="neutral-strip theme-light">
         <div class="neutral-cell" style="background:var(--surface-0)"><b>Surface 0</b>#FFFFFF</div>
         <div class="neutral-cell" style="background:var(--surface-1)"><b>Surface 1</b>#F3F5F6</div>
         <div class="neutral-cell" style="background:var(--surface-2)"><b>Surface 2</b>#E7EAEC</div>
@@ -423,7 +469,7 @@
 
       <div class="sig-grid">
         <div class="sig-card">
-          <div class="sig-stage dark">
+          <div class="sig-stage dark theme-light">
             <svg class="anim" width="88" height="88" viewBox="0 0 120 120">
               <rect x="0" y="0" width="120" height="120" rx="26" fill="var(--ink)"/>
               <circle class="dot" cx="15" cy="40" r="3.2" style="animation-delay:.05s"/>
@@ -439,7 +485,7 @@
         </div>
 
         <div class="sig-card">
-          <div class="sig-stage light" id="onboardingStage">
+          <div class="sig-stage light theme-light" id="onboardingStage">
             <svg class="anim" width="220" height="110" viewBox="0 0 400 160">
               <circle class="dot" cx="18" cy="70" r="4" style="animation-delay:.02s"/>
               <circle class="dot" cx="42" cy="50" r="4.5" style="animation-delay:.06s"/>
@@ -606,6 +652,7 @@
       <p class="kicker">06</p>
       <h2>Тёмная тема</h2>
       <p class="lede">Тёмная тема — производная, а не новая система: те же роли, инвертированные значения, ноль новых токенов. «Приборная» тёмно-серая канва (#101214), карточки чуть светлее фона, Deep Ink инвертируется в светлый текст. Брендовые signal / steady / alert осветляются до контраста AA, tint-подложки темнеют — та же логика «бледная подложка вместо сплошной заливки». Светлая тема остаётся базовой; режим по умолчанию — системный.</p>
+      <p class="aa-note"><b>Применение в приложении (решение 2026-09-07):</b> светлая тема — базовая: снекбары и разделители живут на дефолтах Material 3, как до появления тёмной темы; тёмная настраивает их явно (<code>surface-2</code>, <code>outline</code>). Единственное исключение — нижняя навигация: одна настройка на обе темы (фон <code>surface-0</code>, пилюля-индикатор <code>signal</code>, выбранная иконка <code>on-signal</code>, невыбранные — <code>ink-muted</code>), чтобы активная вкладка была одинаково заметна в обеих темах. Токены и маппинг ниже при этом не менялись. Сама страница переключается кнопкой ☾/☀ в правом верхнем углу — весь референс можно оценить в обеих темах.</p>
       <table class="dark-map">
         <thead>
           <tr><th>Токен</th><th>Роль</th><th>Light</th><th>Dark</th></tr>
@@ -636,7 +683,7 @@
       <p class="aa-note">Производные тёмной темы: signal-hover <code>#8FB2EB</code>, signal-press <code>#6F97DE</code> (в тёмной hover <b>светлее</b> базового, не темнее); тени глубже — из чёрного. Значения из таблицы прошли контраст-проверку без подгонки оттенков — в пределах допуска, разрешённого ТЗ Фазы 6.</p>
       <p class="sub-caption">Превью ключевых компонентов — две темы рядом</p>
       <div class="theme-pair">
-        <div class="theme-col">
+        <div class="theme-col theme-light">
           <div class="theme-col-title">Светлая</div>
           <div style="display:flex; gap:12px; flex-wrap:wrap;">
             <button class="btn btn-primary">Открыть саммари</button>
@@ -730,5 +777,27 @@
 
   </main>
 </div>
+  <script>
+    // Переключатель тем: класс .dark на <html> — вся страница перекрашивается
+    // по токенам §06; выбор запоминается (localStorage), дефолт — системная.
+    (function(){
+      var root = document.documentElement;
+      var btn = document.getElementById('themeSwitch');
+      function apply(mode){
+        root.classList.toggle('dark', mode === 'dark');
+        btn.textContent = mode === 'dark' ? '☀ СВЕТЛАЯ' : '☾ ТЁМНАЯ';
+        btn.setAttribute('aria-pressed', mode === 'dark' ? 'true' : 'false');
+        btn.setAttribute('title', mode === 'dark'
+          ? 'Переключить на светлую тему'
+          : 'Переключить на тёмную тему');
+      }
+      apply(root.classList.contains('dark') ? 'dark' : 'light');
+      btn.addEventListener('click', function(){
+        var mode = root.classList.contains('dark') ? 'light' : 'dark';
+        try{ localStorage.setItem('cm-ds-theme', mode); }catch(e){}
+        apply(mode);
+      });
+    })();
+  </script>
 </body>
 </html>

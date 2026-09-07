@@ -326,8 +326,17 @@ class CMFonts {
 ///
 /// Фаза 6, D.1: `MaterialApp.theme` = `cmTheme(Brightness.light)`,
 /// `MaterialApp.darkTheme` = `cmTheme(Brightness.dark)` — один конструктор
-/// на обе темы, роли приходят из [CMThemeColors]. AppBar, NavigationBar,
-/// снекбары и карточки настроены здесь — экраны не хардкодят цвета.
+/// на обе темы, роли приходят из [CMThemeColors]. AppBar и карточки
+/// настроены здесь для обеих тем — экраны не хардкодят цвета.
+///
+/// Полировка №3 (2026-09-07), решения пользователя:
+/// - NavigationBar — единственная настроенная часть «хрома», единая для
+///   обеих тем: индикатор `signal`, выбранная иконка `onSignal`
+///   («полный кобальт», вариант A), невыбранные — `inkMuted`.
+/// - Снекбары и разделители настроены ТОЛЬКО в тёмной теме; светлая живёт
+///   на M3-дефолтах — откат к виду приложения до Фазы 6.
+/// - AppBar остаётся для обеих тем: дословно воспроизводит инлайн-стиль
+///   экранов Фазы 5 (surface0 / ink / elevation 0).
 ThemeData cmTheme(Brightness brightness) {
   final c = brightness == Brightness.dark ? CMThemeColors.dark : CMThemeColors.light;
   final isDark = brightness == Brightness.dark;
@@ -362,21 +371,27 @@ ThemeData cmTheme(Brightness brightness) {
     ),
     navigationBarTheme: NavigationBarThemeData(
       backgroundColor: c.surface0,
-      indicatorColor: c.signalTint,
-      iconTheme: WidgetStatePropertyAll(IconThemeData(color: c.inkMuted)),
+      // Вариант A «полный кобальт» (полировка №3): одинаково в обеих темах.
+      indicatorColor: c.signal,
+      iconTheme: WidgetStateProperty.resolveWith(
+        (states) => IconThemeData(
+          color: states.contains(WidgetState.selected) ? c.onSignal : c.inkMuted,
+        ),
+      ),
       labelTextStyle: WidgetStatePropertyAll(
         GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: c.ink),
       ),
     ),
-    snackBarTheme: SnackBarThemeData(
-      behavior: SnackBarBehavior.floating,
-      backgroundColor: isDark ? c.surface2 : c.ink,
-      contentTextStyle: GoogleFonts.inter(
-        fontSize: 14,
-        color: isDark ? c.ink : CMThemeColors.light.bg,
-      ),
-    ),
-    dividerTheme: DividerThemeData(color: c.outline, thickness: 1),
+    // Откат светлой темы к до-Фазы-6 виду (полировка №3): снекбары и
+    // разделители настроены только в тёмной; светлая — на M3-дефолтах.
+    snackBarTheme: isDark
+        ? SnackBarThemeData(
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: c.surface2,
+            contentTextStyle: GoogleFonts.inter(fontSize: 14, color: c.ink),
+          )
+        : null,
+    dividerTheme: isDark ? DividerThemeData(color: c.outline, thickness: 1) : null,
     cardTheme: CardThemeData(
       color: c.surface0,
       shape: RoundedRectangleBorder(

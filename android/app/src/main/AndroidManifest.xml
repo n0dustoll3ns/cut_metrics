@@ -27,7 +27,7 @@
     </queries>
 
     <application
-        android:label="cut_metrics"
+        android:label="Cut Metrics"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher_round">

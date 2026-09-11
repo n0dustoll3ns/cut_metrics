@@ -296,6 +296,33 @@
 
   footer{border-top:1px solid var(--outline); padding-top:var(--sp-8); color:var(--ink-muted); font-size:14px;}
   footer b{color:var(--ink);}
+
+  /* ---------- Фаза 7: энергобаланс и питание ---------- */
+  .energy-demo{background:var(--surface-0); border:1px solid var(--outline); border-radius:var(--r-lg); padding:var(--sp-4) var(--sp-4) var(--sp-2); margin-bottom:var(--sp-4); max-width:720px;}
+  .energy-demo-head{display:flex; justify-content:space-between; align-items:baseline; margin-bottom:6px;}
+  .energy-demo-title{font-weight:600; font-size:14px; color:var(--ink);}
+  .energy-demo-unit{font-family:var(--f-mono); font-size:10.5px; letter-spacing:.05em; text-transform:uppercase; color:var(--noise);}
+  .energy-demo-note{font-family:var(--f-mono); font-size:10.5px; color:var(--noise); margin:4px 0 0;}
+  .leg{display:flex; gap:16px; margin:0 0 8px; font-family:var(--f-mono); font-size:11px; color:var(--ink-muted); flex-wrap:wrap;}
+  .leg-sw{width:9px; height:9px; border-radius:2px; display:inline-block; margin-right:5px; vertical-align:-1px;}
+  .leg-dash{width:14px; border-top:2px dashed var(--signal); display:inline-block; margin-right:5px; vertical-align:2px;}
+  .bar-deficit{fill:var(--steady);}
+  .bar-surplus{fill:var(--alert);}
+  .zero-line{stroke:var(--ink-muted); stroke-width:1;}
+  .target-line{stroke:var(--signal); stroke-width:1.5; stroke-dasharray:5 4;}
+  .target-label{font-family:var(--f-mono); font-size:9.5px; fill:var(--signal);}
+  .ncard-title-row{display:flex; justify-content:space-between; align-items:baseline;}
+  .ncard-title{font-weight:600; font-size:14px; color:var(--ink);}
+  .ncard-date{font-family:var(--f-mono); font-size:11px; color:var(--noise);}
+  .ncard-value{font-family:var(--f-display); font-weight:600; font-size:28px; line-height:1; font-variant-numeric:tabular-nums; color:var(--ink); margin:4px 0 0;}
+  .ncard-unit{font-family:var(--f-mono); font-size:11px; color:var(--noise); margin-left:6px;}
+  .ncard-sub{font-family:var(--f-mono); font-size:11px; color:var(--ink-muted); margin:8px 0;}
+  .ncard-itog{font-size:14px; color:var(--ink); margin:6px 0 0; font-variant-numeric:tabular-nums;}
+  .cbtns{display:flex; gap:8px; margin-top:12px;}
+  .cbtn{flex:1; border-radius:var(--r-md); border:1px solid var(--outline-strong); background:var(--surface-0); color:var(--ink); font-family:var(--f-body); font-weight:600; font-size:13px; padding:9px 0; cursor:pointer;}
+  .cbtn:focus-visible{outline:none; box-shadow:var(--focus-ring);}
+  .tbtn{background:none; border:none; font-family:var(--f-body); font-weight:600; font-size:13px; color:var(--signal); cursor:pointer; padding:6px 4px;}
+  .tbtn:focus-visible{outline:none; box-shadow:var(--focus-ring);}
 </style>
   <script>
     // Применяем сохранённую (или системную) тему до первой отрисовки — без вспышки.
@@ -645,6 +672,106 @@
         <li><b>Тултип по тапу</b> — полная дата «17 июл» + значение.</li>
       </ul>
       <p class="axis-rules" style="list-style:none; margin-top:calc(-1 * var(--sp-4));">Применяется на «Сегодня» (30 дн) и «Тренде» (7/30/90 дн) — к графикам веса и EMA.</p>
+
+      <p class="sub-caption">Энергобаланс — Фаза 7</p>
+      <div class="energy-demo">
+        <div class="energy-demo-head">
+          <span class="energy-demo-title">Энергобаланс</span>
+          <span class="energy-demo-unit">ккал/день</span>
+        </div>
+        <div class="leg">
+          <span><span class="leg-sw" style="background:var(--steady)"></span>Дефицит</span>
+          <span><span class="leg-sw" style="background:var(--alert)"></span>Профицит</span>
+          <span><span class="leg-dash"></span>Цель −616</span>
+        </div>
+        <svg class="axis-svg" viewBox="0 0 640 120" role="img" aria-label="График энергобаланса: столбцы дефицита вниз от нулевой линии, профицит вверх, целевая линия дефицита минус 616">
+          <!-- линия сетки на границе месяца (1 июля) — паттерн Фазы 6 -->
+          <line class="axis-gridline" x1="110" y1="10" x2="110" y2="100"/>
+          <!-- нулевая линия -->
+          <line class="zero-line" x1="12" y1="52" x2="628" y2="52"/>
+          <!-- целевая линия дефицита: signal, пунктир, −616 (70 кг × 0.8%/нед × 11) -->
+          <line class="target-line" x1="12" y1="82.8" x2="628" y2="82.8"/>
+          <text class="target-label" x="628" y="79" text-anchor="end">цель −616</text>
+          <!-- столбцы: дефицит вниз (steady), профицит вверх (alert) -->
+          <rect class="bar-deficit" x="13" y="73" width="14" height="21" rx="2"/>
+          <rect class="bar-deficit" x="43" y="86" width="14" height="34" rx="2"/>
+          <rect class="bar-deficit" x="73" y="67.5" width="14" height="15.5" rx="2"/>
+          <rect class="bar-deficit" x="103" y="79" width="14" height="27" rx="2"/>
+          <rect class="bar-deficit" x="133" y="89.5" width="14" height="37.5" rx="2"/>
+          <rect class="bar-surplus" x="163" y="43" width="14" height="9" rx="2"/>
+          <rect class="bar-deficit" x="193" y="96.5" width="14" height="44.5" rx="2"/>
+          <rect class="bar-deficit" x="223" y="83" width="14" height="31" rx="2"/>
+          <!-- 4 июл — день без данных питания: столбца нет -->
+          <rect class="bar-deficit" x="283" y="75" width="14" height="23" rx="2"/>
+          <rect class="bar-deficit" x="313" y="87" width="14" height="35" rx="2"/>
+          <rect class="bar-deficit" x="343" y="79" width="14" height="27" rx="2"/>
+          <rect class="bar-surplus" x="373" y="47.3" width="14" height="4.7" rx="2"/>
+          <!-- 8 июл — день без данных питания: столбца нет -->
+          <rect class="bar-deficit" x="433" y="82.5" width="14" height="30.5" rx="2"/>
+          <rect class="bar-deficit" x="463" y="90.5" width="14" height="38.5" rx="2"/>
+          <rect class="bar-deficit" x="493" y="76" width="14" height="24" rx="2"/>
+          <rect class="bar-deficit" x="523" y="69.5" width="14" height="17.5" rx="2"/>
+          <rect class="bar-deficit" x="553" y="85" width="14" height="33" rx="2"/>
+          <rect class="bar-deficit" x="583" y="81.5" width="14" height="29.5" rx="2"/>
+          <rect class="bar-deficit" x="613" y="78" width="14" height="26" rx="2"/>
+          <!-- тултип по тапу: дата + приход/расход/баланс -->
+          <line x1="320" y1="24" x2="320" y2="85" stroke="var(--outline)"/>
+          <rect x="170" y="2" width="300" height="22" rx="6" fill="var(--surface-0)" stroke="var(--outline)"/>
+          <text x="320" y="16.5" text-anchor="middle" style="font-family:var(--f-mono); font-size:10.5px; fill:var(--ink);">10 июл · Приход 2 100 · Расход 2 800 · Баланс −700</text>
+          <!-- ось дат: паттерн Фазы 6 -->
+          <text class="axis-day" x="20" y="112" text-anchor="middle">28</text>
+          <text class="axis-month" x="110" y="112" text-anchor="middle">1 ИЮЛ</text>
+          <text class="axis-day" x="200" y="112" text-anchor="middle">4</text>
+          <text class="axis-day" x="290" y="112" text-anchor="middle">7</text>
+          <text class="axis-day" x="380" y="112" text-anchor="middle">10</text>
+          <text class="axis-day" x="470" y="112" text-anchor="middle">13</text>
+          <text class="axis-day" x="560" y="112" text-anchor="middle">16</text>
+        </svg>
+        <p class="energy-demo-note">Дней без данных питания: 2</p>
+      </div>
+      <ul class="axis-rules">
+        <li><b>Один столбец — один день</b>, высота = приход − расход. Дефицит — вниз от нулевой линии (steady), профицит — вверх (alert). Новых hex-значений нет — только существующие роли.</li>
+        <li><b>Нулевая линия</b> — ink-muted 1px; <b>целевая линия дефицита</b> — signal 1.5px, пунктир 5-4, на −(вес × темп % × 11): здесь −616 (70 кг × 0.8%/нед). Всегда в кадре, с подписью «цель −N».</li>
+        <li><b>День без данных питания — столбца нет</b> (это не ноль!); в средние такой день не входит, под графиком примечание «Дней без данных питания: N».</li>
+        <li><b>Ось дат и тултип</b> — паттерн Фазы 6 без изменений; тултип: «17 июл · Приход 2 150 · Расход 2 680 · Баланс −530».</li>
+        <li>Включает столбец «сегодня» (день ещё не завершён — осознанно); из среднесуточных «сегодня» исключается.</li>
+      </ul>
+
+      <p class="sub-caption">Карточка «Питание» — Фаза 7</p>
+      <div class="comp-block" style="align-items:stretch;">
+        <div class="demo-card" style="padding:var(--sp-4); max-width:330px;">
+          <div class="ncard-title-row">
+            <span class="ncard-title">Питание</span>
+            <span class="ncard-date">24.07</span>
+          </div>
+          <div class="ncard-value">2 150<span class="ncard-unit">ккал сегодня</span></div>
+          <p class="ncard-sub">Расход ≈ 2 400 · Баланс −250</p>
+          <span class="badge badge-source"><span class="badge-dot"></span>Из MyFitnessPal</span>
+          <div class="cbtns">
+            <button class="cbtn">Ок</button>
+            <button class="cbtn">Не ок</button>
+          </div>
+        </div>
+        <div class="demo-card" style="padding:var(--sp-4); max-width:330px;">
+          <div class="ncard-title-row">
+            <span class="ncard-title">Питание</span>
+            <span class="ncard-date">24.07</span>
+          </div>
+          <p class="ncard-itog">Итог дня: 2 100 ккал · Б 150 · Ж 70 · У 220</p>
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-top:12px;">
+            <span class="badge badge-manual"><span class="badge-dot"></span>Ручной ввод</span>
+            <span style="display:flex; gap:8px;">
+              <button class="tbtn">Изменить</button>
+              <button class="tbtn" style="color:var(--alert);">Удалить</button>
+            </span>
+          </div>
+        </div>
+      </div>
+      <ul class="axis-rules">
+        <li><b>Семь состояний</b> по образцу карточки метрики Фазы 6: <b>loading</b> (скелетон) · <b>autoUnconfirmed</b> — значение + бедж источника + крупные «Ок / Не ок» · <b>autoConfirmed</b> — то же + меню «⋯» · <b>manualEntryActive</b> — форма: ккал (обязательно), Б/Ж/У в граммах (опционально) · <b>manualConfirmed</b> — «Итог дня: 2 100 ккал · Б 150 · Ж 70 · У 220» + «Изменить / Удалить» · <b>missing</b> — «Нет данных о питании…» + кнопка «Ввести итог» · <b>sourceRefused</b> — ввод итога вручную («Не ок» из Фазы 6).</li>
+        <li>Под числом прихода — строка <b>Расход ≈ 2 400 · Баланс −250</b>: только когда расход рассчитан (каскад BMR); до заполнения профиля вместо неё на «Сегодня» живёт карточка-подсказка «Рассчитаем ваш расход» (signal-tint).</li>
+        <li>Ручная запись — «Итог дня» ОДНОЙ записью NutritionRecord (Tier 1, имя записи «Итог дня», recordingMethod manual); правка — delete-then-write, как у веса.</li>
+      </ul>
     </section>
 
     <!-- ===================== DARK THEME ===================== -->
@@ -718,6 +845,20 @@
             <div class="demo-card-value"><div class="t-metric-lg">−0.6%</div></div>
             <span class="badge badge-steady"><span class="badge-dot"></span>В темпе</span>
           </div>
+          <!-- Фаза 7: энергобаланс (калории приход/расход) в светлой теме — тот же компонент, что и в тёмной колонке -->
+          <div class="leg" style="margin:0 0 4px;"><span><span class="leg-sw" style="background:var(--steady)"></span>Дефицит</span><span><span class="leg-sw" style="background:var(--alert)"></span>Профицит</span><span><span class="leg-dash"></span>Цель</span></div>
+          <svg class="axis-svg" viewBox="0 0 280 94" width="280" aria-hidden="true">
+            <line class="zero-line" x1="8" y1="28" x2="272" y2="28"/>
+            <line class="target-line" x1="8" y1="52.6" x2="272" y2="52.6"/>
+            <rect class="bar-deficit" x="14" y="44.8" width="12" height="16.8" rx="2"/>
+            <rect class="bar-deficit" x="46" y="55.2" width="12" height="27.2" rx="2"/>
+            <rect class="bar-surplus" x="78" y="20.8" width="12" height="7.2" rx="2"/>
+            <!-- день без данных: столбца нет -->
+            <rect class="bar-deficit" x="142" y="49.6" width="12" height="21.6" rx="2"/>
+            <rect class="bar-deficit" x="174" y="58" width="12" height="30" rx="2"/>
+            <rect class="bar-deficit" x="206" y="40.4" width="12" height="12.4" rx="2"/>
+            <rect class="bar-deficit" x="238" y="48.8" width="12" height="20.8" rx="2"/>
+          </svg>
         </div>
         <div class="theme-col theme-dark">
           <div class="theme-col-title">Тёмная</div>
@@ -754,6 +895,20 @@
             <div class="demo-card-value"><div class="t-metric-lg">−0.6%</div></div>
             <span class="badge badge-steady"><span class="badge-dot"></span>В темпе</span>
           </div>
+          <!-- Фаза 7: энергобаланс в тёмной теме (столбцы steady/alert, цель — signal-пунктир) -->
+          <div class="leg" style="margin:0 0 4px;"><span><span class="leg-sw" style="background:var(--steady)"></span>Дефицит</span><span><span class="leg-sw" style="background:var(--alert)"></span>Профицит</span><span><span class="leg-dash"></span>Цель</span></div>
+          <svg class="axis-svg" viewBox="0 0 280 94" width="280" aria-hidden="true">
+            <line class="zero-line" x1="8" y1="28" x2="272" y2="28"/>
+            <line class="target-line" x1="8" y1="52.6" x2="272" y2="52.6"/>
+            <rect class="bar-deficit" x="14" y="44.8" width="12" height="16.8" rx="2"/>
+            <rect class="bar-deficit" x="46" y="55.2" width="12" height="27.2" rx="2"/>
+            <rect class="bar-surplus" x="78" y="20.8" width="12" height="7.2" rx="2"/>
+            <!-- день без данных: столбца нет -->
+            <rect class="bar-deficit" x="142" y="49.6" width="12" height="21.6" rx="2"/>
+            <rect class="bar-deficit" x="174" y="58" width="12" height="30" rx="2"/>
+            <rect class="bar-deficit" x="206" y="40.4" width="12" height="12.4" rx="2"/>
+            <rect class="bar-deficit" x="238" y="48.8" width="12" height="20.8" rx="2"/>
+          </svg>
         </div>
       </div>
     </section>

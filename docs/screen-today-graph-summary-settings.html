@@ -13,7 +13,7 @@
     --steady:#1F9D6C; --alert:#B23A2E;
     --surface-0:#FFFFFF; --surface-1:#F3F5F6; --surface-2:#E7EAEC;
     --outline:#D7DBDE; --outline-strong:#C2C7CC; --ink-muted:#4B5259;
-    --signal-hover:#234C8D; --signal-press:#1D3F73;
+    --signal-hover:#234C8D; --signal-press:#1D3F73; --signal-tint:#E7EEF8;
     --f-display:'Space Grotesk', sans-serif; --f-body:'Inter', sans-serif; --f-mono:'Space Mono', monospace;
     --sp-1:4px; --sp-2:8px; --sp-3:12px; --sp-4:16px; --sp-6:24px; --sp-8:32px; --sp-12:48px;
     --r-sm:6px; --r-md:10px; --r-lg:16px; --r-xl:20px;
@@ -251,13 +251,71 @@
   }
   .demo-toggle:hover{background:var(--surface-1);}
   .demo-toggle:focus-visible{outline:none; box-shadow:var(--focus-ring);}
+
+  /* ---------- Фаза 7: питание и энергобаланс ---------- */
+  .energy-block{margin-top:var(--sp-8);}
+  .energy-head{display:flex; justify-content:space-between; align-items:baseline; margin-bottom:var(--sp-2);}
+  .energy-title{font-weight:600; font-size:14px; color:var(--ink);}
+  .energy-unit{font-family:var(--f-mono); font-size:10.5px; letter-spacing:.05em; text-transform:uppercase; color:var(--noise);}
+  .legend{display:flex; gap:14px; margin:0 0 var(--sp-2); font-family:var(--f-mono); font-size:10.5px; color:var(--ink-muted); flex-wrap:wrap;}
+  .leg-sw{width:9px; height:9px; border-radius:2px; display:inline-block; margin-right:5px; vertical-align:-1px;}
+  .leg-dash{width:14px; border-top:2px dashed var(--signal); display:inline-block; margin-right:5px; vertical-align:2px;}
+  .energy-note{font-family:var(--f-mono); font-size:10.5px; color:var(--noise); margin:6px 0 0;}
+  .bar-deficit{fill:var(--steady);}
+  .bar-surplus{fill:var(--alert);}
+  .zero-line{stroke:var(--ink-muted); stroke-width:1;}
+  .target-line{stroke:var(--signal); stroke-width:1.5; stroke-dasharray:5 4;}
+  .target-label{font-family:var(--f-mono); font-size:9.5px; fill:var(--signal);}
+  .nutrition-card{margin-top:var(--sp-4);}
+  .balance-line{font-family:var(--f-mono); font-size:11px; letter-spacing:.02em; color:var(--ink-muted); margin:0 0 var(--sp-2);}
+  .macro-summary{font-family:var(--f-body); font-size:14px; color:var(--ink); margin:0;}
+  .missing-note{font-size:13px; color:var(--ink-muted); line-height:1.5; margin:0;}
+  .badge-manual{background:var(--signal-tint); border-color:transparent; color:var(--ink);}
+  .badge-manual .badge-dot{background:var(--signal);}
+  .btn-text-danger{background:none; border:none; font-family:var(--f-body); font-weight:600; font-size:13px; color:var(--alert); cursor:pointer; padding:6px 4px; white-space:nowrap;}
+  .btn-text-danger:hover{color:var(--ink);}
+  .hint-card{background:var(--signal-tint); border:1px solid var(--outline); border-radius:var(--r-lg); padding:var(--sp-3) var(--sp-4); margin-top:var(--sp-3);}
+  .hint-title{font-weight:600; font-size:13.5px; color:var(--ink); margin:0;}
+  .hint-text{font-size:12.5px; color:var(--ink-muted); line-height:1.5; margin:4px 0 0;}
+  .energy-week-card{margin-top:var(--sp-4); background:var(--surface-0); border:1px solid var(--outline); border-radius:var(--r-lg); padding:var(--sp-4);}
+  .ew-row{display:flex; justify-content:space-between; align-items:baseline; padding:8px 0; border-bottom:1px solid var(--outline); gap:var(--sp-3);}
+  .ew-row:last-child{border-bottom:none;}
+  .ew-label{font-family:var(--f-mono); font-size:11px; letter-spacing:.04em; text-transform:uppercase; color:var(--noise);}
+  .ew-value{font-family:var(--f-display); font-weight:600; font-size:18px; font-variant-numeric:tabular-nums; color:var(--ink); text-align:right;}
+  .ew-value small{font-family:var(--f-mono); font-size:10.5px; font-weight:400; color:var(--ink-muted); margin-left:4px;}
+  .ew-value.neg{color:var(--steady);}
+  .avg-cells{display:flex; gap:var(--sp-3);}
+  .avg-cell{flex:1; min-width:0;}
+  .avg-cell-label{font-family:var(--f-mono); font-size:10px; letter-spacing:.04em; text-transform:uppercase; color:var(--noise);}
+  .avg-cell-value{font-family:var(--f-display); font-weight:600; font-size:20px; font-variant-numeric:tabular-nums; color:var(--ink); line-height:1.15; white-space:nowrap;}
+  .avg-cell-value small{font-family:var(--f-mono); font-size:11px; font-weight:400; color:var(--ink-muted); margin-left:3px;}
+  .avg-coverage{font-family:var(--f-mono); font-size:9.5px; color:var(--noise); margin-top:2px;}
+  .macro-row{display:flex; gap:var(--sp-3); margin-top:var(--sp-3); padding-top:var(--sp-3); border-top:1px solid var(--outline);}
+  .profile-grid{display:flex; gap:var(--sp-3); margin-top:var(--sp-3);}
+  .profile-field{flex:1;}
+  .profile-field label{display:block; font-family:var(--f-mono); font-size:10px; letter-spacing:.05em; text-transform:uppercase; color:var(--noise); margin-bottom:6px;}
+  .exp-row{display:flex; justify-content:space-between; align-items:center; padding:var(--sp-3) 0; border-bottom:1px solid var(--outline); gap:var(--sp-3);}
+  .exp-row:last-of-type{border-bottom:none;}
+  .exp-name{font-size:14px; font-weight:600; color:var(--ink);}
+  .exp-src{font-family:var(--f-mono); font-size:10.5px; color:var(--noise); margin-top:2px;}
+  .exp-val{font-family:var(--f-display); font-weight:600; font-size:16px; font-variant-numeric:tabular-nums; color:var(--ink); white-space:nowrap; text-align:right;}
+  .exp-val small{font-family:var(--f-mono); font-size:10px; font-weight:400; color:var(--ink-muted);}
+  .exp-total{display:flex; justify-content:space-between; align-items:baseline; margin-top:var(--sp-3); padding-top:var(--sp-3); border-top:1px solid var(--outline);}
+  .exp-total-val{font-family:var(--f-display); font-weight:600; font-size:22px; font-variant-numeric:tabular-nums; color:var(--signal);}
+  .exp-editor{background:var(--surface-1); border:1px solid var(--outline); border-radius:var(--r-md); padding:var(--sp-3); margin:var(--sp-2) 0 var(--sp-3);}
+  .exp-editor-caption{font-family:var(--f-mono); font-size:10px; letter-spacing:.05em; text-transform:uppercase; color:var(--noise); margin:0 0 8px;}
+  .editor-row{display:flex; gap:var(--sp-3); align-items:flex-start; margin-bottom:10px;}
+  .editor-row:last-child{margin-bottom:0;}
+  .editor-field{flex:1; min-width:0;}
+  .editor-field label{display:block; font-size:11.5px; color:var(--ink-muted); margin-bottom:4px;}
+  .input-sm{width:100%; padding:8px 10px; border:1px solid var(--outline-strong); border-radius:var(--r-sm); font-family:var(--f-body); font-size:14px; background:var(--surface-0); color:var(--ink);}
 </style>
 </head>
 <body>
 <div class="page-wrap">
   <p class="kicker">Экраны — этап 4</p>
   <h1 class="title">Сегодня, Саммари, Тренд и Настройки</h1>
-  <p class="lede">Все четыре вкладки нижней навигации спроектированы; обновлено по Фазе 6 — ось дат на графиках, карточки метрик с кешем подтверждений и меню «⋯», блоки «Тема» и «Источники данных» в Настройках, подэкран выбора источника и тёмный фрейм «Сегодня». Онбординг и paywall — отдельные экраны вне вкладок. Тумблер справа — служебный, для показа обоих статусов саммари внутри одного макета; в реальном интерфейсе его нет.</p>
+  <p class="lede">Все четыре вкладки нижней навигации спроектированы; обновлено по Фазе 6 — ось дат на графиках, карточки метрик с кешем подтверждений и меню «⋯», блоки «Тема» и «Источники данных» в Настройках, подэкран выбора источника и тёмный фрейм «Сегодня»; по Фазе 7 — карточка «Питание» на «Сегодня», график энергобаланса и ПРИХОД/РАСХОД/Б/Ж/У на «Тренде», «Энергобаланс недели» на «Саммари», блоки «Профиль расхода» и «Расход калорий» в «Настройках». Онбординг и paywall — отдельные экраны вне вкладок. Тумблер справа — служебный, для показа обоих статусов саммари внутри одного макета; в реальном интерфейсе его нет.</p>
 
   <div class="workspace">
 
@@ -310,6 +368,24 @@
           </div>
 
           <button class="btn btn-primary" onclick="showPanel('summary')">Открыть саммари</button>
+
+          <!-- Фаза 7: карточка «Питание» (autoUnconfirmed — образец; остальные состояния — в аннотациях справа) -->
+          <div class="metric-card nutrition-card">
+            <div class="metric-card-head">
+              <span class="metric-card-title">Питание</span>
+              <span class="metric-card-date">24.07</span>
+            </div>
+            <div class="metric-value-row">
+              <span class="metric-value-lg">2 150</span>
+              <span class="metric-unit">ккал сегодня</span>
+            </div>
+            <p class="balance-line">Расход ≈ 2 400 · Баланс −250</p>
+            <span class="badge badge-source"><span class="badge-dot"></span>Из MyFitnessPal</span>
+            <div class="confirm-btns">
+              <button class="confirm-btn"><svg viewBox="0 0 24 24" fill="none" stroke="var(--steady)" stroke-width="2.4" stroke-linecap="round"><path d="M4 12l5 5 11-11"/></svg>Ок</button>
+              <button class="confirm-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20l4-1L20 7l-3-3L5 16l-1 4z"/></svg>Не ок</button>
+            </div>
+          </div>
         </div>
 
         <!-- SUMMARY -->
@@ -340,6 +416,27 @@
           <hr class="divider">
           <p class="rec-label">Рекомендация на следующую неделю</p>
           <p class="rec-text" id="recText">Оставь текущую калорийность без изменений — точности данных уже достаточно, чтобы доверять тренду.</p>
+
+          <!-- Фаза 7: энергобаланс недели (скрывается при <2 дней с приходом за окно) -->
+          <div class="energy-week-card">
+            <p class="metrics-caption" style="margin-bottom:4px;">Энергобаланс недели</p>
+            <div class="ew-row">
+              <span class="ew-label">Средний приход</span>
+              <span class="ew-value">2 150<small>ккал · по 6 из 7 дней</small></span>
+            </div>
+            <div class="ew-row">
+              <span class="ew-label">Средний расход</span>
+              <span class="ew-value">2 680<small>ккал</small></span>
+            </div>
+            <div class="ew-row">
+              <span class="ew-label">Средний баланс</span>
+              <span class="ew-value neg">−530<small>ккал/день</small></span>
+            </div>
+            <div class="ew-row">
+              <span class="ew-label">Ожидаемый темп</span>
+              <span class="ew-value">≈ −0.48<small>кг/нед</small></span>
+            </div>
+          </div>
         </div>
 
         <!-- TREND -->
@@ -356,20 +453,51 @@
             <div id="trendChart"></div>
           </div>
 
+          <!-- Фаза 7: график энергобаланса (A2) — под графиком веса, реагирует на сегмент периода -->
+          <div class="energy-block">
+            <div class="energy-head">
+              <span class="energy-title">Энергобаланс</span>
+              <span class="energy-unit">ккал/день</span>
+            </div>
+            <div class="legend">
+              <span><span class="leg-sw" style="background:var(--steady)"></span>Дефицит</span>
+              <span><span class="leg-sw" style="background:var(--alert)"></span>Профицит</span>
+              <span><span class="leg-dash"></span>Цель −520</span>
+            </div>
+            <div id="energyChart"></div>
+            <p class="energy-note" id="energyMissingNote" style="display:none;">Дней без данных питания: 2</p>
+          </div>
+
           <div class="metrics-section">
             <p class="metrics-caption">Среднесуточные показатели за период</p>
-            <div class="metric-row">
-              <span class="metric-label">Сон</span>
-              <span class="metric-value" id="metricSleep">7.3<small>ч</small></span>
+            <div class="avg-cells">
+              <div class="avg-cell">
+                <span class="avg-cell-label">Сон</span>
+                <div class="avg-cell-value" id="metricSleep">7.3<small>ч</small></div>
+              </div>
+              <div class="avg-cell">
+                <span class="avg-cell-label">Шаги</span>
+                <div class="avg-cell-value" id="metricSteps">9 140</div>
+              </div>
+              <div class="avg-cell">
+                <span class="avg-cell-label">Расход</span>
+                <div class="avg-cell-value" id="metricExpenditure">≈2 430<small>ккал</small></div>
+                <div class="avg-coverage" id="covExpenditure">по 27 дн.</div>
+              </div>
             </div>
-            <div class="metric-row">
-              <span class="metric-label">Шаги</span>
-              <span class="metric-value" id="metricSteps">9 140</span>
+            <div class="macro-row">
+              <div class="avg-cell">
+                <span class="avg-cell-label">Приход</span>
+                <div class="avg-cell-value" id="metricIntake">2 180<small>ккал</small></div>
+                <div class="avg-coverage" id="covIntake">по 27 дн.</div>
+              </div>
+              <div class="avg-cell">
+                <span class="avg-cell-label">Б / Ж / У</span>
+                <div class="avg-cell-value" id="metricMacros" style="font-size:17px;">148 / 69 / 216<small>г</small></div>
+                <div class="avg-coverage" id="covMacros">по 27 дн.</div>
+              </div>
             </div>
-            <div class="metric-row">
-              <span class="metric-label">Активность</span>
-              <span class="metric-value" id="metricActivity">45<small>мин</small></span>
-            </div>
+            <p class="energy-note" style="margin-top:10px;">Сегодня не учитывается — день ещё не завершён</p>
           </div>
         </div>
 
@@ -407,6 +535,97 @@
             </div>
             <input type="range" min="0.3" max="1.4" step="0.1" value="0.6" id="paceSlider" class="range-slider" oninput="updatePaceSlider(this.value)">
             <div class="range-labels"><span>0.3%</span><span>1.4%</span></div>
+          </section>
+
+          <!-- Фаза 7: профиль расхода -->
+          <section class="settings-block">
+            <p class="settings-caption">Профиль расхода</p>
+            <div class="segmented" role="group" aria-label="Пол" style="max-width:220px;">
+              <button class="active" type="button">Мужской</button>
+              <button type="button">Женский</button>
+            </div>
+            <div class="profile-grid">
+              <div class="profile-field">
+                <label for="birthYear">Год рождения</label>
+                <input class="field-input" id="birthYear" type="text" value="1990" inputmode="numeric">
+              </div>
+              <div class="profile-field">
+                <label for="heightCm">Рост, см</label>
+                <input class="field-input" id="heightCm" type="text" value="178" inputmode="decimal">
+              </div>
+            </div>
+            <p class="settings-hint">Рост подставляется из Health Connect; пол и возраст HC не хранит — нужны для формулы BMR. Без профиля расход считается по записям HC, если они есть.</p>
+          </section>
+
+          <!-- Фаза 7: расход калорий — 4 компонента, у каждого источник и ручной оверрайд -->
+          <section class="settings-block">
+            <p class="settings-caption">Расход калорий</p>
+            <div class="exp-row">
+              <div>
+                <div class="exp-name">Базальный (BMR)</div>
+                <div class="exp-src">Health Connect · Samsung Health</div>
+              </div>
+              <span class="exp-val">1 670<small> ккал/день</small></span>
+              <button class="icon-btn" aria-label="Настроить базальный расход">⋯</button>
+            </div>
+            <div class="exp-row">
+              <div>
+                <div class="exp-name">Шаги</div>
+                <div class="exp-src">0.0004 ккал/кг/шаг · нетто-ходьба</div>
+              </div>
+              <span class="exp-val">≈31<small> ккал/1000 шагов</small></span>
+              <button class="icon-btn" aria-label="Настроить расход на шаги">⋯</button>
+            </div>
+            <div class="exp-row">
+              <div>
+                <div class="exp-name">Силовые</div>
+                <div class="exp-src">Compendium · 3.5 MET (умеренная)</div>
+              </div>
+              <span class="exp-val">≈84<small> ккал/день</small></span>
+              <button class="icon-btn" aria-label="Настроить силовые">⋯</button>
+            </div>
+            <div class="exp-row">
+              <div>
+                <div class="exp-name">Бытовой</div>
+                <div class="exp-src">TEF + мелкая активность</div>
+              </div>
+              <span class="exp-val">200<small> ккал/день</small></span>
+              <button class="icon-btn" aria-label="Настроить бытовой расход">⋯</button>
+            </div>
+            <div class="exp-editor">
+              <p class="exp-editor-caption">Силовые — редактор (открыт статично для макета)</p>
+              <div class="editor-row">
+                <div class="editor-field">
+                  <label>Частота, раз/нед</label>
+                  <div class="stepper">
+                    <button onclick="stepTraining(-1)" aria-label="Меньше">−</button>
+                    <span id="trainingFreq">3</span>
+                    <button onclick="stepTraining(1)" aria-label="Больше">+</button>
+                  </div>
+                </div>
+                <div class="editor-field">
+                  <label>Длительность, мин</label>
+                  <input class="input-sm" type="text" value="60" inputmode="numeric">
+                </div>
+              </div>
+              <div class="editor-row">
+                <div class="editor-field">
+                  <label>Интенсивность</label>
+                  <div class="segmented">
+                    <button class="active" type="button">Умеренная</button>
+                    <button type="button">Тяжёлая</button>
+                  </div>
+                </div>
+                <div class="editor-field">
+                  <label>Или своя, ккал/сессия</label>
+                  <input class="input-sm" type="text" value="—" inputmode="numeric">
+                </div>
+              </div>
+            </div>
+            <div class="exp-total">
+              <span class="settings-caption" style="margin:0;">Итого сегодня</span>
+              <span class="exp-total-val">≈ 2 240<small style="font-family:var(--f-mono); font-size:11px; font-weight:400; color:var(--ink-muted);"> ккал/день</small></span>
+            </div>
           </section>
 
           <!-- Фаза 6: источники данных Health Connect -->
@@ -572,6 +791,24 @@
           </div>
 
           <button class="btn btn-primary">Открыть саммари</button>
+
+          <!-- Фаза 7: карточка «Питание» — проверка тёмной темы -->
+          <div class="metric-card nutrition-card">
+            <div class="metric-card-head">
+              <span class="metric-card-title">Питание</span>
+              <span class="metric-card-date">24.07</span>
+            </div>
+            <div class="metric-value-row">
+              <span class="metric-value-lg">2 150</span>
+              <span class="metric-unit">ккал сегодня</span>
+            </div>
+            <p class="balance-line">Расход ≈ 2 400 · Баланс −250</p>
+            <span class="badge badge-source"><span class="badge-dot"></span>Из MyFitnessPal</span>
+            <div class="confirm-btns">
+              <button class="confirm-btn"><svg viewBox="0 0 24 24" fill="none" stroke="var(--steady)" stroke-width="2.4" stroke-linecap="round"><path d="M4 12l5 5 11-11"/></svg>Ок</button>
+              <button class="confirm-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20l4-1L20 7l-3-3L5 16l-1 4z"/></svg>Не ок</button>
+            </div>
+          </div>
         </div>
 
         <nav class="bottom-nav">
@@ -641,6 +878,56 @@
             <hr class="divider" style="margin:var(--sp-1) 0;">
             <button class="menu-item" type="button">Настроить источники…</button>
           </div>
+        </div>
+      </div>
+
+      <h3>Фаза 7 — питание и энергобаланс</h3>
+      <div class="note"><span class="note-mark"></span><p><b>График энергобаланса (A2):</b> под графиком веса на «Тренде», реагирует на сегмент Неделя/Месяц/3 мес. Столбец = приход − расход; дефицит — вниз (steady), профицит — вверх (alert); нулевая линия — ink-muted; целевая линия дефицита — signal-пунктир на −(вес × темп % × 11), в макете −520 (78.4 кг × 0.6%/нед). Дни без данных питания — без столбца, под графиком примечание. Ось дат и тултип — паттерн Фазы 6.</p></div>
+      <div class="note"><span class="note-mark"></span><p><b>Карточка «Питание»</b> — 7 состояний по образцу карточки метрики Фазы 6; в основном фрейме — autoUnconfirmed: значение + бедж «Из MyFitnessPal» + «Ок / Не ок», под числом — «Расход ≈ 2 400 · Баланс −250». «Ок/Не ок» и меню «⋯» работают как у веса/шагов (решение на пару метрика+источник, ключи src_decision.nutrition…).</p></div>
+      <div class="note"><span class="note-mark"></span><p><b>«Итог дня»</b> — ручная запись одной записью (Tier 1, writeMeal, имя «Итог дня», макросы опциональны); правка идемпотентна (delete-then-write), удаление — без диалогов.</p></div>
+      <div class="note"><span class="note-mark"></span><p><b>Среднесуточные:</b> «АКТИВНОСТЬ» заменена на «РАСХОД» — полный расход из 4 компонентов (BMR + шаги + силовые + бытовой); добавлены «ПРИХОД» и строка Б/Ж/У с покрытием «по N дн.»; «сегодня» исключается из всех средних.</p></div>
+      <div class="note"><span class="note-mark"></span><p><b>Саммари:</b> карточка «Энергобаланс недели» — средний приход (с покрытием «по 6 из 7 дней»), средний расход, средний баланс, ожидаемый темп из баланса (≈ −0.48 кг/нед). Скрывается при &lt;2 дней с приходом — движок тогда работает по текстам Фазы 5. Рекомендации v2 подставляют числа: дельта = вес × |цель − факт| × 11 (коридор 50–300 ккал).</p></div>
+      <div class="note"><span class="note-mark"></span><p><b>Настройки:</b> «Профиль расхода» (пол, год рождения, рост с префиллом из Health Connect) и «Расход калорий» — 4 компонента с источником (HC / формула / дефолт) и ручным оверрайдом; редактор силовых: частота 0–7 / длительность / интенсивность (3.5 или 6.0 MET) / «своя ккал/сессия»; строка «Итого сегодня». Блок «Уровень активности» удаляется.</p></div>
+
+      <div class="mini-cards">
+        <div class="metric-card mini-card">
+          <div class="metric-card-head">
+            <span class="metric-card-title">Питание</span>
+            <span class="metric-card-date">24.07</span>
+          </div>
+          <p class="macro-summary">Итог дня: 2 100 ккал · Б 150 · Ж 70 · У 220</p>
+          <div class="metric-card-foot">
+            <span class="badge badge-manual"><span class="badge-dot"></span>Ручной ввод</span>
+            <span style="display:flex; gap:2px;">
+              <button class="btn-text" type="button">Изменить</button>
+              <button class="btn-text-danger" type="button">Удалить</button>
+            </span>
+          </div>
+        </div>
+        <div class="metric-card mini-card">
+          <div class="metric-card-head">
+            <span class="metric-card-title">Питание</span>
+            <span class="metric-card-date">24.07</span>
+          </div>
+          <p class="missing-note">Нет данных о питании за сегодня. Подключите трекер к Health Connect или введите итог дня вручную.</p>
+          <button class="btn btn-primary" style="margin-top:10px; padding:10px 16px; font-size:13.5px;">Ввести итог</button>
+        </div>
+        <div class="metric-card mini-card">
+          <div class="metric-card-head">
+            <span class="metric-card-title">Питание</span>
+            <span class="metric-card-date">24.07</span>
+          </div>
+          <div style="display:flex; gap:8px;">
+            <input class="field-input" type="text" value="2 100" aria-label="Калории, ккал" style="flex:1.4;">
+            <input class="field-input" type="text" value="150" aria-label="Белки, г">
+            <input class="field-input" type="text" value="70" aria-label="Жиры, г">
+            <input class="field-input" type="text" value="220" aria-label="Углеводы, г">
+          </div>
+          <button class="btn btn-primary" style="margin-top:10px; padding:10px 16px; font-size:13.5px;">Сохранить</button>
+        </div>
+        <div class="hint-card" style="max-width:360px;">
+          <p class="hint-title">Рассчитаем ваш расход</p>
+          <p class="hint-text">Укажите пол, возраст и рост в Настройках — появятся строка «Расход · Баланс» и график энергобаланса.</p>
         </div>
       </div>
 
@@ -807,6 +1094,93 @@
   }
   renderTodayChart();
 
+  // ---------- Фаза 7: график энергобаланса (A2) ----------
+  const energyConfigs = {
+    week:  { days:7,  intake:2210, expend:2560, seed:31, missing:0, macros:'150 / 70 / 220' },
+    month: { days:30, intake:2180, expend:2430, seed:32, missing:2, macros:'148 / 69 / 216' },
+    all:   { days:90, intake:2140, expend:2470, seed:33, missing:5, macros:'146 / 71 / 210' }
+  };
+  // Целевая линия дефицита макета: 78.4 кг × 0.6%/нед × 11 ≈ −520 ккал/день
+  const TARGET_DEFICIT = 520;
+
+  function renderEnergyChart(key){
+    const cfg = energyConfigs[key];
+    const width = 336, plotH = 128, axisH = 26, height = plotH + axisH;
+    const days = cfg.days, rand = mulberry32(cfg.seed);
+
+    // дни без данных питания (не первый/последний — края всегда с данными)
+    const missingIdx = [];
+    while(missingIdx.length < cfg.missing){
+      const i = 1 + Math.floor(rand() * (days - 2));
+      if(missingIdx.indexOf(i) < 0) missingIdx.push(i);
+    }
+    const intake = [], expend = [], balances = [];
+    for(let i=0; i<days; i++){
+      if(missingIdx.indexOf(i) >= 0){ intake.push(null); expend.push(null); balances.push(null); continue; }
+      const inK = cfg.intake + (rand() - 0.5) * 440;
+      const exK = cfg.expend + (rand() - 0.5) * 300;
+      intake.push(Math.round(inK)); expend.push(Math.round(exK)); balances.push(Math.round(inK - exK));
+    }
+
+    // масштаб: ноль, все балансы и целевая линия — всегда в кадре
+    const vals = balances.filter(v => v !== null);
+    let lo = Math.min(0, -TARGET_DEFICIT), hi = Math.max(0, 60);
+    vals.forEach(v => { lo = Math.min(lo, v); hi = Math.max(hi, v); });
+    const padY = 14;
+    const yFor = v => padY + (plotH - padY * 2) * (1 - (v - lo) / (hi - lo));
+    const padX = 4, xStep = (width - padX * 2) / (days - 1);
+    const barW = Math.max(4, Math.min(14, xStep * 0.6));
+
+    let svg = '<svg width="' + width + '" height="' + height + '" viewBox="0 0 ' + width + ' ' + height + '">';
+    const ax = axisLabels(days);
+    ax.bounds.forEach(b => {
+      const x = (padX + b * xStep).toFixed(1);
+      svg += '<line class="ax-grid" x1="' + x + '" y1="' + padY + '" x2="' + x + '" y2="' + (plotH - padY) + '"/>';
+    });
+    const zy = yFor(0).toFixed(1), ty = yFor(-TARGET_DEFICIT).toFixed(1);
+    svg += '<line class="zero-line" x1="2" y1="' + zy + '" x2="' + (width - 2) + '" y2="' + zy + '"/>';
+    svg += '<line class="target-line" x1="2" y1="' + ty + '" x2="' + (width - 2) + '" y2="' + ty + '"/>';
+    svg += '<text class="target-label" x="' + (width - 3) + '" y="' + (yFor(-TARGET_DEFICIT) - 4).toFixed(1) + '" text-anchor="end">цель −' + TARGET_DEFICIT + '</text>';
+    for(let i=0; i<days; i++){
+      if(balances[i] === null) continue;
+      const x = padX + i * xStep, v = balances[i];
+      const y0 = yFor(0), yv = yFor(v);
+      const top = Math.min(y0, yv), h = Math.abs(yv - y0);
+      svg += '<rect class="' + (v < 0 ? 'bar-deficit' : 'bar-surplus') + '" x="' + (x - barW / 2).toFixed(1) + '" y="' + top.toFixed(1) + '" width="' + barW.toFixed(1) + '" height="' + Math.max(h, 2).toFixed(1) + '" rx="1.5"/>';
+    }
+    ax.labels.forEach(i => {
+      const d = ax.dates[i];
+      const x = (padX + i * xStep).toFixed(1);
+      const isMonth = d.getDate() === 1;
+      svg += '<text class="' + (isMonth ? 'ax-month' : 'ax-day') + '" x="' + x + '" y="' + (plotH + 18) + '" text-anchor="middle">' + (isMonth ? '1 ' + RU_MON[d.getMonth()] : d.getDate()) + '</text>';
+    });
+    // статичный образец тултипа (как на графике веса): дата + приход/расход/баланс
+    let ti = days - 2;
+    while(balances[ti] === null) ti--;
+    const tx = padX + ti * xStep, td = ax.dates[ti];
+    const l1 = td.getDate() + ' ' + RU_MON_LC[td.getMonth()];
+    const l2 = 'Приход ' + intake[ti] + ' · Расход ' + expend[ti] + ' · Баланс ' + balances[ti];
+    const rw = 236, rx = Math.max(2, Math.min(width - rw - 2, tx - rw / 2));
+    const barTop = Math.min(yFor(balances[ti]), yFor(0));
+    svg += '<line x1="' + tx.toFixed(1) + '" y1="36" x2="' + tx.toFixed(1) + '" y2="' + (barTop - 3).toFixed(1) + '" stroke="var(--outline)"/>';
+    svg += '<rect class="ax-tip" x="' + rx.toFixed(1) + '" y="2" width="' + rw + '" height="34" rx="6"/>';
+    svg += '<text class="ax-tip-text" x="' + (rx + rw / 2).toFixed(1) + '" y="15.5" text-anchor="middle">' + l1 + '</text>';
+    svg += '<text class="ax-tip-text" style="font-size:9px" x="' + (rx + rw / 2).toFixed(1) + '" y="28.5" text-anchor="middle">' + l2 + '</text>';
+    svg += '</svg>';
+    document.getElementById('energyChart').innerHTML = svg;
+
+    const noteEl = document.getElementById('energyMissingNote');
+    noteEl.style.display = cfg.missing > 0 ? 'block' : 'none';
+    noteEl.textContent = 'Дней без данных питания: ' + cfg.missing;
+  }
+
+  // Фаза 7: степпер частоты силовых (редактор в «Расходе калорий»)
+  let trainingFreq = 3;
+  function stepTraining(delta){
+    trainingFreq = Math.max(0, Math.min(7, trainingFreq + delta));
+    document.getElementById('trainingFreq').textContent = trainingFreq;
+  }
+
   // ---------- Trend screen: same chart component, different period ----------
   const periodConfigs = {
     week:  { days:7,   start:78.9, slope:-0.0430, noiseAmp:0.35, seed:3,  sleep:7.1, steps:8620, activity:38 },
@@ -820,9 +1194,17 @@
     document.getElementById('seg-' + key).classList.add('active');
 
     renderChart('trendChart', cfg);
+    renderEnergyChart(key);
     document.getElementById('metricSleep').innerHTML = cfg.sleep.toFixed(1) + '<small>ч</small>';
     document.getElementById('metricSteps').textContent = cfg.steps.toLocaleString('ru-RU');
-    document.getElementById('metricActivity').innerHTML = cfg.activity + '<small>мин</small>';
+    const ecfg = energyConfigs[key];
+    const covered = ecfg.days - 1 - ecfg.missing; // «сегодня» исключается из средних
+    document.getElementById('metricExpenditure').innerHTML = '≈' + ecfg.expend.toLocaleString('ru-RU') + '<small>ккал</small>';
+    document.getElementById('covExpenditure').textContent = 'по ' + covered + ' дн.';
+    document.getElementById('metricIntake').innerHTML = ecfg.intake.toLocaleString('ru-RU') + '<small>ккал</small>';
+    document.getElementById('covIntake').textContent = 'по ' + covered + ' дн.';
+    document.getElementById('metricMacros').innerHTML = ecfg.macros + '<small>г</small>';
+    document.getElementById('covMacros').textContent = 'по ' + covered + ' дн.';
   }
   setPeriod('month');
 

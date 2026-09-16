@@ -10,6 +10,12 @@ const kAppPackageId = 'com.example.cut_metrics';
 /// Внешний источник по умолчанию для мока (Google Fit).
 const kExternalSourceId = 'com.google.android.apps.fitness';
 
+/// Источник питания в моке Фазы 7 (MyFitnessPal).
+const kNutritionSourceId = 'com.myfitnesspal.android';
+
+/// Источник HC BASAL в моке Фазы 7 (Samsung Health).
+const kBasalSourceId = 'com.sec.android.app.shealth';
+
 /// Mock-реализация [HealthRepository] для юнит-тестов.
 ///
 /// В отличие от реального репозитория, хранит данные в памяти и позволяет
@@ -95,6 +101,114 @@ class MockHealthRepository implements HealthRepository {
     addPoint(_makeIntervalPoint(from, to, HealthDataType.SLEEP_ASLEEP, sourcePackage));
   }
 
+  // ─── Управление данными Фазы 7 (питание / BASAL / рост) ─────────────────────
+
+  /// Добавляет внешний приём пищи (Tier 2, NUTRITION). Несколько вызовов за
+  /// один день = несколько приёмов (трекеры пишут по пункту/приёму пищи).
+  void addExternalNutrition(
+    DateTime date, {
+    required double calories,
+    double? protein,
+    double? fat,
+    double? carbs,
+    String sourcePackage = kNutritionSourceId,
+    String name = 'Приём пищи',
+  }) {
+    addPoint(
+      _makeNutritionPoint(
+        date,
+        calories,
+        protein,
+        fat,
+        carbs,
+        sourcePackage,
+        RecordingMethod.automatic,
+        name: name,
+      ),
+    );
+  }
+
+  /// Добавляет наш «Итог дня» (Tier 1, NUTRITION) — одна запись на день.
+  void addManualNutrition(
+    DateTime date, {
+    required double calories,
+    double? protein,
+    double? fat,
+    double? carbs,
+  }) {
+    addPoint(
+      _makeNutritionPoint(
+        date,
+        calories,
+        protein,
+        fat,
+        carbs,
+        appPackageId,
+        RecordingMethod.manual,
+        name: 'Итог дня',
+      ),
+    );
+  }
+
+  /// Добавляет внешнюю запись HC BASAL (ккал/день) — Samsung Health и т.п.
+  void addBasal(DateTime date, double kcalPerDay, {String? sourcePackage}) {
+    addPoint(
+      _makePoint(
+        date,
+        HealthDataType.BASAL_ENERGY_BURNED,
+        kcalPerDay,
+        sourcePackage ?? kBasalSourceId,
+        recordingMethod: RecordingMethod.automatic,
+      ),
+    );
+  }
+
+  /// Добавляет внешнюю запись роста (см).
+  void addHeight(DateTime date, double cm, {String? sourcePackage}) {
+    addPoint(
+      _makePoint(
+        date,
+        HealthDataType.HEIGHT,
+        cm,
+        sourcePackage ?? kExternalSourceId,
+        recordingMethod: RecordingMethod.automatic,
+      ),
+    );
+  }
+
+  /// Детерминированный seed данных Фазы 7 (A.9): NUTRITION — 3–6 приёмов/день
+  /// с ккал и БЖУ от «MyFitnessPal», 2 дня без записей; BASAL — 1 точка/день
+  /// ~1650–1690 ккал от «Samsung Health»; HEIGHT — 178 см. Без `Random` —
+  /// одни и те же данные на одних и тех же входах (тест «детерминированность»).
+  ///
+  /// [end] — последний день диапазона (обычно «сегодня»), [days] — длина.
+  void seedPhase7Data({required DateTime end, int days = 30}) {
+    for (var i = days - 1; i >= 0; i--) {
+      final date = end.subtract(Duration(days: i));
+
+      // BASAL — каждый день (1 точка/день, A.9), даже в дни без питания.
+      addBasal(date, 1650 + (i % 5) * 10);
+
+      // Два дня без данных питания (не «0 ккал», а именно отсутствие записей).
+      if (i == 13 || i == 20) continue;
+
+      final mealCount = 3 + (i % 4); // 3–6 приёмов
+      for (var m = 0; m < mealCount; m++) {
+        final kcal = 350.0 + ((i * 7 + m * 113) % 18) * 25.0; // 350–775
+        addExternalNutrition(
+          date,
+          calories: kcal,
+          protein: (kcal * 0.30 / 4).roundToDouble(),
+          fat: (kcal * 0.25 / 9).roundToDouble(),
+          carbs: (kcal * 0.45 / 4).roundToDouble(),
+          name: 'Блюдо ${m + 1}',
+        );
+      }
+    }
+
+    addHeight(end.subtract(const Duration(days: 200)), 178);
+  }
+
   /// Очищает все данные (для изоляции тестов).
   void clear() {
     _points.clear();
@@ -133,6 +247,51 @@ class MockHealthRepository implements HealthRepository {
     );
   }
 
+  // ─── Реализация HealthRepository: «Итог дня» (Фаза 7, A.7) ──────────────────
+
+  @override
+  Future<bool> hasManualNutrition(DateKey date) async {
+    return _points.any(
+      (p) =>
+          _isOurPoint(p) && p.type == HealthDataType.NUTRITION && DateKey(p.dateFrom) == date,
+    );
+  }
+
+  @override
+  Future<void> writeManualNutrition(
+    DateKey date, {
+    required double calories,
+    double? protein,
+    double? fat,
+    double? carbs,
+  }) async {
+    // Delete-then-write — как в реальном репозитории (идемпотентность).
+    _points.removeWhere(
+      (p) =>
+          _isOurPoint(p) && p.type == HealthDataType.NUTRITION && DateKey(p.dateFrom) == date,
+    );
+    _points.add(
+      _makeNutritionPoint(
+        date.value,
+        calories,
+        protein,
+        fat,
+        carbs,
+        appPackageId,
+        RecordingMethod.manual,
+        name: 'Итог дня',
+      ),
+    );
+  }
+
+  @override
+  Future<void> deleteManualNutrition(DateKey date) async {
+    _points.removeWhere(
+      (p) =>
+          _isOurPoint(p) && p.type == HealthDataType.NUTRITION && DateKey(p.dateFrom) == date,
+    );
+  }
+
   @override
   Future<List<HealthDataPoint>> fetchRawData({
     required List<HealthDataType> types,
@@ -154,6 +313,9 @@ class MockHealthRepository implements HealthRepository {
   HealthDataType _toHealthDataType(MetricType type) => switch (type) {
     MetricType.weight => HealthDataType.WEIGHT,
     MetricType.steps => HealthDataType.STEPS,
+    // Питание ходит через writeManualNutrition (отдельный контракт) —
+    // кейс для полноты switch.
+    MetricType.nutrition => HealthDataType.NUTRITION,
   };
 
   HealthDataPoint _makePoint(
@@ -167,8 +329,73 @@ class MockHealthRepository implements HealthRepository {
       HealthDataType.WEIGHT =>
         _makeWeightPoint(date, value.toDouble(), sourcePackage, recordingMethod),
       HealthDataType.STEPS => _makeStepsPoint(date, value.toInt(), sourcePackage, recordingMethod),
+      // Числовые instant-записи Фазы 7: BASAL (ккал/день) и HEIGHT (см) —
+      // NumericHealthValue, как отдаёт HC.
+      HealthDataType.BASAL_ENERGY_BURNED ||
+      HealthDataType.HEIGHT =>
+        _makeNumericInstantPoint(date, type, value.toDouble(), sourcePackage, recordingMethod),
       _ => throw ArgumentError('Unsupported type for mock: $type'),
     };
+  }
+
+  /// Числовая instant-запись (BASAL/HEIGHT): `dateFrom == dateTo` — HC пишет
+  /// их моментальными (`record.time`), интервалов нет.
+  HealthDataPoint _makeNumericInstantPoint(
+    DateTime date,
+    HealthDataType type,
+    double value,
+    String sourcePackage,
+    RecordingMethod recordingMethod,
+  ) {
+    final at = DateTime(date.year, date.month, date.day, 12);
+    return HealthDataPoint(
+      sourceName: sourcePackage,
+      uuid: '',
+      sourceDeviceId: '',
+      sourceId: '',
+      sourcePlatform: HealthPlatformType.googleHealthConnect,
+      value: NumericHealthValue(numericValue: value),
+      dateFrom: at,
+      dateTo: at,
+      type: type,
+      unit: type == HealthDataType.HEIGHT ? HealthDataUnit.METER : HealthDataUnit.KILOCALORIE,
+      recordingMethod: recordingMethod,
+    );
+  }
+
+  /// Точка питания (NUTRITION) — `NutritionHealthValue`, как на Android.
+  HealthDataPoint _makeNutritionPoint(
+    DateTime date,
+    double? calories,
+    double? protein,
+    double? fat,
+    double? carbs,
+    String sourcePackage,
+    RecordingMethod recordingMethod, {
+    required String name,
+  }) {
+    final dayStart = DateTime(date.year, date.month, date.day);
+    final dayEnd = dayStart.add(const Duration(hours: 23, minutes: 59));
+    return HealthDataPoint(
+      sourceName: sourcePackage,
+      uuid: '',
+      sourceDeviceId: '',
+      sourceId: '',
+      sourcePlatform: HealthPlatformType.googleHealthConnect,
+      value: NutritionHealthValue(
+        name: name,
+        mealType: 'UNKNOWN',
+        calories: calories,
+        protein: protein,
+        fat: fat,
+        carbs: carbs,
+      ),
+      dateFrom: dayStart,
+      dateTo: dayEnd,
+      type: HealthDataType.NUTRITION,
+      unit: HealthDataUnit.KILOCALORIE,
+      recordingMethod: recordingMethod,
+    );
   }
 
   /// Точка «как на реальном Android» (A0-лог): `sourceId` пустой, пакет

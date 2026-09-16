@@ -26,7 +26,7 @@ void main() {
       }
     });
 
-    test('вес и шаги — READ_WRITE, сон и питание — READ', () {
+    test('вес, шаги и питание — READ_WRITE, сон/BASAL/рост — READ (Фаза 7)', () {
       final byLabel = {
         for (final group in kPermissionGroups) group.label: group,
       };
@@ -38,8 +38,23 @@ void main() {
         byLabel['Шаги']!.permissions,
         everyElement(HealthDataAccess.READ_WRITE),
       );
+      // Фаза 7: питание READ→READ_WRITE — ручной «Итог дня» пишется в HC.
+      expect(byLabel['Питание']!.permissions.single, HealthDataAccess.READ_WRITE);
       expect(byLabel['Сон']!.permissions, everyElement(HealthDataAccess.READ));
-      expect(byLabel['Питание']!.permissions.single, HealthDataAccess.READ);
+      expect(
+        byLabel['Базальный метаболизм']!.permissions.single,
+        HealthDataAccess.READ,
+      );
+      expect(byLabel['Рост']!.permissions.single, HealthDataAccess.READ);
+    });
+
+    test('14 типов: каждый запрашиваемый тип есть в dataTypeKeysAndroid', () {
+      for (final group in kPermissionGroups) {
+        for (final type in group.types) {
+          expect(dataTypeKeysAndroid, contains(type), reason: '${group.label}: $type');
+        }
+      }
+      expect(kHealthDataTypes.length, 14);
     });
   });
 
@@ -57,13 +72,13 @@ void main() {
           },
         );
 
-        // 12 типов: вес + шаги + 9 стадий сна + питание.
+        // 14 типов: вес + шаги + 9 стадий сна + питание + BASAL + рост.
         expect(calls, kHealthDataTypes.length);
         expect(result, hasLength(kHealthDataTypes.length));
         expect(result['Вес (WEIGHT, READ_WRITE)'], isTrue);
         expect(result['Шаги (STEPS, READ_WRITE)'], isFalse);
         expect(result['Сон (SLEEP_ASLEEP, READ)'], isTrue);
-        expect(result['Питание (NUTRITION, READ)'], isTrue);
+        expect(result['Питание (NUTRITION, READ_WRITE)'], isTrue);
         // Все 9 стадий сна — отдельными записями.
         expect(
           result.keys.where((k) => k.startsWith('Сон (SLEEP_')),

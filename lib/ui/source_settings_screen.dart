@@ -27,7 +27,11 @@ class SourceSettingsScreen extends StatelessWidget {
 
   const SourceSettingsScreen({super.key, required this.metric});
 
-  String get _title => metric == MetricType.weight ? 'Источник: Вес' : 'Источник: Шаги';
+  String get _title => switch (metric) {
+    MetricType.weight => 'Источник: Вес',
+    MetricType.steps => 'Источник: Шаги',
+    MetricType.nutrition => 'Источник: Питание',
+  };
 
   @override
   Widget build(BuildContext context) {

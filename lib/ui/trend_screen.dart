@@ -1,6 +1,8 @@
 import 'package:cut_metrics/domain/date_key.dart';
 import 'package:cut_metrics/domain/metric_type.dart';
 import 'package:cut_metrics/domain/recommendation_config.dart';
+import 'package:cut_metrics/ui/energy_balance_chart.dart';
+import 'package:cut_metrics/ui/format.dart';
 import 'package:cut_metrics/ui/metric_card.dart';
 import 'package:cut_metrics/ui/theme.dart';
 import 'package:cut_metrics/ui/today_screen.dart';
@@ -11,10 +13,10 @@ import 'package:provider/provider.dart';
 
 /// Экран «Тренд» — макет `docs/screen-today-graph-summary-settings.html`.
 ///
-/// Сегменты Неделя / Месяц / 3 месяца («Весь срок» убран по решению
-/// пользователя: полный диапазон — тяжёлый запрос и пересчёт EMA).
-/// График веса+EMA с осью дат Фазы 6 (A3), тап по точке → карточка метрики
-/// (U1). Ниже — среднесуточные показатели: Сон, Шаги, Активность (ккал).
+/// Сегменты Неделя / Месяц / 3 месяца. График веса+EMA с осью дат Фазы 6
+/// (A3), под ним график энергобаланса (Фаза 7, B.3 — реагирует на сегмент),
+/// тап по точке → карточка метрики (U1). Среднесуточные: Сон / Шаги /
+/// Расход и второй строкой Приход + Б/Ж/У с покрытием (Фаза 7).
 class TrendScreen extends StatefulWidget {
   const TrendScreen({super.key});
 
@@ -63,6 +65,16 @@ class _TrendScreenState extends State<TrendScreen> {
           ),
           const SizedBox(height: CMSpacing.sp4),
 
+          // График энергобаланса (Фаза 7, B.3): под графиком веса,
+          // реагирует на сегмент периода.
+          EnergyBalanceChart(
+            balanceData: vm.balanceData,
+            targetDeficitKcalPerDay: vm.targetDeficitKcalPerDay,
+            daysWithoutNutrition: vm.daysWithoutNutritionInRange,
+            isLoading: vm.isLoading,
+          ),
+          const SizedBox(height: CMSpacing.sp4),
+
           Card(
             child: Padding(
               padding: const EdgeInsets.all(CMSpacing.sp4),
@@ -88,20 +100,62 @@ class _TrendScreenState extends State<TrendScreen> {
                           label: 'ШАГИ',
                           value: vm.avgSteps == null
                               ? '—'
-                              : _formatThousands(vm.avgSteps!),
+                              : formatThousands(vm.avgSteps!),
                           unit: '',
                         ),
                       ),
                       Expanded(
                         child: _AvgMetric(
-                          label: 'АКТИВНОСТЬ',
-                          value: vm.avgCaloriesPerDay == null
+                          label: 'РАСХОД',
+                          value: vm.avgExpenditure == null
                               ? '—'
-                              : '≈${vm.avgCaloriesPerDay!.round()}',
+                              : '≈${formatThousands(vm.avgExpenditure!)}',
                           unit: 'ккал',
+                          coverage: vm.expenditureDaysInRange > 0
+                              ? 'по ${vm.expenditureDaysInRange} дн.'
+                              : null,
                         ),
                       ),
                     ],
+                  ),
+                  const SizedBox(height: CMSpacing.sp3),
+                  Divider(color: colors.outline, height: 1),
+                  const SizedBox(height: CMSpacing.sp3),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _AvgMetric(
+                          label: 'ПРИХОД',
+                          value: vm.avgCaloriesIn == null
+                              ? '—'
+                              : formatThousands(vm.avgCaloriesIn!),
+                          unit: 'ккал',
+                          coverage: vm.intakeDaysInRange > 0
+                              ? 'по ${vm.intakeDaysInRange} дн.'
+                              : null,
+                        ),
+                      ),
+                      Expanded(
+                        flex: 2,
+                        child: _AvgMetric(
+                          label: 'Б / Ж / У',
+                          value: vm.avgMacros == null
+                              ? '—'
+                              : '${vm.avgMacros!.protein!.round()} / '
+                                  '${vm.avgMacros!.fat!.round()} / '
+                                  '${vm.avgMacros!.carbs!.round()}',
+                          unit: 'г',
+                          coverage: vm.intakeDaysInRange > 0
+                              ? 'по ${vm.intakeDaysInRange} дн.'
+                              : null,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: CMSpacing.sp2),
+                  Text(
+                    'Сегодня не учитывается — день ещё не завершён',
+                    style: CMFonts.caption(size: 10, color: colors.noise),
                   ),
                 ],
               ),
@@ -137,23 +191,21 @@ class _TrendScreenState extends State<TrendScreen> {
     );
   }
 
-  /// 8620 → «8 620» (разделитель разрядов, как в макете).
-  String _formatThousands(int value) => value.toString().replaceAllMapped(
-        RegExp(r'\B(?=(\d{3})+(?!\d))'),
-        (match) => ' ',
-      );
 }
 
 /// Ячейка среднесуточного показателя (значение Space Grotesk + mono-подпись).
+/// [coverage] — строка покрытия «по N дн.» под значением (Фаза 7, mono 9.5).
 class _AvgMetric extends StatelessWidget {
   final String label;
   final String value;
   final String unit;
+  final String? coverage;
 
   const _AvgMetric({
     required this.label,
     required this.value,
     required this.unit,
+    this.coverage,
   });
 
   @override
@@ -168,13 +220,26 @@ class _AvgMetric extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.baseline,
           textBaseline: TextBaseline.alphabetic,
           children: [
-            Text(value, style: CMFonts.metric(size: 20, color: colors.ink)),
+            Flexible(
+              child: Text(
+                value,
+                style: CMFonts.metric(size: 20, color: colors.ink),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
             if (unit.isNotEmpty) ...[
               const SizedBox(width: CMSpacing.sp1),
               Text(unit, style: CMFonts.caption(size: 11, color: colors.noise)),
             ],
           ],
         ),
+        if (coverage != null) ...[
+          const SizedBox(height: 2),
+          Text(
+            coverage!,
+            style: CMFonts.caption(size: 9.5, color: colors.noise),
+          ),
+        ],
       ],
     );
   }

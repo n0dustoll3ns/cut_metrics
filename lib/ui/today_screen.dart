@@ -3,6 +3,7 @@ import 'package:cut_metrics/domain/metric_type.dart';
 import 'package:cut_metrics/services/app_settings_opener.dart';
 import 'package:cut_metrics/ui/metric_card.dart';
 import 'package:cut_metrics/ui/months.dart';
+import 'package:cut_metrics/ui/nutrition_card.dart';
 import 'package:cut_metrics/ui/theme.dart';
 import 'package:cut_metrics/ui/weight_chart.dart';
 import 'package:cut_metrics/viewmodel/dashboard_view_model.dart';
@@ -13,13 +14,22 @@ import 'package:provider/provider.dart';
 ///
 /// Большое число — сглаженный вес (последняя точка EMA-линии), ниже — сырое
 /// значение за сегодня, график веса за 30 дней (ось дат Фазы 6, A3),
-/// кнопка «Открыть саммари» и карточки метрик Фазы 3 (U1: подтверждение
-/// остаётся здесь, инлайн; состояния Фазы 6 — B.4).
+/// карточки метрик Фазы 3 (U1: подтверждение остаётся здесь, инлайн;
+/// состояния Фазы 6 — B.4), кнопка «Открыть саммари» (Фаза 7: после
+/// карточек, как в макете), карточка «Питание» и подсказка профиля
+/// (Фаза 7, B.2/B.5).
 class TodayScreen extends StatelessWidget {
   /// Переход на вкладку «Саммари» (с проверкой готовности — гейт в main).
   final VoidCallback onOpenSummary;
 
-  const TodayScreen({super.key, required this.onOpenSummary});
+  /// Переход на вкладку «Настройки» (подсказка профиля, Фаза 7 B.5).
+  final VoidCallback onOpenSettings;
+
+  const TodayScreen({
+    super.key,
+    required this.onOpenSummary,
+    required this.onOpenSettings,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -79,17 +89,6 @@ class TodayScreen extends StatelessWidget {
           ),
           const SizedBox(height: CMSpacing.sp4),
 
-          // Кнопка открытия саммари
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              onPressed: onOpenSummary,
-              icon: const Icon(Icons.insights_outlined, size: 18),
-              label: const Text('Открыть саммари'),
-            ),
-          ),
-          const SizedBox(height: CMSpacing.sp4),
-
           // Карточка веса — инлайн, без тапа по графику
           MetricCard(
             key: const ValueKey('today_weight'),
@@ -106,6 +105,33 @@ class TodayScreen extends StatelessWidget {
             type: MetricType.steps,
             viewModel: vm,
           ),
+          const SizedBox(height: CMSpacing.sp4),
+
+          // Кнопка открытия саммари — после карточек, как в макете
+          // (Фаза 7: порядок «карточки → кнопка → питание», решение 2026-09-14)
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: onOpenSummary,
+              icon: const Icon(Icons.insights_outlined, size: 18),
+              label: const Text('Открыть саммари'),
+            ),
+          ),
+          const SizedBox(height: CMSpacing.sp4),
+
+          // Карточка «Питание» (Фаза 7, B.2)
+          NutritionCard(
+            key: const ValueKey('today_nutrition'),
+            date: today,
+            viewModel: vm,
+          ),
+
+          // Подсказка профиля (Фаза 7, B.5): пока BMR не рассчитан ни одним
+          // способом — ведёт в «Профиль расхода» на вкладке «Настройки».
+          if (vm.needsProfileHint) ...[
+            const SizedBox(height: CMSpacing.sp4),
+            _ProfileHintCard(onTap: onOpenSettings),
+          ],
 
           // Ошибка (если есть). Отказ в разрешениях покрыт баннером выше.
           if (vm.error != null && !vm.permissionsDenied) ...[
@@ -113,6 +139,46 @@ class TodayScreen extends StatelessWidget {
             ErrorBox(message: vm.error!),
           ],
         ],
+      ),
+    );
+  }
+}
+
+/// Подсказка профиля (Фаза 7, B.5): «Рассчитаем ваш расход» — signal-tint
+/// карточка под карточкой «Питание», пока BMR не рассчитан ни одним
+/// способом (нет HC-BASAL и профиль неполон). Тап → вкладка «Настройки»
+/// (блок «Профиль расхода»).
+class _ProfileHintCard extends StatelessWidget {
+  final VoidCallback onTap;
+
+  const _ProfileHintCard({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.cmColors;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(CMRadius.md),
+      child: Container(
+        padding: const EdgeInsets.all(CMSpacing.sp4),
+        decoration: BoxDecoration(
+          color: colors.signalTint,
+          borderRadius: BorderRadius.circular(CMRadius.md),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.local_fire_department_outlined,
+                color: colors.signal, size: 20),
+            const SizedBox(width: CMSpacing.sp2),
+            Expanded(
+              child: Text(
+                'Рассчитаем ваш расход: укажите пол, год рождения и рост',
+                style: CMFonts.body(size: 13, color: colors.ink),
+              ),
+            ),
+            Icon(Icons.chevron_right, size: 20, color: colors.signal),
+          ],
+        ),
       ),
     );
   }

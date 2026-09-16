@@ -138,7 +138,10 @@ class _AppShellState extends State<_AppShell> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {
     final screens = [
-      TodayScreen(onOpenSummary: () => _selectTab(2)),
+      TodayScreen(
+        onOpenSummary: () => _selectTab(2),
+        onOpenSettings: () => _selectTab(3),
+      ),
       const TrendScreen(),
       const SummaryScreen(),
       const SettingsScreen(),

@@ -1,5 +1,5 @@
-import 'package:cut_metrics/domain/activity_level.dart';
 import 'package:cut_metrics/domain/confirm_decision.dart';
+import 'package:cut_metrics/domain/expenditure_config.dart';
 import 'package:cut_metrics/domain/metric_type.dart';
 import 'package:cut_metrics/domain/recommendation_config.dart';
 import 'package:cut_metrics/domain/source_selection.dart';
@@ -10,7 +10,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 ///
 /// Хранит:
 /// - целевой темп, %/нед (слайдер 0.3–1.4);
-/// - уровень активности 1–5;
+/// - профиль расхода Фазы 7 (префикс `energy_`: пол, год рождения, рост,
+///   режим BMR + ручной BMR, коэффициент шагов, параметры силовых, бытовой) —
+///   A.2 спеки Фазы 7;
 /// - дату последнего показанного саммари (пишется при показе; не гейтит
 ///   отображение — саммари пересчитывается при каждом открытии, U3);
 /// - решения по источникам (Фаза 6, B): `src_decision.<metric>.<package>`
@@ -19,11 +21,27 @@ import 'package:shared_preferences/shared_preferences.dart';
 ///   = `auto` | `<package>`;
 /// - режим темы (Фаза 6, D): `theme_mode` = `system` | `light` | `dark`
 ///   (строка, чтобы не тянуть Material-типы в сервис).
+///
+/// Миграция Фазы 7: ключ `activity_level` Фазы 5 перестаёт читаться —
+/// игнорируется без ошибок (автомиграции нет, дефолты — A.2 спеки).
 class SettingsService {
   static const _keyTargetPace = 'target_pace_percent';
-  static const _keyActivityLevel = 'activity_level';
   static const _keyLastSummaryShown = 'last_summary_shown_date';
   static const _keyThemeMode = 'theme_mode';
+
+  // ─── Профиль расхода (Фаза 7, A.2) ──────────────────────────────────────────
+
+  static const _keyEnergySex = 'energy_sex'; // m | f
+  static const _keyEnergyBirthYear = 'energy_birth_year';
+  static const _keyEnergyHeightCm = 'energy_height_cm'; // только ручной ввод
+  static const _keyEnergyBmrMode = 'energy_bmr_mode'; // auto | manual
+  static const _keyEnergyBmrManualKcal = 'energy_bmr_manual_kcal';
+  static const _keyEnergyStepsKcalPerKgPerStep = 'energy_steps_kcal_per_kg_per_step';
+  static const _keyEnergyTrainingFreq = 'energy_training_freq_per_week';
+  static const _keyEnergyTrainingDurationMin = 'energy_training_duration_min';
+  static const _keyEnergyTrainingIntensity = 'energy_training_intensity'; // moderate | heavy
+  static const _keyEnergyTrainingKcalPerSession = 'energy_training_kcal_per_session';
+  static const _keyEnergyHouseholdKcal = 'energy_household_kcal';
 
   static String _decisionKey(MetricType metric) => 'src_decision.${metric.name}';
   static String _selectionKey(MetricType metric) => 'src_selection.${metric.name}';
@@ -39,15 +57,80 @@ class SettingsService {
     await prefs.setDouble(_keyTargetPace, value);
   }
 
-  /// Возвращает сохранённый уровень активности или дефолт [ActivityLevel.level1].
-  Future<ActivityLevel> loadActivityLevel() async {
+  // ─── Профиль расхода (Фаза 7, A.2) ──────────────────────────────────────────
+
+  /// Загружает профиль расхода: отсутствующие ключи — дефолты
+  /// `ExpenditureProfile` (пол/год/рост/ручной BMR/своя сессия = `null`).
+  ///
+  /// [ExpenditureProfile.heightCm] здесь — ТОЛЬКО ручной ввод; HC-префилл
+  /// подставляет VM поверх него.
+  Future<ExpenditureProfile> loadEnergyProfile() async {
     final prefs = await SharedPreferences.getInstance();
-    return ActivityLevel.byNumber(prefs.getInt(_keyActivityLevel) ?? 1);
+    return ExpenditureProfile(
+      sex: switch (prefs.getString(_keyEnergySex)) {
+        'm' => EnergySex.male,
+        'f' => EnergySex.female,
+        _ => null,
+      },
+      birthYear: prefs.getInt(_keyEnergyBirthYear),
+      heightCm: prefs.getDouble(_keyEnergyHeightCm),
+      bmrMode: prefs.getString(_keyEnergyBmrMode) == 'manual' ? BmrMode.manual : BmrMode.auto,
+      bmrManualKcal: prefs.getDouble(_keyEnergyBmrManualKcal),
+      stepsKcalPerKgPerStep:
+          prefs.getDouble(_keyEnergyStepsKcalPerKgPerStep) ??
+          ExpenditureConfig.defaultStepsKcalPerKgPerStep,
+      trainingFreqPerWeek: (prefs.getInt(_keyEnergyTrainingFreq) ?? 0).clamp(0, 7),
+      trainingDurationMin: prefs.getInt(_keyEnergyTrainingDurationMin) ?? 60,
+      trainingIntensity:
+          prefs.getString(_keyEnergyTrainingIntensity) == 'heavy'
+              ? TrainingIntensity.heavy
+              : TrainingIntensity.moderate,
+      trainingKcalPerSession: prefs.getDouble(_keyEnergyTrainingKcalPerSession),
+      householdKcal:
+          prefs.getDouble(_keyEnergyHouseholdKcal) ?? ExpenditureConfig.defaultHouseholdKcal,
+    );
   }
 
-  Future<void> saveActivityLevel(ActivityLevel level) async {
+  /// Сохраняет профиль расхода целиком (применение мгновенное, без «Сохранить»).
+  Future<void> saveEnergyProfile(ExpenditureProfile profile) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt(_keyActivityLevel, level.number);
+    await prefs.setString(_keyEnergySex, switch (profile.sex) {
+      EnergySex.male => 'm',
+      EnergySex.female => 'f',
+      null => '',
+    });
+    if (profile.birthYear != null) {
+      await prefs.setInt(_keyEnergyBirthYear, profile.birthYear!);
+    } else {
+      await prefs.remove(_keyEnergyBirthYear);
+    }
+    if (profile.heightCm != null) {
+      await prefs.setDouble(_keyEnergyHeightCm, profile.heightCm!);
+    } else {
+      await prefs.remove(_keyEnergyHeightCm);
+    }
+    await prefs.setString(
+      _keyEnergyBmrMode,
+      profile.bmrMode == BmrMode.manual ? 'manual' : 'auto',
+    );
+    if (profile.bmrManualKcal != null) {
+      await prefs.setDouble(_keyEnergyBmrManualKcal, profile.bmrManualKcal!);
+    } else {
+      await prefs.remove(_keyEnergyBmrManualKcal);
+    }
+    await prefs.setDouble(_keyEnergyStepsKcalPerKgPerStep, profile.stepsKcalPerKgPerStep);
+    await prefs.setInt(_keyEnergyTrainingFreq, profile.trainingFreqPerWeek.clamp(0, 7));
+    await prefs.setInt(_keyEnergyTrainingDurationMin, profile.trainingDurationMin);
+    await prefs.setString(
+      _keyEnergyTrainingIntensity,
+      profile.trainingIntensity == TrainingIntensity.heavy ? 'heavy' : 'moderate',
+    );
+    if (profile.trainingKcalPerSession != null) {
+      await prefs.setDouble(_keyEnergyTrainingKcalPerSession, profile.trainingKcalPerSession!);
+    } else {
+      await prefs.remove(_keyEnergyTrainingKcalPerSession);
+    }
+    await prefs.setDouble(_keyEnergyHouseholdKcal, profile.householdKcal);
   }
 
   /// Дата последнего показанного саммари (null — ещё не показывали).

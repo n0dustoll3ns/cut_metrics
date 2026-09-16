@@ -1,6 +1,9 @@
 import 'package:cut_metrics/domain/confirm_decision.dart';
 import 'package:cut_metrics/domain/data_source.dart';
 import 'package:cut_metrics/domain/date_key.dart';
+import 'package:cut_metrics/domain/expenditure_config.dart';
+import 'package:cut_metrics/domain/expenditure_day.dart';
+import 'package:cut_metrics/domain/nutrition_day.dart';
 import 'package:cut_metrics/domain/source_selection.dart';
 import 'package:cut_metrics/domain/steps_day.dart';
 import 'package:cut_metrics/domain/weight_day.dart';
@@ -250,7 +253,289 @@ class HealthDataProcessor {
     return result;
   }
 
+  // ─── Питание: резолюция «один источник на день» (Фаза 7, A.6) ──────────────
+  //
+  // Паттерн Фазы 6 A2/C с одним принципиальным отличием: авто-правило НЕ
+  // «максимальная сумма» (для калорий оно систематически выбирало бы самый
+  // завышающий источник). Авто = источник с наибольшим числом дней, имеющих
+  // записи, в загруженном диапазоне; при равенстве — больше записей; при
+  // равенстве — большая сумма калорий.
+
+  /// Резолюция питания для конкретной даты (значение из полного списка точек —
+  /// авто-победитель считается по всему диапазону, A.6).
+  NutritionDay? resolveNutritionForDate(
+    DateKey date,
+    List<HealthDataPoint> nutritionPoints, {
+    Map<String, ConfirmDecision> decisions = const {},
+    SourceSelection selection = const SourceSelection.auto(),
+    void Function(String message)? onWarn,
+  }) {
+    return resolveNutritionForAllDates(
+      nutritionPoints,
+      decisions: decisions,
+      selection: selection,
+      onWarn: onWarn,
+    )[date];
+  }
+
+  /// Резолюция питания для всех дат — один победивший источник на весь
+  /// диапазон (A.6), ценность дня = сумма калорий и макросов только его
+  /// записей (записи внутри дня суммируются — трекеры пишут по пункту/приёму).
+  ///
+  /// Tier 1: наш «Итог дня» всегда побеждает для своей даты. День без записей
+  /// победителя = «нет данных» → не попадает в результат («нет данных ≠ 0»).
+  Map<DateKey, NutritionDay> resolveNutritionForAllDates(
+    List<HealthDataPoint> nutritionPoints, {
+    Map<String, ConfirmDecision> decisions = const {},
+    SourceSelection selection = const SourceSelection.auto(),
+    void Function(String message)? onWarn,
+  }) {
+    final byDate = <DateKey, List<HealthDataPoint>>{};
+    for (final p in nutritionPoints) {
+      byDate.putIfAbsent(DateKey(p.dateFrom), () => []).add(p);
+    }
+
+    // Tier 2-пул на весь диапазон: не наши, не отклонённые, при выбранном
+    // источнике — только его точки (C.2, шаги 1–2).
+    final pool = _tier2Pool(nutritionPoints, decisions, selection);
+    final winner = _autoWinnerNutritionSource(pool);
+
+    final result = <DateKey, NutritionDay>{};
+    for (final entry in byDate.entries) {
+      final date = entry.key;
+      final dayPoints = entry.value;
+
+      // Tier 1: ручной «Итог дня» — всегда побеждает.
+      final ourPoints = dayPoints.where(isOurPoint).toList();
+      if (ourPoints.isNotEmpty) {
+        result[date] = _sumNutrition(date, ourPoints, DataSource.manual, appPackageId);
+        continue;
+      }
+
+      if (winner == null) continue;
+      final winnerPoints =
+          dayPoints.where((p) => sourcePackageOf(p) == winner).toList();
+      if (winnerPoints.isEmpty) continue;
+
+      final daySources = dayPoints.map(sourcePackageOf).toSet();
+      if (daySources.length > 1) {
+        onWarn?.call(
+          'питание $date: несколько источников (${daySources.join(', ')}) — '
+          'взят источник с наибольшим покрытием дней ($winner)',
+        );
+      }
+      result[date] = _sumNutrition(date, winnerPoints, DataSource.external, winner);
+    }
+
+    return result;
+  }
+
+  /// Авто-правило питания (A.6): источник с наибольшим числом дней, имеющих
+  /// записи; при равенстве — больше записей; при равенстве — большая сумма
+  /// калорий. Пул уже отфильтрован (refused/selection) — группируем его как есть.
+  String? _autoWinnerNutritionSource(List<HealthDataPoint> pool) {
+    if (pool.isEmpty) return null;
+
+    final daysBySource = <String, Set<DateKey>>{};
+    final countBySource = <String, int>{};
+    final kcalBySource = <String, double>{};
+    for (final p in pool) {
+      final source = sourcePackageOf(p);
+      daysBySource.putIfAbsent(source, () => {}).add(DateKey(p.dateFrom));
+      countBySource[source] = (countBySource[source] ?? 0) + 1;
+      kcalBySource[source] =
+          (kcalBySource[source] ?? 0) + (_nutritionValue(p).calories ?? 0);
+    }
+
+    var best = daysBySource.keys.first;
+    for (final source in daysBySource.keys) {
+      if (source == best) continue;
+      final bestDays = daysBySource[best]!.length;
+      final days = daysBySource[source]!.length;
+      final better = days > bestDays ||
+          (days == bestDays &&
+              (countBySource[source]! > countBySource[best]! ||
+                  (countBySource[source] == countBySource[best] &&
+                      kcalBySource[source]! > kcalBySource[best]!)));
+      if (better) best = source;
+    }
+    return best;
+  }
+
+  /// Суммирует записи одного источника за день: калории всегда, макрос —
+  /// сумма по записям, где он есть (`null`, если ни одна не отдаёт макрос).
+  NutritionDay _sumNutrition(
+    DateKey date,
+    List<HealthDataPoint> points,
+    DataSource source,
+    String package,
+  ) {
+    var calories = 0.0;
+    double? protein;
+    double? fat;
+    double? carbs;
+    for (final p in points) {
+      final v = _nutritionValue(p);
+      calories += v.calories ?? 0;
+      if (v.protein != null) protein = (protein ?? 0) + v.protein!;
+      if (v.fat != null) fat = (fat ?? 0) + v.fat!;
+      if (v.carbs != null) carbs = (carbs ?? 0) + v.carbs!;
+    }
+    return NutritionDay(
+      date: date,
+      calories: calories,
+      protein: protein,
+      fat: fat,
+      carbs: carbs,
+      source: source,
+      sourcePackage: package,
+    );
+  }
+
+  // ─── BASAL / HEIGHT: чтение HC-значений (Фаза 7, A.4) ──────────────────────
+
+  /// HC `BASAL_ENERGY_BURNED` по дням: instant-записи, значение в ккал/день
+  /// (`HealthDataConverter.kt`: `inKilocaloriesPerDay`), last-wins за день.
+  Map<DateKey, double> resolveBasalForAllDates(List<HealthDataPoint> basalPoints) {
+    final byDate = <DateKey, List<HealthDataPoint>>{};
+    for (final p in basalPoints) {
+      byDate.putIfAbsent(DateKey(p.dateFrom), () => []).add(p);
+    }
+
+    final result = <DateKey, double>{};
+    for (final entry in byDate.entries) {
+      result[entry.key] = _numericValue(_lastByTime(entry.value));
+    }
+    return result;
+  }
+
+  /// HC `HEIGHT` за диапазон: last-wins по времени записи → префилл профиля
+  /// (рост меняется медленно, грузим за 365 дней).
+  double? resolveHeight(List<HealthDataPoint> heightPoints) {
+    if (heightPoints.isEmpty) return null;
+    return _numericValue(_lastByTime(heightPoints));
+  }
+
+  // ─── Расход по дням: каскад BMR + 4 компонента (Фаза 7, A.4–A.5) ───────────
+
+  /// Считает `ExpenditureDay` для каждого дня `[start, end]`, где рассчитан
+  /// BMR (каскад A.4). День без BMR отсутствует в результате — баланс за него
+  /// не считается. Синхронно, из резолвленных кешей, без сырых точек.
+  ///
+  /// Вес «на дату» — последняя резолвленная запись веса ≤ дата (префикс-проход
+  /// по сортированному кешу). День без записи веса: шаги-компонент = 0,
+  /// Mifflin невозможен (BMR из HC/ручной продолжает работать); силовые по MET
+  /// тоже 0 (нужен вес), «своя ккал/сессия» работает без веса.
+  ///
+  /// [profile] — профиль с оверрайдами; рост уже смёржен с HC-префиллом
+  /// вызывающим кодом (VM), здесь hc-префилла нет.
+  Map<DateKey, ExpenditureDay> computeExpenditures({
+    required Map<DateKey, WeightDay> weightCache,
+    required Map<DateKey, StepsDay> stepsCache,
+    required Map<DateKey, double> basalCache,
+    required ExpenditureProfile profile,
+    required DateKey start,
+    required DateKey end,
+  }) {
+    final sortedWeights = weightCache.values.toList()
+      ..sort((a, b) => a.date.compareTo(b.date));
+
+    final result = <DateKey, ExpenditureDay>{};
+    var weightIdx = -1;
+    double? weightOnDate;
+
+    var day = start.value;
+    while (!day.isAfter(end.value)) {
+      final date = DateKey(day);
+
+      while (weightIdx + 1 < sortedWeights.length &&
+          !sortedWeights[weightIdx + 1].date.value.isAfter(date.value)) {
+        weightIdx++;
+        weightOnDate = sortedWeights[weightIdx].weight;
+      }
+
+      final bmr = _bmrForDate(
+        date,
+        basalCache: basalCache,
+        profile: profile,
+        weightKg: weightOnDate,
+      );
+      if (bmr != null) {
+        final steps = stepsCache[date]?.steps ?? 0;
+        final stepsKcal = weightOnDate == null
+            ? 0.0
+            : steps * weightOnDate * profile.stepsKcalPerKgPerStep;
+        result[date] = ExpenditureDay(
+          date: date,
+          bmrKcal: bmr,
+          stepsKcal: stepsKcal,
+          trainingKcal: _trainingKcalPerDay(profile, weightOnDate),
+          householdKcal: profile.householdKcal,
+        );
+      }
+
+      day = day.add(const Duration(days: 1));
+    }
+
+    return result;
+  }
+
+  /// Каскад BMR (A.4): 1) ручной оверрайд (константа на все дни) →
+  /// 2) HC `BASAL_ENERGY_BURNED` (last-wins за день) → 3) Mifflin-St Jeor
+  /// (пол + возраст + рост + вес на дату; возраст = год даты − birth_year) →
+  /// 4) `null` — расход за день «—», баланс не считается.
+  ///
+  /// Ручной режим с незаполненным значением трактуется как авто (защита от
+  /// битых настроек).
+  double? _bmrForDate(
+    DateKey date, {
+    required Map<DateKey, double> basalCache,
+    required ExpenditureProfile profile,
+    required double? weightKg,
+  }) {
+    if (profile.bmrMode == BmrMode.manual &&
+        profile.bmrManualKcal != null &&
+        profile.bmrManualKcal! > 0) {
+      return profile.bmrManualKcal;
+    }
+
+    final hc = basalCache[date];
+    if (hc != null && hc > 0) return hc;
+
+    if (!profile.isCompleteForMifflin) return null;
+    if (weightKg == null || weightKg <= 0) return null;
+    return mifflinStJeor(
+      sex: profile.sex!,
+      weightKg: weightKg,
+      heightCm: profile.heightCm!,
+      ageYears: date.value.year - profile.birthYear!,
+    );
+  }
+
+  /// Силовые (A.3): «своя ккал/сессия» × частота/7, иначе
+  /// `(MET − 1) × вес × часы × частота / 7` (Compendium 3.5/6.0, нетто).
+  double _trainingKcalPerDay(ExpenditureProfile profile, double? weightKg) {
+    final freq = profile.trainingFreqPerWeek;
+    if (freq <= 0) return 0;
+
+    final own = profile.trainingKcalPerSession;
+    if (own != null && own > 0) return own * freq / 7;
+
+    if (weightKg == null || weightKg <= 0) return 0;
+    final met = profile.trainingIntensity == TrainingIntensity.moderate
+        ? ExpenditureConfig.trainingMetModerate
+        : ExpenditureConfig.trainingMetHeavy;
+    final hours = profile.trainingDurationMin / 60;
+    return (met - ExpenditureConfig.trainingNetMetSubtraction) *
+        weightKg *
+        hours *
+        freq /
+        7;
+  }
+
   // ─── Список найденных источников (C.1) ──────────────────────────────────────
+
+
 
   /// Уникальные пакеты внешних источников (наш пакет не входит — Tier 1
   /// всегда побеждает). Строится по сырым точкам сессии, без дополнительных
@@ -329,5 +614,12 @@ class HealthDataProcessor {
     final v = point.value;
     if (v is NumericHealthValue) return v.numericValue.toDouble();
     throw StateError('Expected NumericHealthValue, got ${v.runtimeType}');
+  }
+
+  /// Извлекает питание из [NutritionHealthValue].
+  NutritionHealthValue _nutritionValue(HealthDataPoint point) {
+    final v = point.value;
+    if (v is NutritionHealthValue) return v;
+    throw StateError('Expected NutritionHealthValue, got ${v.runtimeType}');
   }
 }

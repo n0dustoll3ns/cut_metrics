@@ -1,11 +1,11 @@
 import 'dart:async';
 
-import 'package:cut_metrics/domain/activity_level.dart';
 import 'package:cut_metrics/domain/metric_type.dart';
 import 'package:cut_metrics/domain/recommendation_config.dart';
 import 'package:cut_metrics/services/source_names.dart';
 import 'package:cut_metrics/services/theme_controller.dart';
 import 'package:cut_metrics/ui/debug_log_screen.dart';
+import 'package:cut_metrics/ui/energy_settings_blocks.dart';
 import 'package:cut_metrics/ui/source_settings_screen.dart';
 import 'package:cut_metrics/ui/theme.dart';
 import 'package:cut_metrics/viewmodel/dashboard_view_model.dart';
@@ -16,8 +16,9 @@ import 'package:provider/provider.dart';
 ///
 /// Блоки: «Тема» (Фаза 6, D.3 — первый блок, сегмент Системная·Светлая·
 /// Тёмная, дефолт системная), «Источники данных Health Connect» (Фаза 6, C.4 —
-/// строки Вес/Шаги → подэкран выбора источника), целевой темп
-/// (слайдер 0.3–1.4%, шаг 0.1) и уровень активности (1–5).
+/// строки Вес/Шаги/Питание → подэкран выбора источника), целевой темп
+/// (слайдер 0.3–1.4%, шаг 0.1). «Уровень активности» удалён в Фазе 7 —
+/// заменён профилем расхода (параметры силовых).
 /// Без кнопки «Сохранить» — применение мгновенное (аннотация макета).
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -101,46 +102,12 @@ class SettingsScreen extends StatelessWidget {
           ),
           const SizedBox(height: CMSpacing.sp4),
 
-          // ─── Уровень активности ──────────────────────────────────────────────
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(CMSpacing.sp4),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Уровень активности', style: CMFonts.heading(size: 16, color: colors.ink)),
-                  const SizedBox(height: CMSpacing.sp2),
-                  Text(
-                    'Добавка расхода калорий на тренировки. Применяется сразу.',
-                    style: CMFonts.body(size: 13, color: colors.inkMuted),
-                  ),
-                  const SizedBox(height: CMSpacing.sp2),
-                  RadioGroup<ActivityLevel>(
-                    groupValue: vm.activityLevel,
-                    onChanged: (value) {
-                      if (value != null) vm.setActivityLevel(value);
-                    },
-                    child: Column(
-                      children: [
-                        for (final level in ActivityLevel.values)
-                          ListTile(
-                            contentPadding: EdgeInsets.zero,
-                            dense: true,
-                            title: Text(level.title, style: CMFonts.label(size: 15, color: colors.ink)),
-                            subtitle: Text(
-                              level.description,
-                              style: CMFonts.body(size: 13, color: colors.inkMuted),
-                            ),
-                            trailing: Radio<ActivityLevel>(value: level),
-                            onTap: () => vm.setActivityLevel(level),
-                          ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
+          // ─── Профиль расхода (Фаза 7, B.4) ─────────────────────────────────
+          const EnergyProfileBlock(),
+          const SizedBox(height: CMSpacing.sp4),
+
+          // ─── Расход калорий (Фаза 7, B.4) ──────────────────────────────────
+          const ExpenditureBlock(),
           const SizedBox(height: CMSpacing.sp8),
           const _VersionLabel(),
         ],
@@ -221,7 +188,11 @@ class _SourcesBlock extends StatelessWidget {
                 contentPadding: EdgeInsets.zero,
                 dense: true,
                 title: Text(
-                  metric == MetricType.weight ? 'Вес' : 'Шаги',
+                  switch (metric) {
+                    MetricType.weight => 'Вес',
+                    MetricType.steps => 'Шаги',
+                    MetricType.nutrition => 'Питание',
+                  },
                   style: CMFonts.label(size: 15, color: colors.ink),
                 ),
                 trailing: Row(

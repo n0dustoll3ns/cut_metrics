@@ -51,10 +51,10 @@ class HealthPermissionGroup {
 
 /// Группы типов по метрикам — по одной на каждую метрику здоровья.
 ///
-/// Порядок групп задаёт порядок в [kHealthDataTypes]: ровно те же 12 типов
-/// (13 → 12 после исключения iOS-only `SLEEP_IN_BED`, 2026-08-28).
-/// Правило «все обязаны быть выданы» не меняется — разделяются только
-/// тихие проверки и логи.
+/// Порядок групп задаёт порядок в [kHealthDataTypes]: 14 типов (12 → 14 в
+/// Фазе 7: NUTRITION READ→READ_WRITE для ручного «Итог дня», +BASAL для
+/// каскада BMR, +HEIGHT для префилла профиля). Правило «все обязаны быть
+/// выданы» не меняется — разделяются только тихие проверки и логи.
 const List<HealthPermissionGroup> kPermissionGroups = [
   HealthPermissionGroup(
     label: 'Вес',
@@ -84,7 +84,18 @@ const List<HealthPermissionGroup> kPermissionGroups = [
   HealthPermissionGroup(
     label: 'Питание',
     types: [HealthDataType.NUTRITION],
-    permissions: [HealthDataAccess.READ], // read-only, фича вне скоупа
+    // Фаза 7: READ_WRITE — ручной «Итог дня» пишется в HC (writeMeal).
+    permissions: [HealthDataAccess.READ_WRITE],
+  ),
+  HealthPermissionGroup(
+    label: 'Базальный метаболизм',
+    types: [HealthDataType.BASAL_ENERGY_BURNED],
+    permissions: [HealthDataAccess.READ], // каскад BMR, A.4
+  ),
+  HealthPermissionGroup(
+    label: 'Рост',
+    types: [HealthDataType.HEIGHT],
+    permissions: [HealthDataAccess.READ], // префилл профиля расхода, A.2
   ),
 ];
 

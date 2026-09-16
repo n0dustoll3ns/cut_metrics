@@ -1,5 +1,5 @@
-import 'package:cut_metrics/domain/activity_level.dart';
 import 'package:cut_metrics/domain/confirm_decision.dart';
+import 'package:cut_metrics/domain/expenditure_config.dart';
 import 'package:cut_metrics/domain/metric_type.dart';
 import 'package:cut_metrics/domain/recommendation_config.dart';
 import 'package:cut_metrics/domain/source_selection.dart';
@@ -23,8 +23,8 @@ void main() {
           RecommendationConfig.defaultTargetPacePercent);
     });
 
-    test('activityLevel = level1', () async {
-      expect(await service.loadActivityLevel(), ActivityLevel.level1);
+    test('Фаза 7: профиль расхода = дефолты ExpenditureProfile', () async {
+      expect(await service.loadEnergyProfile(), const ExpenditureProfile());
     });
 
     test('lastSummaryShownDate = null (ни разу не показывали)', () async {
@@ -53,9 +53,37 @@ void main() {
       expect(await service.loadTargetPace(), 1.2);
     });
 
-    test('activityLevel', () async {
-      await service.saveActivityLevel(ActivityLevel.level4);
-      expect(await service.loadActivityLevel(), ActivityLevel.level4);
+    test('Фаза 7: профиль расхода roundtrip (все поля)', () async {
+      const profile = ExpenditureProfile(
+        sex: EnergySex.female,
+        birthYear: 1992,
+        heightCm: 165,
+        bmrMode: BmrMode.manual,
+        bmrManualKcal: 1420,
+        stepsKcalPerKgPerStep: 0.00045,
+        trainingFreqPerWeek: 3,
+        trainingDurationMin: 75,
+        trainingIntensity: TrainingIntensity.heavy,
+        trainingKcalPerSession: 250,
+        householdKcal: 180,
+      );
+      await service.saveEnergyProfile(profile);
+      expect(await service.loadEnergyProfile(), profile);
+
+      // Сброс опциональных полей: null удаляет ключ, остальные — дефолты.
+      const cleared = ExpenditureProfile(
+        sex: EnergySex.female,
+        birthYear: 1992,
+      );
+      await service.saveEnergyProfile(cleared);
+      expect(
+        await service.loadEnergyProfile(),
+        cleared.copyWith(
+          stepsKcalPerKgPerStep: ExpenditureConfig.defaultStepsKcalPerKgPerStep,
+          trainingDurationMin: 60,
+          householdKcal: ExpenditureConfig.defaultHouseholdKcal,
+        ),
+      );
     });
 
     test('lastSummaryShownDate', () async {

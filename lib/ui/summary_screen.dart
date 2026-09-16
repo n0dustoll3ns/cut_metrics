@@ -1,5 +1,7 @@
 import 'package:cut_metrics/domain/recommendation_engine.dart';
 import 'package:cut_metrics/domain/recommendation_config.dart';
+import 'package:cut_metrics/domain/weekly_energy_stats.dart';
+import 'package:cut_metrics/ui/format.dart';
 import 'package:cut_metrics/ui/months.dart';
 import 'package:cut_metrics/ui/theme.dart';
 import 'package:cut_metrics/ui/today_screen.dart';
@@ -31,8 +33,13 @@ class SummaryScreen extends StatelessWidget {
         children: [
           if (summary == null)
             _NotReady()
-          else
+          else ...[
             _SummaryBody(summary: summary),
+            // Энергобаланс недели (Фаза 7, C.3): после основной карточки,
+            // скрывается при <2 дней с приходом за окно.
+            if (vm.computeWeeklyEnergyStats() case final stats?)
+              _EnergyWeekCard(stats: stats),
+          ],
           if (vm.error != null) ...[
             const SizedBox(height: CMSpacing.sp4),
             ErrorBox(message: vm.error!),
@@ -40,6 +47,113 @@ class SummaryScreen extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+/// Карточка «Энергобаланс недели» (Фаза 7, C.3 / макет Саммари): 4 строки
+/// label/value — средний приход (с покрытием «по N из 6»), средний расход,
+/// средний баланс (дефицит — steady) и ожидаемый темп «≈ −N кг/нед».
+class _EnergyWeekCard extends StatelessWidget {
+  final WeeklyEnergyStats stats;
+
+  const _EnergyWeekCard({required this.stats});
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.cmColors;
+    return Padding(
+      padding: const EdgeInsets.only(top: CMSpacing.sp4),
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.all(CMSpacing.sp4),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Энергобаланс недели',
+                  style: CMFonts.caption(size: 11, color: colors.noise)),
+              const SizedBox(height: CMSpacing.sp3),
+              _row(
+                label: 'Средний приход',
+                value: formatThousands(stats.avgIntake),
+                unit: 'ккал',
+                note: 'по ${stats.intakeDays} из 6 дней',
+              ),
+              _row(
+                label: 'Средний расход',
+                value: stats.avgExpenditure == null
+                    ? '—'
+                    : formatThousands(stats.avgExpenditure!),
+                unit: 'ккал',
+              ),
+              _row(
+                label: 'Средний баланс',
+                value: stats.avgBalance == null
+                    ? '—'
+                    : formatSignedKcal(stats.avgBalance!),
+                unit: 'ккал/день',
+                valueColor: stats.avgBalance != null && stats.avgBalance! < 0
+                    ? colors.steady
+                    : colors.alert,
+              ),
+              _row(
+                label: 'Ожидаемый темп',
+                value: stats.expectedKgPerWeek == null
+                    ? '—'
+                    : '≈ ${_formatKgPerWeek(stats.expectedKgPerWeek!)}'.replaceAll(' ккал', ''),
+                unit: 'кг/нед',
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// «−0.48» / «+0.12» кг/нед (со знаком, 2 знака — макет Саммари).
+  static String _formatKgPerWeek(double v) {
+    final sign = v < 0 ? '−' : '+';
+    return '$sign${v.abs().toStringAsFixed(2)}';
+  }
+
+  Widget _row({
+    required String label,
+    required String value,
+    required String unit,
+    String? note,
+    Color? valueColor,
+  }) {
+    return Builder(builder: (context) {
+      final colors = context.cmColors;
+      return Padding(
+      padding: const EdgeInsets.symmetric(vertical: CMSpacing.sp1),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.baseline,
+        textBaseline: TextBaseline.alphabetic,
+        children: [
+          Expanded(
+            child: Text(label, style: CMFonts.body(size: 14, color: colors.inkMuted)),
+          ),
+          Text.rich(
+            TextSpan(
+              text: value,
+              style: CMFonts.metric(size: 17, color: valueColor ?? colors.ink),
+              children: [
+                if (note != null)
+                  TextSpan(
+                    text: '  $note',
+                    style: CMFonts.caption(size: 10, color: colors.noise),
+                  ) else
+                    TextSpan(
+                      text: ' $unit',
+                      style: CMFonts.caption(size: 10, color: colors.inkMuted),
+                    ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+    });
   }
 }
 

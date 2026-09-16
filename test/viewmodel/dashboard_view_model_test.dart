@@ -1,7 +1,7 @@
-import 'package:cut_metrics/domain/activity_level.dart';
 import 'package:cut_metrics/domain/confirm_decision.dart';
 import 'package:cut_metrics/domain/data_source.dart';
 import 'package:cut_metrics/domain/date_key.dart';
+import 'package:cut_metrics/domain/expenditure_config.dart';
 import 'package:cut_metrics/domain/health_data_processor.dart';
 import 'package:cut_metrics/domain/metric_type.dart';
 import 'package:cut_metrics/domain/recommendation_engine.dart';
@@ -193,14 +193,15 @@ void main() {
       );
       await vm.load();
 
-      // Вес + шаги + сон = 3 батчевых чтения, aggregate-API удалены.
-      expect(repo.fetchRawDataCallCount, 3);
+      // Вес + шаги + сон + питание + BASAL + рост = 6 батчевых чтений
+      // (Фаза 7 добавила NUTRITION/BASAL/HEIGHT), aggregate-API удалены.
+      expect(repo.fetchRawDataCallCount, 6);
 
       // Шаги за сегодня = 5000 (последний день) из сырых точек.
       expect(vm.getResolvedValue(DateKey(now), MetricType.steps)!.value, 5000);
     });
 
-    test('load() makes exactly 3 fetchRawData calls (weight + steps + sleep)', () async {
+    test('load() makes exactly 6 fetchRawData calls (+ nutrition/basal/height)', () async {
       await setupViewModel(externalWeights: [80, 79, 78]);
 
       repo.fetchRawDataCallCount = 0;
@@ -211,8 +212,8 @@ void main() {
       );
       await vm.load();
 
-      // Один вызов для WEIGHT + один для STEPS + один для SLEEP = 3 (Фаза 5).
-      expect(repo.fetchRawDataCallCount, 3);
+      // WEIGHT + STEPS + SLEEP + NUTRITION + BASAL + HEIGHT = 6 (Фаза 5 + 7).
+      expect(repo.fetchRawDataCallCount, 6);
     });
   });
 
@@ -263,7 +264,7 @@ void main() {
         autoLoad: false,
       );
       await vm2.load();
-      expect(repo2.fetchRawDataCallCount, 3);
+      expect(repo2.fetchRawDataCallCount, 6);
 
       // Выбор источника — только из памяти, без новых запросов.
       final callsBefore = repo2.fetchRawDataCallCount;
@@ -373,12 +374,12 @@ void main() {
       expect(vm.avgSleepHours, closeTo(8, 1e-9));
     });
 
-    test('avgSteps counts days with records', () async {
+    test('avgSteps counts days with records, «сегодня» исключён (A.8)', () async {
       await setupViewModel(externalWeights: [80]);
 
       final now = DateTime.now();
-      repo.addExternalSteps(now, 10000);
-      repo.addExternalSteps(now.subtract(const Duration(days: 1)), 6000);
+      repo.addExternalSteps(now.subtract(const Duration(days: 1)), 10000);
+      repo.addExternalSteps(now.subtract(const Duration(days: 2)), 6000);
       vm = DashboardViewModel(
         repository: repo,
         processor: processor,
@@ -389,27 +390,57 @@ void main() {
       expect(vm.avgSteps, 8000);
     });
 
-    test('avgCaloriesPerDay is null without any weight', () async {
-      await setupViewModel();
-      expect(vm.avgCaloriesPerDay, isNull);
+    test('avgExpenditure is null when BMR not resolvable (no profile/basal)', () async {
+      await setupViewModel(); // веса нет, профиль пуст, BASAL нет
+      expect(vm.avgExpenditure, isNull);
+      expect(vm.needsProfileHint, isTrue);
     });
 
-    test('avgCaloriesPerDay = steps kcal + level additive', () async {
-      await setupViewModel(externalWeights: [80]); // вес 80 кг
-      await vm.setActivityLevel(ActivityLevel.level1);
+    test('avgExpenditure = Mifflin BMR + steps + household (profile set)', () async {
+      const profile = ExpenditureProfile(
+        sex: EnergySex.male,
+        birthYear: 1990,
+        heightCm: 178,
+      );
+      await setupViewModel(externalWeights: [80]); // вес 80 кг за сегодня
+      await vm.setEnergyProfile(profile);
 
       final now = DateTime.now();
-      repo.addExternalSteps(now, 10000); // 400 ккал за сегодня
+      repo.addExternalSteps(now.subtract(const Duration(days: 1)), 10000);
       vm = DashboardViewModel(
         repository: repo,
         processor: processor,
         autoLoad: false,
       );
       await vm.load();
-      await vm.setActivityLevel(ActivityLevel.level1);
+      await vm.setEnergyProfile(profile);
 
-      // 30 дней диапазона, шаги только за 1 день: (400 + 0×29) / 30 ≈ 13.33.
-      expect(vm.avgCaloriesPerDay, closeTo(400 / 30, 1e-6));
+      // Mifflin (80 кг, 178 см, возраст = год − 1990): 1737.5 при 2026 году.
+      final age = DateTime.now().year - 1990;
+      final bmr = 10 * 80 + 6.25 * 178 - 5 * age + 5;
+      // Расход есть у дней с весом «на дату» (только сегодня, вес один за
+      // сегодня) → в среднем (без «сегодня») дней с расходом нет → null.
+      expect(vm.expenditureFor(DateKey(now)), isNotNull);
+      expect(vm.avgExpenditure, isNull);
+
+      // Добавляем вес и за вчера — расход за вчера появляется в среднем.
+      repo.addExternalWeight(now.subtract(const Duration(days: 1)), 80);
+      vm = DashboardViewModel(
+        repository: repo,
+        processor: processor,
+        autoLoad: false,
+      );
+      await vm.load();
+      await vm.setEnergyProfile(profile);
+
+      final yesterday = DateKey(now.subtract(const Duration(days: 1)));
+      final exp = vm.expenditureFor(yesterday)!;
+      expect(exp.bmrKcal, closeTo(bmr, 1e-6));
+      expect(exp.stepsKcal, closeTo(10000 * 80 * 0.0004, 1e-6)); // 320
+      expect(exp.trainingKcal, 0); // частота 0
+      expect(exp.householdKcal, 200);
+      // Средний расход = расход за вчера (единственный день без «сегодня»).
+      expect(vm.avgExpenditure, closeTo(exp.total, 1e-6));
     });
 
     test('smoothedWeightToday returns last EMA point', () async {
@@ -454,8 +485,8 @@ void main() {
 
       expect(vm.permissionsDenied, isFalse);
       expect(vm.error, isNull);
-      // Вес + шаги + сон — три батчевых чтения в load().
-      expect(repo.fetchRawDataCallCount, 3);
+      // Вес + шаги + сон + питание + BASAL + рост — шесть батчевых чтений.
+      expect(repo.fetchRawDataCallCount, 6);
     });
 
     test('recheckPermissions reloads data after user grants in settings', () async {
@@ -479,7 +510,7 @@ void main() {
 
       expect(vm.permissionsDenied, isFalse);
       expect(vm.error, isNull);
-      expect(repo.fetchRawDataCallCount, 3);
+      expect(repo.fetchRawDataCallCount, 6);
     });
 
     test('recheckPermissions does nothing while still denied', () async {
@@ -498,6 +529,165 @@ void main() {
 
       expect(vm.permissionsDenied, isTrue);
       expect(repo.fetchRawDataCallCount, 0);
+    });
+  });
+
+  // ==========================================================================
+  // ФАЗА 7 — питание, расход, энергостаты
+  // ==========================================================================
+
+  group('Фаза 7: питание и расход', () {
+    test('load() резолвит питание/BASAL/рост в кеши (HC-префилл роста)', () async {
+      repo = MockHealthRepository();
+      processor = HealthDataProcessor(appPackageId: kAppPackageId);
+      final now = DateTime.now();
+      repo.addExternalWeight(now, 80);
+      repo.addExternalNutrition(now.subtract(const Duration(days: 1)), calories: 2000);
+      repo.addExternalNutrition(now.subtract(const Duration(days: 2)), calories: 2200);
+      repo.addBasal(now.subtract(const Duration(days: 1)), 1670);
+      repo.addHeight(now.subtract(const Duration(days: 100)), 178);
+
+      vm = DashboardViewModel(repository: repo, processor: processor, autoLoad: false);
+      await vm.load();
+
+      final yesterday = DateKey(now.subtract(const Duration(days: 1)));
+      expect(vm.nutritionFor(yesterday)!.calories, 2000);
+      expect(vm.nutritionFor(yesterday)!.source, DataSource.external);
+      expect(vm.expenditureFor(yesterday)!.bmrKcal, 1670); // каскад: HC BASAL
+      expect(vm.effectiveHeightCm, 178); // префилл из HC
+      expect(vm.getResolvedValue(yesterday, MetricType.nutrition)!.value, 2000);
+    });
+
+    test('submitManualNutrition: итог дня пишется и побеждает (bool)', () async {
+      repo = MockHealthRepository();
+      processor = HealthDataProcessor(appPackageId: kAppPackageId);
+      final now = DateTime.now();
+      repo.addExternalNutrition(now, calories: 2500);
+      vm = DashboardViewModel(repository: repo, processor: processor, autoLoad: false);
+      await vm.load();
+
+      final today = DateKey(now);
+      expect(vm.nutritionFor(today)!.source, DataSource.external);
+      final ok = await vm.submitManualNutrition(
+        today,
+        calories: 2100,
+        protein: 150,
+        fat: 70,
+        carbs: 220,
+      );
+      expect(ok, isTrue);
+      final n = vm.nutritionFor(today)!;
+      expect(n.source, DataSource.manual);
+      expect(n.calories, 2100);
+      expect(n.protein, 150);
+    });
+
+    test('cancelManualNutrition: откат на внешние данные', () async {
+      repo = MockHealthRepository();
+      processor = HealthDataProcessor(appPackageId: kAppPackageId);
+      final now = DateTime.now();
+      repo.addExternalNutrition(now, calories: 2500);
+      vm = DashboardViewModel(repository: repo, processor: processor, autoLoad: false);
+      await vm.load();
+
+      final today = DateKey(now);
+      await vm.submitManualNutrition(today, calories: 2100);
+      expect(await vm.cancelManualNutrition(today), isTrue);
+      expect(vm.nutritionFor(today)!.source, DataSource.external);
+      expect(vm.nutritionFor(today)!.calories, 2500);
+    });
+
+    test('перерезолюция питания из сырых точек (refuse, без похода в HC)', () async {
+      repo = MockHealthRepository();
+      processor = HealthDataProcessor(appPackageId: kAppPackageId);
+      final now = DateTime.now();
+      repo.addExternalNutrition(
+        now.subtract(const Duration(days: 1)),
+        calories: 2000,
+        sourcePackage: 'com.myfitnesspal.android',
+      );
+      vm = DashboardViewModel(repository: repo, processor: processor, autoLoad: false);
+      await vm.load();
+
+      final calls = repo.fetchRawDataCallCount;
+      await vm.refuseSource(MetricType.nutrition, 'com.myfitnesspal.android');
+      expect(repo.fetchRawDataCallCount, calls); // обращений к репозиторию нет
+      expect(vm.nutritionFor(DateKey(now.subtract(const Duration(days: 1)))), isNull);
+      expect(
+        vm.isSourceRefused(DateKey(now.subtract(const Duration(days: 1))), MetricType.nutrition),
+        isTrue,
+      );
+    });
+
+    test('avgCaloriesIn/avgMacros — по дням с приходом, «сегодня» исключён', () async {
+      repo = MockHealthRepository();
+      processor = HealthDataProcessor(appPackageId: kAppPackageId);
+      final now = DateTime.now();
+      repo.addExternalNutrition(now.subtract(const Duration(days: 1)),
+          calories: 2000, protein: 100, fat: 50, carbs: 200);
+      repo.addExternalNutrition(now.subtract(const Duration(days: 2)),
+          calories: 2400, protein: 140, fat: 70, carbs: 220);
+      repo.addExternalNutrition(now, calories: 9999); // сегодня — не в среднем
+      vm = DashboardViewModel(repository: repo, processor: processor, autoLoad: false);
+      await vm.load();
+
+      expect(vm.avgCaloriesIn, 2200);
+      expect(vm.avgMacros!.protein, 120);
+      expect(vm.avgMacros!.fat, 60);
+      expect(vm.avgMacros!.carbs, 210);
+      expect(vm.intakeDaysInRange, 2);
+    });
+
+    test('balanceData: дни только с приходом И расходом; цель −N по весу', () async {
+      repo = MockHealthRepository();
+      processor = HealthDataProcessor(appPackageId: kAppPackageId);
+      final now = DateTime.now();
+      repo.addExternalWeight(now.subtract(const Duration(days: 2)), 70);
+      repo.addExternalNutrition(now.subtract(const Duration(days: 1)), calories: 2000);
+      repo.addExternalNutrition(now.subtract(const Duration(days: 2)), calories: 2600);
+      repo.addBasal(now.subtract(const Duration(days: 1)), 1800);
+      repo.addBasal(now.subtract(const Duration(days: 2)), 1800);
+      vm = DashboardViewModel(repository: repo, processor: processor, autoLoad: false);
+      await vm.load();
+
+      final balances = vm.balanceData;
+      expect(balances.length, 2);
+      final day2 = balances.firstWhere(
+        (b) => b.date == DateKey(now.subtract(const Duration(days: 2))),
+      );
+      // 2600 − (1800 + 0 шагов + 0 силовых + 200 быт) = 600 (профицит).
+      expect(day2.balance, 600);
+      // Цель: 70 × 0.8% × 11 = 616.
+      expect(vm.targetDeficitKcalPerDay, closeTo(616, 1e-9));
+    });
+
+    test('computeWeeklyEnergyStats: окно без «сегодня», null при <2 дней', () async {
+      repo = MockHealthRepository();
+      processor = HealthDataProcessor(appPackageId: kAppPackageId);
+      final now = DateTime.now();
+      repo.addExternalWeight(now.subtract(const Duration(days: 3)), 70);
+      repo.addExternalNutrition(now.subtract(const Duration(days: 1)), calories: 2000);
+      repo.addExternalNutrition(now.subtract(const Duration(days: 2)), calories: 2400);
+      repo.addBasal(now.subtract(const Duration(days: 1)), 1800);
+      repo.addBasal(now.subtract(const Duration(days: 2)), 1800);
+      vm = DashboardViewModel(repository: repo, processor: processor, autoLoad: false);
+      await vm.load();
+
+      final stats = vm.computeWeeklyEnergyStats();
+      expect(stats, isNotNull);
+      expect(stats!.intakeDays, 2);
+      expect(stats.avgIntake, 2200);
+      expect(stats.avgExpenditure, 2000); // 1800 + 200 быт, шагов нет
+      expect(stats.avgBalance, 200);
+      expect(stats.expectedKgPerWeek, closeTo(200 * 7 / 7700, 1e-9));
+
+      // Один день с приходом → null.
+      repo = MockHealthRepository();
+      processor = HealthDataProcessor(appPackageId: kAppPackageId);
+      repo.addExternalNutrition(now.subtract(const Duration(days: 1)), calories: 2000);
+      vm = DashboardViewModel(repository: repo, processor: processor, autoLoad: false);
+      await vm.load();
+      expect(vm.computeWeeklyEnergyStats(), isNull);
     });
   });
 }

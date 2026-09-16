@@ -153,6 +153,109 @@ class HealthRepositoryImpl implements HealthRepository {
     );
   }
 
+  // ─── Tier 1: ручной «Итог дня» (Фаза 7, A.7) ────────────────────────────────
+
+  @override
+  Future<bool> hasManualNutrition(DateKey date) async {
+    final points = await health.getHealthDataFromTypes(
+      startTime: date.startOfDay,
+      endTime: date.endOfDay,
+      types: const [HealthDataType.NUTRITION],
+    );
+    // Наш пакет — по sourceName (A0: sourceId на Android пуст).
+    final has = points.any((p) => HealthDataProcessor.sourcePackageOf(p) == appPackageId);
+    DebugLog.instance.log(
+      'repo',
+      'hasManualNutrition $date NUTRITION: ${points.length} точек, '
+      'наш пакет=$appPackageId → $has',
+    );
+    return has;
+  }
+
+  @override
+  Future<void> writeManualNutrition(
+    DateKey date, {
+    required double calories,
+    double? protein,
+    double? fat,
+    double? carbs,
+  }) async {
+    DebugLog.instance.log(
+      'repo',
+      'writeManualNutrition $date = $calories ккал '
+      '(Б ${protein?.toStringAsFixed(0) ?? '—'} / Ж ${fat?.toStringAsFixed(0) ?? '—'} / '
+      'У ${carbs?.toStringAsFixed(0) ?? '—'})…',
+    );
+
+    // Идемпотентность: сначала удаляем наши NutritionRecord за дату —
+    // повторный ввод «Итога дня» не плодит дубли (техриск R5). `delete`
+    // платформенно ограничен записями нашего приложения.
+    final deleted = await health.delete(
+      type: HealthDataType.NUTRITION,
+      startTime: date.startOfDay,
+      endTime: date.endOfDay,
+    );
+    if (!deleted) {
+      // Как правило «своих записей нет» — не ошибка (log warn, не throw),
+      // тот же паттерн, что в writeManualRecord (A1.1).
+      DebugLog.instance.warn(
+        'repo',
+        'writeManualNutrition $date: delete перед записью вернул false '
+        '(своих записей нет?)',
+      );
+    }
+
+    final success = await health.writeMeal(
+      mealType: MealType.UNKNOWN,
+      startTime: date.startOfDay,
+      endTime: date.endOfDay,
+      // Обязательно непустое имя — HC требует имя у NutritionRecord.
+      name: 'Итог дня',
+      caloriesConsumed: calories,
+      protein: protein,
+      fatTotal: fat,
+      carbohydrates: carbs,
+      recordingMethod: RecordingMethod.manual,
+    );
+
+    if (!success) {
+      DebugLog.instance.error(
+        'repo',
+        'writeManualNutrition $date = $calories ккал: writeMeal вернул false',
+      );
+      throw const HealthRepositoryException(
+        'Не удалось записать «Итог дня» в Health Connect (writeMeal вернул false)',
+      );
+    }
+    DebugLog.instance.log(
+      'repo',
+      'writeManualNutrition $date = $calories ккал: OK',
+    );
+  }
+
+  @override
+  Future<void> deleteManualNutrition(DateKey date) async {
+    DebugLog.instance.log('repo', 'deleteManualNutrition $date…');
+
+    final success = await health.delete(
+      type: HealthDataType.NUTRITION,
+      startTime: date.startOfDay,
+      endTime: date.endOfDay,
+    );
+
+    if (!success) {
+      DebugLog.instance.error(
+        'repo',
+        'deleteManualNutrition $date: delete вернул false '
+        '(нет своих записей на дату или платформенное ограничение?)',
+      );
+      throw const HealthRepositoryException(
+        'Не удалось удалить «Итог дня» из Health Connect (delete вернул false)',
+      );
+    }
+    DebugLog.instance.log('repo', 'deleteManualNutrition $date: OK');
+  }
+
   // ─── Tier 2: внешние источники ──────────────────────────────────────────────
 
   @override
@@ -199,5 +302,8 @@ class HealthRepositoryImpl implements HealthRepository {
   HealthDataType _toHealthDataType(MetricType type) => switch (type) {
     MetricType.weight => HealthDataType.WEIGHT,
     MetricType.steps => HealthDataType.STEPS,
+    // Питание не ходит через writeManualRecord (у него отдельный контракт
+    // writeManualNutrition с макросами) — кейс для полноты switch.
+    MetricType.nutrition => HealthDataType.NUTRITION,
   };
 }

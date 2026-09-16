@@ -1,4 +1,5 @@
 import 'package:cut_metrics/domain/weight_day.dart';
+import 'package:cut_metrics/ui/chart_date_axis.dart';
 import 'package:cut_metrics/ui/months.dart';
 import 'package:cut_metrics/ui/theme.dart';
 import 'package:fl_chart/fl_chart.dart';
@@ -44,7 +45,10 @@ class WeightChart extends StatelessWidget {
   Widget _buildChart(BuildContext context) {
     if (weightData.isEmpty) return const SizedBox.shrink();
     final colors = context.cmColors;
-    final labels = _dateLabels();
+    final axis = computeChartDateAxis(
+      weightData.map((e) => e.date.value).toList(),
+    );
+    final labels = axis.labels;
 
     return LineChart(
       LineChartData(
@@ -58,10 +62,7 @@ class WeightChart extends StatelessWidget {
           // Вертикальная линия — только на границе месяца (A3), остальные
           // индексы прозрачны.
           getDrawingVerticalLine: (value) {
-            final idx = value.toInt();
-            final isMonthBoundary = idx >= 0 &&
-                idx < weightData.length &&
-                weightData[idx].date.value.day == 1;
+            final isMonthBoundary = axis.monthBoundaries.contains(value.toInt());
             return FlLine(
               color: isMonthBoundary ? colors.outline : Colors.transparent,
               strokeWidth: 1,
@@ -89,7 +90,7 @@ class WeightChart extends StatelessWidget {
                 final idx = value.toInt();
                 final label = labels[idx];
                 if (label == null) return const SizedBox.shrink();
-                final isMonthBoundary = weightData[idx].date.value.day == 1;
+                final isMonthBoundary = axis.monthBoundaries.contains(idx);
                 return Padding(
                   padding: const EdgeInsets.only(top: CMSpacing.sp1),
                   child: Text(
@@ -168,41 +169,7 @@ class WeightChart extends StatelessWidget {
     );
   }
 
-  /// Метки нижней оси: индекс → текст (A3).
-  ///
-  /// 1. Базовый набор: каждые `ceil(n / 7)` индексов (≤8 меток на ширину).
-  /// 2. Граница месяца (день 1) — метка «1 АВГ» всегда; ближайшая обычная
-  ///    метка вытесняется, чтобы соседние надписи не слипались.
-  Map<int, String> _dateLabels() {
-    final n = weightData.length;
-    if (n == 0) return {};
-
-    final step = (n / 7).ceil().clamp(1, n);
-    final regular = <int>{};
-    for (var i = 0; i < n; i += step) {
-      regular.add(i);
-    }
-
-    final labels = <int, String>{};
-    for (var i = 0; i < n; i++) {
-      final d = weightData[i].date.value;
-      if (d.day != 1) continue;
-      labels[i] = '1 ${kMonthsShort[d.month - 1].toUpperCase()}';
-      // Вытесняем ближайшую обычную метку (предыдущую, иначе следующую).
-      if (regular.contains(i - 1)) {
-        regular.remove(i - 1);
-      } else if (regular.contains(i + 1)) {
-        regular.remove(i + 1);
-      }
-      regular.remove(i);
-    }
-    for (final i in regular) {
-      if (!labels.containsKey(i)) {
-        labels[i] = '${weightData[i].date.value.day}';
-      }
-    }
-    return labels;
-  }
+  /// Метки нижней оси — общий хелпер Фазы 6/7 (`chart_date_axis.dart`).
 
   double get _gridInterval {
     final range = _maxY - _minY;

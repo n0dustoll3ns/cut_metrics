@@ -44,10 +44,29 @@
 > тёмный фрейм с питанием. Решения 2026-09-11 внесены в спеку (§0 пп. 13–14: динамическая
 > дельта рекомендаций; хранение коэффициента шагов, UI «ккал/1000 шагов»). Задание на
 > реализацию: `docs/phase7_implementation_task.md`.
+>
+> **Фаза 7 «Питание и энергобаланс» — РЕАЛИЗОВАНА (2026-09-15)** по заданию
+> `docs/phase7_implementation_task.md` (части A → B → C): приход КБЖУ из HC
+> (NUTRITION, резолюция «один источник на день» по покрытию дней — НЕ максимальная
+> сумма) + ручной «Итог дня» одной записью (`writeMeal`, Tier 1, delete-then-write);
+> расход собственной моделью: BMR (ручной → HC BASAL → Mifflin-St Jeor) + шаги (нетто
+> 0.0004 ккал/кг/шаг) + силовые (Compendium 3.5/6.0 MET, нетто, или своя ккал/сессия)
+> + бытовой 200; график энергобаланса A2 на Тренде (столбцы ±, линия цели-пунктир),
+> карточка «Питание» на Сегодня (7 состояний), РАСХОД/ПРИХОД/Б/Ж/У с покрытием на
+> Тренде, энергоблок саммари, RecommendationEngine v2 с конкретными ккал и динамической
+> дельтой (коридор 50–300, округление до 10); «Уровень активности» удалён, вместо него
+> «Профиль расхода» + «Расход калорий» (инлайн-редакторы); разрешения 12 → 14 типов
+> (NUTRITION READ_WRITE, +HEIGHT, +BASAL_ENERGY_BURNED); `TOTAL_CALORIES_BURNED`
+> сознательно не используется; «сегодня» исключён из средних. Пакет `health` остался
+> 13.3.1 (writeMeal/конвертеры идентичны 13.3.2 — проверено по исходникам pub-cache).
+> Решения пользователя 2026-09-14: кнопка саммари после карточек; инлайн-редакторы;
+> числа v2 «как есть» (округляется только дельта); Б/Ж/У по дням с приходом (нет
+> макроса = 0). Тесты: 184 зелёных, analyze 4 info / 0 errors (= базлайн); APK собран.
+> Техриски R1–R5 — на проверку на устройстве. Рефиды/адаптивный TDEE → Фаза 8.
 
 ---
 
-## Текущая структура (Фазы 1–6, актуальная)
+## Текущая структура (Фазы 1–7, актуальная)
 
 ```
 lib/
@@ -59,50 +78,64 @@ lib/
     confirm_decision.dart          — ConfirmDecision { none, confirmed, refused } (Фаза 6 B)
     source_selection.dart          — SourceSelection { auto | app(package) } (Фаза 6 C)
     weight_day.dart, steps_day.dart— модели с source + sourcePackage + ==/hashCode
+    nutrition_day.dart             — NutritionDay: ккал + Б/Ж/У (null = «нет данных») (Фаза 7)
+    expenditure_day.dart           — ExpenditureDay (4 компонента + total), EnergyBalanceDay,
+                                     mifflinStJeor() (Фаза 7)
+    expenditure_config.dart        — ВСЕ константы Фазы 7: Mifflin, 0.0004, MET 3.5/6.0 (нетто),
+                                     бытовой 200, цель −(вес×темп%×11), дельта v2 (коридор
+                                     50–300, округление 10), тексты v2, ExpenditureProfile
+    weekly_energy_stats.dart       — WeeklyEnergyStats + computeEnergyStats (окно today−6..−1)
     health_data_processor.dart     — резолюция v2: sourcePackageOf (sourceName!),
-                                     refused-фильтр, выбор источника, шаги «один
-                                     источник на день» по сырым точкам, батч, computeEma
+                                     refused-фильтр, выбор источника, шаги и питание «один
+                                     источник на день» (питание — по покрытию дней, НЕ сумма),
+                                     каскад BMR (manual → HC BASAL → Mifflin с весом «на
+                                     дату»), computeExpenditures, батч, computeEma
     sleep_analyzer.dart            — сон (перенос из old_proj + ASLEEP-приоритет, слои merge)
     sleep_day.dart                 — SleepDay (total = asleep | deep+light+rem)
-    recommendation_engine.dart     — WeeklySummary/PaceStatus (чистый Dart)
-    recommendation_config.dart     — ВСЕ константы Фазы 5 в одном месте
-    activity_level.dart            — уровни 1–5 + калории (шаги×вес×0.0005 + добавка)
-    metric_type.dart
+    recommendation_engine.dart     — WeeklySummary/PaceStatus; v2: energyStats? → тексты
+                                     с конкретными ккал и динамической дельтой (Фаза 7 C.2)
+    recommendation_config.dart     — константы Фазы 5 (тексты-регресс без энергостатов)
+    metric_type.dart               — weight | steps | nutrition
   repo/
-    health_repository.dart         — контракт (aggregate-методы удалены в Фазе 6)
-    health_repository_impl.dart    — Health Connect через `health`; writeManualRecord
-                                     идемпотентен (delete-then-write); наш пакет —
-                                     по sourcePackageOf; логи с sourceName
+    health_repository.dart         — контракт (+ writeManualNutrition/has/delete, Фаза 7)
+    health_repository_impl.dart    — Health Connect через `health`; writeManualRecord и
+                                     идемпотентны (delete-then-write, и «Итог дня» — writeMeal); наш пакет —
+                                     по sourcePackageOf (логи с sourceName — в DebugLog)
     mock_health_repository.dart    — мок «как на Android» (sourceId='', пакет в
-                                     sourceName) (+хелперы сна)
+                                     sourceName) (+сон, питание/BASAL/рост, seed Фазы 7)
     health_permissions.dart        — permissions: kSleepTypes, kPermissionGroups
-                                     (раздельные тихие проверки по каждому типу)
+                                     (14 типов: NUTRITION READ_WRITE, +BASAL, +HEIGHT; Фаза 7)
   services/
-    settings_service.dart          — targetPace/activityLevel/lastSummaryShown +
+    settings_service.dart          — targetPace/lastSummary/theme_mode + решения
                                      решения src_decision.<metric>.<package>,
-                                     выбор src_selection.<metric>, theme_mode
+                                     выбор src_selection.<metric> + профиль energy_* (Ф7)
     source_names.dart              — словарь package → имя (Google Fit и др.),
                                      fallback по последнему сегменту, обрезка беджа
     theme_controller.dart          — ThemeMode (system/light/dark) + персист
     debug_log.dart                 — in-memory журнал отладки (кольцевой буфер 1000, ChangeNotifier)
     app_settings_opener.dart       — MethodChannel → настройки приложения Android (кнопка разрешений)
   viewmodel/
-    dashboard_view_model.dart      — кеши (вес/шаги/сон/EMA), сырые точки сессии,
-                                     setRange, средние, computeWeeklySummary,
+    dashboard_view_model.dart      — кеши (вес/шаги/сон/EMA/питание/BASAL/расход),
+                                     setRange, средние без «сегодня» (A.8), «Итог дня» (bool), energy stats
                                      confirm/refuse/reset + setSourceSelection
-                                     (перерезолюция без похода в HC)
+                                     (перерезолюция без похода в HC; питание — туда же, Ф7)
   ui/
     theme.dart                     — CMThemeColors (ThemeExtension, light/dark) +
                                      context.cmColors, cmTheme(Brightness)
-    months.dart                    — kMonthsShort (даты интерфейса)
+    months.dart, format.dart       — kMonthsShort; formatThousands/formatSignedKcal (Ф7)
+    chart_date_axis.dart           — общая ось дат A3: вес + энергобаланс (вынесено в Ф7)
+    nutrition_card.dart            — карточка «Питание»: 7 состояний, форма «Итог дня» (Ф7)
+    energy_balance_chart.dart      — график энергобаланса A2: столбцы ±, нулевая линия,
+                                      цель-пунктир «цель −N», тултип приход/расход (Ф7)
+    energy_settings_blocks.dart    — «Профиль расхода» + «Расход калорий» (инлайн, Ф7 B.4)
     source_badge.dart              — беджи «Из Google Fit»/«Ручной ввод» (имя источника)
     metric_card.dart, metric_card_state.dart — 7 состояний + бедж + меню «⋯»
-    today_screen.dart              — сглаженный вес 60px + график 30д + карточки + баннер разрешений HC
-    trend_screen.dart              — Неделя/Месяц/3 мес + среднесуточные (сон/шаги/ккал)
-    summary_screen.dart            — саммари (статус, %/нед, ±кг, рекомендация)
+    today_screen.dart              — вес 60px + график + карточки + кнопка саммари (после карточек, Ф7) + NutritionCard + подсказка профиля
+    trend_screen.dart              — Неделя/Месяц/3 мес + график веса + энергобаланс (Ф7) + среднесуточные СОН/ШАГИ/РАСХОД + ПРИХОД/Б/Ж/У
+    summary_screen.dart            — саммари + карточка «Энергобаланс недели» (Ф7 C.3)
     settings_screen.dart           — блок «Тема» + «Источники данных HC» + слайдер
-                                     темпа + уровень активности + подпись версии
-    source_settings_screen.dart    — подэкран «Источник: Вес/Шаги»: радио «Авто» +
+                                     темпа + «Профиль расхода» + «Расход калорий» (Ф7) + версия
+    source_settings_screen.dart    — подэкран «Источник: Вес/Шаги/Питание»: радио «Авто» +
                                      приложения со статусами Доверяем/Отклонён/Спрашивает
     debug_log_screen.dart          — журнал отладки: чипы-теги, «Только ошибки», «Копировать всё»
 ```
@@ -111,10 +144,41 @@ lib/
 - Саммари: пересчёт при каждом открытии за скользящие 7 дней; ≥3 взвешиваний в окне,
   иначе снекбар (гейт в `main.dart::_selectTab`); темп нормализуется к неделе
   (`Δ% × 7 / дни между крайними точками`); tolerance ±0.15 п.п.; дефолт темпа 0.8%.
-- Активность = шаги×вес×0.0005 ккал + добавка уровня (ккал/кг/день: 0/1.5/3/4.5/6).
+- Активность: заменена в Фазе 7 на расход из 4 компонентов (BMR + шаги + силовые + бытовой);
+  формулы — `expenditure_config.dart`.
 - Сон: правило «после 12:00 → следующий день»; ASLEEP приоритетнее стадий; merge по слоям.
-- Данные грузятся за 90 дней (maxTrendDays) всегда — движок не зависит от сегмента Тренда.
-- Тесты: 114 (все зелёные), `flutter analyze` — 4 info / 0 errors.
+- Данные грузятся за 90 дней (maxTrendDays) всегда — движок не зависит от сегмента Тренда;
+  NUTRITION/BASAL — за 90 дней, HEIGHT — за 365 (Фаза 7).
+
+**Ключевая логика Фазы 7 «Питание и энергобаланс»:**
+- Приход: NUTRITION из HC, «один источник на день» по покрытию дней (НЕ максимальная
+  сумма — защита от выбирающих завышающий источник); записи победителя суммируются
+  (трекеры пишут по пункту/приёму); макрос = null, если ни одна запись его не отдаёт.
+- Ручной «Итог дня» — одна NutritionRecord (`writeMeal`, Tier 1, delete-then-write);
+  карточка «Питание» — 7 состояний по образцу Фазы 6 + строка «Расход ≈ N · Баланс ±N».
+- Расход = BMR (manual → HC BASAL last-wins → Mifflin-St Jeor с весом «на дату»)
+  + шаги (нетто 0.0004 ккал/кг/шаг) + силовые (Compendium 3.5/6.0 MET, нетто −1 MET,
+  или своя ккал/сессия) + бытовой 200. `TOTAL_CALORIES_BURNED` сознательно не читается.
+- Правило «сегодня» (A.8): из всех средних «сегодня» исключён; запись веса за сегодня
+  валидна для веса. `WeeklyEnergyStats` — окно today−6..today−1 (6 дней), баланс —
+  только дни с приходом И расходом; null при <2 дней с приходом.
+- Движок v2: при энергостатах — конкретные ккал и динамическая дельта
+  `вес × |цель−факт| × 11` (коридор 50–300, округление до 10), `{intakeNew} = {intake} ∓
+  {delta}`; числа прихода/баланса — «как есть» (решение 2026-09-14), без energyStats —
+  тексты Фазы 5 дословно (регресс). Энергоблок саммари скрыт при null.
+- Разрешения 12 → 14 типов: NUTRITION READ→READ_WRITE (для «Итога дня»),
+  +BASAL_ENERGY_BURNED READ, +HEIGHT READ. Существующие пользователи получат один
+  пакетный диалог (тихий предчек уже был).
+- «Уровень активности» удалён (ключ `activity_level` игнорируется); вместо него —
+  «Профиль расхода» (пол/год/рост с HC-префиллом) и «Расход калорий» (4 компонента с
+  инлайн-редакторами оверрайдов, решение 2026-09-14) в Настройках.
+- График энергобаланса A2 на Тренде: столбцы дефицит(steady)/профицит(alert) от нулевой,
+  целевая линия signal-пунктир «цель −N» (кратно 10), тултип «Приход N · Расход N ·
+  Баланс ±N», примечание «Дней без данных питания: N»; ось дат A3 — общий хелпер.
+- Тесты: 184 (все зелёные), `flutter analyze` — 4 info / 0 errors (= базлайн).
+- Техриски R1–R5 (спека §9) — на проверку пользователем на устройстве: writeMeal
+  roundtrip, BASAL реального ПО, NUTRITION двух источников (один, НЕ сумма), HEIGHT
+  за год, delete() своих NutritionRecord.
 
 **Журнал отладки (2026-08-26, для проверки релиза на устройстве):**
 - `DebugLog` (`lib/services/debug_log.dart`) — in-memory за сессию (не персистентно),
@@ -376,11 +440,13 @@ metaspace 4G) исчерпывали commit-лимит памяти — сбор
 ## Типы данных Health Connect
 
 ```dart
-_sleepTypes    = [SLEEP_DEEP, SLEEP_LIGHT, SLEEP_REM]
-_weightTypes   = [WEIGHT]
-_nutritionTypes = [NUTRITION]
-_stepsTypes    = [STEPS]
-_allTypes      = все вышеперечисленные (для запроса разрешений)
+kSleepTypes   = [9 стадий сна, без iOS-only SLEEP_IN_BED]
+_weight       = WEIGHT (READ_WRITE)
+_steps        = STEPS (READ_WRITE)
+_nutrition    = NUTRITION (READ_WRITE, Фаза 7 — для «Итога дня»)
+_basal        = BASAL_ENERGY_BURNED (READ, Фаза 7)
+_height       = HEIGHT (READ, Фаза 7)
+kPermissionGroups = 14 типов (для запроса разрешений)
 ```
 
 ---
@@ -403,7 +469,7 @@ _allTypes      = все вышеперечисленные (для запрос�
 | Вес | Точка из лучшего источника, при нескольких за день — последняя по времени |
 | Шаги | Сумма шагов только из лучшего источника за день |
 | Сон | Интервалы только из лучшего источника за ночь |
-| Питание | Кластеризация приёмов пищи только из лучшего источника за день |
+| Питание | «Один источник на день» по покрытию дней (не сумма!); записи победителя суммируются |
 
 ### Архитектура
 

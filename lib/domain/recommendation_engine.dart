@@ -1,6 +1,8 @@
 import 'package:cut_metrics/domain/date_key.dart';
+import 'package:cut_metrics/domain/expenditure_config.dart';
 import 'package:cut_metrics/domain/recommendation_config.dart';
 import 'package:cut_metrics/domain/weight_day.dart';
+import 'package:cut_metrics/domain/weekly_energy_stats.dart';
 
 /// Статус темпа снижения веса (спека Фазы 5, A.3).
 enum PaceStatus { inPace, tooSlow, tooFast }
@@ -69,11 +71,17 @@ class RecommendationEngine {
 
   /// Считает саммари. Возвращает `null`, если данных недостаточно:
   /// в окне меньше [minPoints] сырых точек веса (по умолчанию 3).
+  ///
+  /// [energyStats] (Фаза 7, C.2): энергостаты за скользящее окно. При
+  /// `null` (или null-знаменателях) — тексты Фазы 5 дословно (регресс);
+  /// при наличии — тексты v2 из `ExpenditureConfig` с конкретными ккал
+  /// и динамической дельтой (§0 п. 13).
   static WeeklySummary? compute({
     required Map<DateKey, WeightDay> weightCache,
     required Map<DateKey, WeightDay> emaCache,
     required DateTime today,
     required double targetPacePercent,
+    WeeklyEnergyStats? energyStats,
     double tolerance = RecommendationConfig.paceTolerance,
     int minPoints = RecommendationConfig.minWeightPointsInWindow,
   }) {
@@ -111,7 +119,14 @@ class RecommendationEngine {
       weightChangeKg: last.weight - first.weight,
       status: status,
       conclusionText: _conclusionFor(status),
-      recommendationText: _recommendationFor(status, actualPace, targetPacePercent),
+      recommendationText: _recommendationFor(
+        status,
+        actualPace,
+        targetPacePercent,
+        weightCache: weightCache,
+        today: today,
+        energyStats: energyStats,
+      ),
     );
   }
 
@@ -128,7 +143,26 @@ class RecommendationEngine {
         PaceStatus.tooFast => RecommendationConfig.conclusionTooFast,
       };
 
-  static String _recommendationFor(PaceStatus status, double actual, double target) {
+  /// Текст рекомендации: v2 (с энергостатами и конкретными ккал, C.2) или
+  /// дословные тексты Фазы 5 при отсутствии данных.
+  static String _recommendationFor(
+    PaceStatus status,
+    double actual,
+    double target, {
+    required Map<DateKey, WeightDay> weightCache,
+    required DateTime today,
+    WeeklyEnergyStats? energyStats,
+  }) {
+    // v2: нужен вес (для дельты) и — для «в темпе» — средний баланс.
+    final weight = _latestWeightUpTo(weightCache, today);
+    if (energyStats != null && weight != null) {
+      final needsBalance = status == PaceStatus.inPace;
+      if (!needsBalance || energyStats.avgBalance != null) {
+        return _recommendationV2(status, actual, target, weight, energyStats);
+      }
+    }
+
+    // Фаза 5 — дословно (регресс).
     final template = switch (status) {
       PaceStatus.inPace => RecommendationConfig.recInPace,
       PaceStatus.tooSlow => RecommendationConfig.recTooSlow,
@@ -137,5 +171,61 @@ class RecommendationEngine {
     return template
         .replaceAll('{actual}', actual.abs().toStringAsFixed(1))
         .replaceAll('{target}', target.toStringAsFixed(1));
+  }
+
+  /// v2 (§0 п. 13): динамическая дельта `вес × |цель−факт| × 11` (коридор
+  /// 50–300, округление до 10), `{intakeNew} = {intake} ∓ {delta}`. Числа
+  /// прихода/баланса — «как есть» (решение пользователя 2026-09-14:
+  /// округляется только дельта).
+  static String _recommendationV2(
+    PaceStatus status,
+    double actual,
+    double target,
+    double weightKg,
+    WeeklyEnergyStats stats,
+  ) {
+    final delta = ExpenditureConfig.recommendationDeltaKcal(weightKg, actual, target);
+    final intake = stats.avgIntake;
+    final intakeNew = status == PaceStatus.tooFast ? intake + delta : intake - delta;
+
+    final template = switch (status) {
+      PaceStatus.inPace => ExpenditureConfig.recInPaceV2,
+      PaceStatus.tooSlow => ExpenditureConfig.recTooSlowV2,
+      PaceStatus.tooFast => ExpenditureConfig.recTooFastV2,
+    };
+
+    return template
+        .replaceAll('{actual}', actual.abs().toStringAsFixed(1))
+        .replaceAll('{target}', target.toStringAsFixed(1))
+        .replaceAll('{balance}', _formatKcalSigned(stats.avgBalance ?? 0))
+        .replaceAll('{intake}', _formatKcal(intake))
+        .replaceAll('{intakeNew}', _formatKcal(intakeNew))
+        .replaceAll('{delta}', delta.toString());
+  }
+
+  /// Последний резолвленный вес ≤ today (для дельты v2); fallback — последний.
+  static double? _latestWeightUpTo(
+      Map<DateKey, WeightDay> weightCache, DateTime today) {
+    if (weightCache.isEmpty) return null;
+    final sorted = weightCache.values.toList()
+      ..sort((a, b) => a.date.compareTo(b.date));
+    WeightDay? result;
+    for (final w in sorted) {
+      if (w.date.value.isAfter(today)) break;
+      result = w;
+    }
+    return result?.weight ?? sorted.last.weight;
+  }
+
+  /// Ккал «как есть»: целое — целым, дробное — 1 знак (без округления до 10).
+  static String _formatKcal(double v) {
+    final r = v.roundToDouble();
+    return v == r ? r.toStringAsFixed(0) : v.toStringAsFixed(1);
+  }
+
+  /// Ккал со знаком: «−530» / «+120» / «0».
+  static String _formatKcalSigned(double v) {
+    if (v == 0) return '0';
+    return v < 0 ? '−${_formatKcal(v.abs())}' : '+${_formatKcal(v)}';
   }
 }

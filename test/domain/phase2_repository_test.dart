@@ -157,4 +157,108 @@ void main() {
       expect(date.endOfDay.millisecond, 999);
     });
   });
+
+  // ==========================================================================
+  // ФАЗА 7, A.7 — ручной «Итог дня» (hasManualNutrition / write / delete)
+  // ==========================================================================
+
+  group('«Итог дня» (Фаза 7, A.7)', () {
+    test('writeManualNutrition создаёт точку «Итог дня» с макросами, manual', () async {
+      await mock.writeManualNutrition(
+        testDate,
+        calories: 2100,
+        protein: 150,
+        fat: 70,
+        carbs: 220,
+      );
+      expect(await mock.hasManualNutrition(testDate), isTrue);
+
+      final points = await mock.fetchRawData(
+        types: const [HealthDataType.NUTRITION],
+        startDate: testDate.value,
+        endDate: testDate.value,
+      );
+      expect(points, hasLength(1));
+      expect(points.first.sourceName, kAppPackageId);
+      expect(points.first.recordingMethod, RecordingMethod.manual);
+      final value = points.first.value as NutritionHealthValue;
+      expect(value.name, 'Итог дня');
+      expect(value.calories, 2100);
+      expect(value.protein, 150);
+      expect(value.fat, 70);
+      expect(value.carbs, 220);
+    });
+
+    test('повторный writeManualNutrition не плодит дубли (delete-then-write, R5)', () async {
+      await mock.writeManualNutrition(testDate, calories: 2100);
+      await mock.writeManualNutrition(testDate, calories: 1950, protein: 140);
+
+      final points = await mock.fetchRawData(
+        types: const [HealthDataType.NUTRITION],
+        startDate: testDate.value,
+        endDate: testDate.value,
+      );
+      expect(points, hasLength(1));
+      expect((points.first.value as NutritionHealthValue).calories, 1950);
+    });
+
+    test('deleteManualNutrition откатывает на внешние данные (Tier 2)', () async {
+      mock.addExternalNutrition(testDate.value, calories: 2500);
+      await mock.writeManualNutrition(testDate, calories: 2100);
+      expect(await mock.hasManualNutrition(testDate), isTrue);
+
+      final withManual = processor.resolveNutritionForDate(
+        testDate,
+        await mock.fetchRawData(
+          types: const [HealthDataType.NUTRITION],
+          startDate: DateTime(2026, 1, 1),
+          endDate: DateTime(2026, 1, 31),
+        ),
+      );
+      expect(withManual!.source, DataSource.manual);
+
+      await mock.deleteManualNutrition(testDate);
+      expect(await mock.hasManualNutrition(testDate), isFalse);
+
+      final rolledBack = processor.resolveNutritionForDate(
+        testDate,
+        await mock.fetchRawData(
+          types: const [HealthDataType.NUTRITION],
+          startDate: DateTime(2026, 1, 1),
+          endDate: DateTime(2026, 1, 31),
+        ),
+      );
+      expect(rolledBack!.source, DataSource.external);
+      expect(rolledBack.calories, 2500);
+    });
+
+    test('мок seedPhase7Data детерминирован (A.9)', () {
+      final end = DateTime(2026, 7, 24);
+      final a = MockHealthRepository()..seedPhase7Data(end: end, days: 30);
+      final b = MockHealthRepository()..seedPhase7Data(end: end, days: 30);
+
+      String describe(MockHealthRepository repo) => repo.points
+          .map((p) =>
+              '${p.type.name}|${p.sourceName}|${p.dateFrom}|${p.value}')
+          .join(';');
+      expect(describe(a), describe(b));
+
+      // Seed соответствует контракту A.9: 2 дня без питания, BASAL каждый
+      // день, HEIGHT 178.
+      final nutritionDays = a.points
+          .where((p) => p.type == HealthDataType.NUTRITION)
+          .map((p) => DateKey(p.dateFrom))
+          .toSet();
+      expect(nutritionDays.length, 28); // 30 − 2 пустых
+      final basalDays = a.points
+          .where((p) => p.type == HealthDataType.BASAL_ENERGY_BURNED)
+          .map((p) => DateKey(p.dateFrom))
+          .toSet();
+      expect(basalDays.length, 30);
+      final height = processor.resolveHeight(
+        a.points.where((p) => p.type == HealthDataType.HEIGHT).toList(),
+      );
+      expect(height, 178);
+    });
+  });
 }

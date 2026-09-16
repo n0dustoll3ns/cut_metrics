@@ -4,6 +4,7 @@ import 'package:cut_metrics/domain/data_source.dart';
 import 'package:cut_metrics/domain/date_key.dart';
 import 'package:cut_metrics/domain/expenditure_config.dart';
 import 'package:cut_metrics/domain/expenditure_day.dart';
+import 'package:cut_metrics/domain/gap_rule.dart';
 import 'package:cut_metrics/domain/health_data_processor.dart';
 import 'package:cut_metrics/domain/metric_type.dart';
 import 'package:cut_metrics/domain/nutrition_day.dart';
@@ -523,81 +524,108 @@ class DashboardViewModel extends ChangeNotifier {
 
   /// Среднесуточный сон за диапазон, ч — только по ночам с данными (С4:
   /// пустые ночи исключаются из знаменателя). `null` — нет ни одной ночи.
-  double? get avgSleepHours {
-    final nights = _sleepCache.values
-        .where((n) => n.date.value.isInsideInterval(_start, _end))
-        .toList();
-    if (nights.isEmpty) return null;
-    final total = nights.map((n) => n.total).reduce((a, b) => a + b);
-    return total / nights.length;
+    double? get avgSleepHours {
+    // Правило «после последнего 5+-дневного разрыва» (2026-09-16): сон
+    // отсекается по своим ночам с данными.
+    final days = daysAfterLastGap(
+      _sleepCache.keys.where((k) => k.value.isInsideInterval(_start, _end)),
+    );
+    if (days.isEmpty) return null;
+    final total = days.map((k) => _sleepCache[k]!.total).reduce((a, b) => a + b);
+    return total / days.length;
   }
 
   /// Среднесуточные шаги за диапазон — по дням с записями, БЕЗ «сегодня»
   /// (A.8: подсчёт дня ещё не завершён). `null` — нет данных.
-  int? get avgSteps {
+    int? get avgSteps {
     final today = DateKey(DateTime.now());
-    final days = _stepsCache.entries
-        .where((e) => e.key.value.isInsideInterval(_start, _end) && e.key != today)
-        .toList();
+    // Правило «после последнего 5+-дневного разрыва» (2026-09-16): шаги
+    // отсекаются по своим дням с записями.
+    final days = daysAfterLastGap(
+      _stepsCache.keys.where(
+        (k) => k.value.isInsideInterval(_start, _end) && k != today,
+      ),
+    );
     if (days.isEmpty) return null;
-    final total = days.map((e) => e.value.steps).reduce((a, b) => a + b);
+    var total = 0;
+    for (final k in days) {
+      total += _stepsCache[k]!.steps;
+    }
     return (total / days.length).round();
   }
 
   /// Дней с питанием в диапазоне, кроме «сегодня» (покрытие «по N дн.»).
-  int get intakeDaysInRange {
+    int get intakeDaysInRange {
     final today = DateKey(DateTime.now());
-    return _nutritionCache.keys
-        .where((k) => k.value.isInsideInterval(_start, _end) && k != today)
+    return daysAfterLastGap(
+        _nutritionCache.keys.where(
+          (k) => k.value.isInsideInterval(_start, _end) && k != today,
+        ),
+    )
         .length;
   }
 
   /// Среднесуточный приход, ккал — по дням с данными, без «сегодня» (A.8).
   /// `null` — ни одного дня с питанием.
-  double? get avgCaloriesIn {
+    double? get avgCaloriesIn {
     final today = DateKey(DateTime.now());
-    final days = _nutritionCache.entries
-        .where((e) => e.key.value.isInsideInterval(_start, _end) && e.key != today)
-        .toList();
+    // Правило «после последнего 5+-дневного разрыва» (2026-09-16).
+    final days = daysAfterLastGap(
+      _nutritionCache.keys.where(
+        (k) => k.value.isInsideInterval(_start, _end) && k != today,
+      ),
+    );
     if (days.isEmpty) return null;
-    final total = days.map((e) => e.value.calories).reduce((a, b) => a + b);
+    final total =
+        days.map((k) => _nutritionCache[k]!.calories).reduce((a, b) => a + b);
     return total / days.length;
   }
 
   /// Средние макросы (Б/Ж/У, г/день) — по дням с приходом, без «сегодня»;
   /// день без макроса считается нулём (решение пользователя 2026-09-14).
   /// `null` — ни одного дня с питанием.
-  ({double? protein, double? fat, double? carbs})? get avgMacros {
+    ({double? protein, double? fat, double? carbs})? get avgMacros {
     final today = DateKey(DateTime.now());
-    final days = _nutritionCache.entries
-        .where((e) => e.key.value.isInsideInterval(_start, _end) && e.key != today)
-        .toList();
+    // Правило «после последнего 5+-дневного разрыва» (2026-09-16).
+    final days = daysAfterLastGap(
+      _nutritionCache.keys.where(
+        (k) => k.value.isInsideInterval(_start, _end) && k != today,
+      ),
+    ).toList();
     if (days.isEmpty) return null;
     final n = days.length;
     return (
-      protein: days.map((e) => e.value.protein ?? 0).reduce((a, b) => a + b) / n,
-      fat: days.map((e) => e.value.fat ?? 0).reduce((a, b) => a + b) / n,
-      carbs: days.map((e) => e.value.carbs ?? 0).reduce((a, b) => a + b) / n,
+      protein: days.map((k) => _nutritionCache[k]!.protein ?? 0).reduce((a, b) => a + b) / n,
+      fat: days.map((k) => _nutritionCache[k]!.fat ?? 0).reduce((a, b) => a + b) / n,
+      carbs: days.map((k) => _nutritionCache[k]!.carbs ?? 0).reduce((a, b) => a + b) / n,
     );
   }
 
   /// Среднесуточный расход, ккал — по дням, где рассчитан BMR, без «сегодня»
   /// (полный расход из 4 компонентов; «РАСХОД» на Тренде). `null` — нет.
-  double? get avgExpenditure {
+    double? get avgExpenditure {
     final today = DateKey(DateTime.now());
-    final days = _expenditureCache.entries
-        .where((e) => e.key.value.isInsideInterval(_start, _end) && e.key != today)
-        .toList();
+    // Правило «после последнего 5+-дневного разрыва» (2026-09-16): расход
+    // отсекается по своим дням с рассчитанным BMR.
+    final days = daysAfterLastGap(
+      _expenditureCache.keys.where(
+        (k) => k.value.isInsideInterval(_start, _end) && k != today,
+      ),
+    );
     if (days.isEmpty) return null;
-    final total = days.map((e) => e.value.total).reduce((a, b) => a + b);
+    final total =
+        days.map((k) => _expenditureCache[k]!.total).reduce((a, b) => a + b);
     return total / days.length;
   }
 
   /// Дней с расходом в диапазоне, кроме «сегодня» (покрытие «по N дн.»).
-  int get expenditureDaysInRange {
+    int get expenditureDaysInRange {
     final today = DateKey(DateTime.now());
-    return _expenditureCache.keys
-        .where((k) => k.value.isInsideInterval(_start, _end) && k != today)
+    return daysAfterLastGap(
+        _expenditureCache.keys.where(
+          (k) => k.value.isInsideInterval(_start, _end) && k != today,
+        ),
+    )
         .length;
   }
 

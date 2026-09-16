@@ -1,5 +1,6 @@
 import 'package:cut_metrics/domain/date_key.dart';
 import 'package:cut_metrics/domain/expenditure_config.dart';
+import 'package:cut_metrics/domain/gap_rule.dart';
 import 'package:cut_metrics/domain/recommendation_config.dart';
 import 'package:cut_metrics/domain/weight_day.dart';
 import 'package:cut_metrics/domain/weekly_energy_stats.dart';
@@ -91,14 +92,16 @@ class RecommendationEngine {
     bool inWindow(DateKey k) =>
         !k.value.isBefore(windowStart.value) && !k.value.isAfter(windowEnd.value);
 
-    // Достаточность: сырые точки веса в окне.
-    final rawInWindow = weightCache.keys.where(inWindow).length;
-    if (rawInWindow < minPoints) return null;
-
-    // EMA-точки в окне, отсортированные по дате.
-    final emaPoints = emaCache.values.where((e) => inWindow(e.date)).toList()
+    // Правило «после последнего 5+-дневного разрыва» (2026-09-16): в расчёте
+    // темпа имеют смысл только EMA-точки после последнего длительного
+    // пропуска взвешиваний (EMA-точка есть на каждом дне взвешивания — это же
+    // достаточность по сырым точкам последнего сегмента; при точках меньше
+    // minPoints саммари не готово — «данных недостаточно»).
+    final emaSorted = emaCache.values.where((e) => inWindow(e.date)).toList()
       ..sort((a, b) => a.date.compareTo(b.date));
-    if (emaPoints.length < 2) return null;
+    final keptDays = daysAfterLastGap(emaSorted.map((e) => e.date));
+    final emaPoints = emaSorted.where((e) => keptDays.contains(e.date)).toList();
+    if (emaPoints.length < minPoints) return null;
 
     final first = emaPoints.first;
     final last = emaPoints.last;

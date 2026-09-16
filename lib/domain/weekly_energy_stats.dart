@@ -1,6 +1,7 @@
 import 'package:cut_metrics/domain/date_key.dart';
 import 'package:cut_metrics/domain/expenditure_config.dart';
 import 'package:cut_metrics/domain/expenditure_day.dart';
+import 'package:cut_metrics/domain/gap_rule.dart';
 import 'package:cut_metrics/domain/nutrition_day.dart';
 
 /// Энергостаты за скользящее окно (Фаза 7, C.1) — данные для карточки
@@ -67,14 +68,19 @@ WeeklyEnergyStats? computeEnergyStats({
   bool inWindow(DateKey k) =>
       !k.value.isBefore(windowStart.value) && !k.value.isAfter(windowEnd.value);
 
-  final intakeDays = nutritionCache.keys.where(inWindow).toList();
+  // Правило «после последнего 5+-дневного разрыва» (2026-09-16): каждая
+ // метрика отсекается по СВОИМ данным (приход — по приходу, расход — по
+ // расходу), баланс — по дням, прошедшим оба отсечения. При текущем
+ // окне в 6 дней разрыв 5+ внутри окна невозможен — это защита на случай
+ // расширения окна и консистентность с остальными средними.
+ final intakeDays = daysAfterLastGap(nutritionCache.keys.where(inWindow)).toList();
   if (intakeDays.length < 2) return null;
 
   final avgIntake =
       intakeDays.map((k) => nutritionCache[k]!.calories).reduce((a, b) => a + b) /
           intakeDays.length;
 
-  final expDays = expenditureCache.keys.where(inWindow).toList();
+  final expDays = daysAfterLastGap(expenditureCache.keys.where(inWindow)).toList();
   final double? avgExpenditure = expDays.isEmpty
       ? null
       : expDays.map((k) => expenditureCache[k]!.total).reduce((a, b) => a + b) /
@@ -82,7 +88,7 @@ WeeklyEnergyStats? computeEnergyStats({
 
   // Баланс — только дни, где есть и приход, и расход.
   final balanceDays = intakeDays
-      .where((k) => expenditureCache.containsKey(k))
+      .where((k) => expenditureCache.containsKey(k) && expDays.contains(k))
       .toList();
   final double? avgBalance = balanceDays.isEmpty
       ? null

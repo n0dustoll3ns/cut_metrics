@@ -1,4 +1,5 @@
 import 'package:cut_metrics/domain/date_key.dart';
+import 'package:cut_metrics/domain/recommendation_config.dart';
 import 'package:cut_metrics/domain/weight_day.dart';
 import 'package:cut_metrics/ui/chart_date_axis.dart';
 import 'package:cut_metrics/ui/months.dart';
@@ -131,7 +132,7 @@ class WeightChart extends StatelessWidget {
             fitInsideVertically: true,
             getTooltipItems: (touchedSpots) {
               return touchedSpots.map((spot) {
-                final idx = spot.spotIndex;
+                final idx = spot.x.round(); // слот, не индекс массива (EMA пропускает слоты)
                 if (idx < 0 || idx >= dates.length) return null;
                 final day = weightByDate[DateKey(dates[idx])];
                 if (day == null) return null;
@@ -148,7 +149,7 @@ class WeightChart extends StatelessWidget {
             if (event is FlTapUpEvent && response != null) {
               final spots = response.lineBarSpots;
               if (spots != null && spots.isNotEmpty) {
-                final idx = spots.first.spotIndex;
+                final idx = spots.first.x.round();
                 if (idx >= 0 && idx < dates.length) {
                   final day = weightByDate[DateKey(dates[idx])];
                   if (day != null) onTapPoint?.call(day);
@@ -160,14 +161,12 @@ class WeightChart extends StatelessWidget {
         lineBarsData: [
           if (emaData.isNotEmpty)
             LineChartBarData(
-              spots: [
-                for (var i = 0; i < dates.length; i++)
-                  emaByDate[DateKey(dates[i])] == null
-                    ? FlSpot.nullSpot
-                    : FlSpot(i.toDouble(), emaByDate[DateKey(dates[i])]!.weight),
-              ],
-            isCurved: true,
-            color: colors.signal,
+              // Короткие пропуски (меньше 5 пустых дней) линия EMA проходит
+              // напрямую (слот пропускается), при 5+ пустых днях — разрыв
+              // (nullSpot), как в computeEma (правило 2026-09-16).
+              spots: _emaSpots(dates, emaByDate),
+              isCurved: true,
+              color: colors.signal,
             barWidth: 2.5,
             dotData: const FlDotData(show: false),
           ),
@@ -192,6 +191,28 @@ class WeightChart extends StatelessWidget {
         maxY: _maxY,
       ),
     );
+  }
+
+  /// Споты EMA (2026-09-16): точки на днях взвешивания; между точками
+  /// с пропуском меньше [RecommendationConfig.emaBreakGapDays] пустых дней
+  /// слот пропускается — линия соединяет соседние точки напрямую
+  /// (кривая непрерывна); при пропуске 5+ пустых дней добавляется
+  /// nullSpot — разрыв серии (согласовано с computeEma).
+  List<FlSpot> _emaSpots(List<DateTime> dates, Map<DateKey, WeightDay> emaByDate) {
+    final slots = <int>[
+      for (var i = 0; i < dates.length; i++)
+        if (emaByDate[DateKey(dates[i])] != null) i,
+    ];
+    final result = <FlSpot>[];
+    for (var k = 0; k < slots.length; k++) {
+      final i = slots[k];
+      result.add(FlSpot(i.toDouble(), emaByDate[DateKey(dates[i])]!.weight));
+      final next = k + 1 < slots.length ? slots[k + 1] : null;
+      if (next != null && next - i - 1 >= RecommendationConfig.emaBreakGapDays) {
+        result.add(FlSpot.nullSpot); // разрыв серии EMA
+      }
+    }
+    return result;
   }
 
   /// Метки нижней оси — общий хелпер Фазы 6/7 (`chart_date_axis.dart`).

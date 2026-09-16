@@ -694,4 +694,19 @@ void main() {
       expect(vm.computeWeeklyEnergyStats(), isNull);
     });
   });
+
+    test('avgSteps: данные до 5+-дневного пропуска не входят (2026-09-16)', () async {
+      repo = MockHealthRepository();
+      processor = HealthDataProcessor(appPackageId: kAppPackageId);
+      final now = DateTime.now();
+      repo.addExternalSteps(now.subtract(const Duration(days: 1)), 10000);
+      repo.addExternalSteps(now.subtract(const Duration(days: 2)), 8000);
+      // Пропуск −3..−7 (5 пустых дней): старые записи не в среднем.
+      repo.addExternalSteps(now.subtract(const Duration(days: 8)), 2000);
+      repo.addExternalSteps(now.subtract(const Duration(days: 9)), 4000);
+      vm = DashboardViewModel(repository: repo, processor: processor, autoLoad: false);
+      await vm.load();
+
+      expect(vm.avgSteps, 9000); // (10000 + 8000) / 2
+    });
 }

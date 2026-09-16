@@ -310,4 +310,22 @@ void main() {
       );
     });
   });
+
+  group('правило «после последнего 5+-дневного разрыва» (2026-09-16)', () {
+    test('разрыв 5 дней в окне: точек после отсечения меньше 3 => null', () {
+      // Веса offsets 0 и 6 — между ними 5 пустых дней (разрыв серии);
+      // после отсечения остаётся 1 EMA-точка — саммари не готово.
+      final weights = weightCacheOf([(0, 99.0), (6, 100.0)]);
+      final ema = emaCacheOf([(0, 99.0), (6, 100.0)]);
+      expect(
+        RecommendationEngine.compute(
+          weightCache: weights,
+          emaCache: ema,
+          today: DateTime.now(),
+          targetPacePercent: 0.8,
+        ),
+        isNull,
+      );
+    });
+  });
 }

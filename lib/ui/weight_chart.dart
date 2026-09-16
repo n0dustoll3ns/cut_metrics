@@ -1,3 +1,4 @@
+import 'package:cut_metrics/domain/date_key.dart';
 import 'package:cut_metrics/domain/weight_day.dart';
 import 'package:cut_metrics/ui/chart_date_axis.dart';
 import 'package:cut_metrics/ui/months.dart';
@@ -5,16 +6,23 @@ import 'package:cut_metrics/ui/theme.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 
-/// График веса + EMA с осью дат Фазы 6 (A3, `test_report_26-09-02.md`):
+/// График веса + EMA с осью дат Фазы 6 (A3, `test_report_26-09-02.md`).
+///
+/// Календарная ось (2026-09-16): слот на каждый день от первой до последней
+/// даты с данными; дни без взвешивания — пустые слоты (`FlSpot.nullSpot`
+/// разрывает линию и точку) — на графике видны «пустоты». Тап/тултип на
+/// пустом слоте не срабатывают.
 ///
 /// - Обычный день — только число («7»), Space Mono 10px, Noise Grey.
 /// - Граница месяца — «1 АВГ» (число + 3-буквенный месяц uppercase, Ink
-///   Muted). Показывается ВСЕГДА, даже вне шага прореживания — вытесняет
-///   ближайшую обычную метку.
+/// Muted). Показывается ВСЕГДА, даже вне шага прореживания — вытесняет
+/// ближайшую обычную метку.
 /// - Прореживание: не более ~8 меток (шаг = ceil(точек / 7)).
 /// - Граница месяца подсвечивается тонкой вертикальной линией сетки
-///   (outline, 1px).
-/// - Тултип по тапу — полная дата «17 июл» + значение.
+/// (outline, 1px).
+/// - Тултип по тапу — полная дата «17 июл» + значение; фон surface0 с
+/// рамкой outline (единый стиль с графиком баланса), у краёв карточки
+/// не вылезает (`fitInsideHorizontally/Vertically`, 2026-09-16).
 ///
 /// Общий для «Сегодня» (30 дн) и «Тренда» (7/30/90 дн). Цвета — роли
 /// текущей темы (светлая/тёмная).
@@ -45,9 +53,17 @@ class WeightChart extends StatelessWidget {
   Widget _buildChart(BuildContext context) {
     if (weightData.isEmpty) return const SizedBox.shrink();
     final colors = context.cmColors;
-    final axis = computeChartDateAxis(
-      weightData.map((e) => e.date.value).toList(),
+
+    // Календарная ось: слот на каждый день между первой и последней датой
+    // с данными; дни без взвешивания — пустые слоты («пустоты»).
+    final dates = calendarDatesBetween(
+      weightData.first.date.value,
+      weightData.last.date.value,
     );
+    final weightByDate = {for (final d in weightData) d.date: d};
+    final emaByDate = {for (final d in emaData) d.date: d};
+
+    final axis = computeChartDateAxis(dates);
     final labels = axis.labels;
 
     return LineChart(
@@ -109,11 +125,17 @@ class WeightChart extends StatelessWidget {
         borderData: FlBorderData(show: false),
         lineTouchData: LineTouchData(
           touchTooltipData: LineTouchTooltipData(
+            getTooltipColor: (_) => colors.surface0,
+            tooltipBorder: BorderSide(color: colors.outline),
+            fitInsideHorizontally: true,
+            fitInsideVertically: true,
             getTooltipItems: (touchedSpots) {
               return touchedSpots.map((spot) {
                 final idx = spot.spotIndex;
-                if (idx >= weightData.length) return null;
-                final date = weightData[idx].date.value;
+                if (idx < 0 || idx >= dates.length) return null;
+                final day = weightByDate[DateKey(dates[idx])];
+                if (day == null) return null;
+                final date = day.date.value;
                 return LineTooltipItem(
                   '${date.day} ${kMonthsShort[date.month - 1]}\n'
                   '${spot.y.toStringAsFixed(1)} кг',
@@ -127,8 +149,9 @@ class WeightChart extends StatelessWidget {
               final spots = response.lineBarSpots;
               if (spots != null && spots.isNotEmpty) {
                 final idx = spots.first.spotIndex;
-                if (idx >= 0 && idx < weightData.length) {
-                  onTapPoint?.call(weightData[idx]);
+                if (idx >= 0 && idx < dates.length) {
+                  final day = weightByDate[DateKey(dates[idx])];
+                  if (day != null) onTapPoint?.call(day);
                 }
               }
             }
@@ -137,22 +160,24 @@ class WeightChart extends StatelessWidget {
         lineBarsData: [
           if (emaData.isNotEmpty)
             LineChartBarData(
-              spots: emaData
-                  .asMap()
-                  .entries
-                  .map((e) => FlSpot(e.key.toDouble(), e.value.weight))
-                  .toList(),
-              isCurved: true,
-              color: colors.signal,
-              barWidth: 2.5,
-              dotData: const FlDotData(show: false),
-            ),
+              spots: [
+                for (var i = 0; i < dates.length; i++)
+                  emaByDate[DateKey(dates[i])] == null
+                    ? FlSpot.nullSpot
+                    : FlSpot(i.toDouble(), emaByDate[DateKey(dates[i])]!.weight),
+              ],
+            isCurved: true,
+            color: colors.signal,
+            barWidth: 2.5,
+            dotData: const FlDotData(show: false),
+          ),
           LineChartBarData(
-            spots: weightData
-                .asMap()
-                .entries
-                .map((e) => FlSpot(e.key.toDouble(), e.value.weight))
-                .toList(),
+            spots: [
+              for (var i = 0; i < dates.length; i++)
+                weightByDate[DateKey(dates[i])] == null
+                  ? FlSpot.nullSpot
+                  : FlSpot(i.toDouble(), weightByDate[DateKey(dates[i])]!.weight),
+            ],
             isCurved: false,
             color: colors.noiseLight,
             barWidth: 1,
@@ -221,13 +246,13 @@ class ChartCard extends StatelessWidget {
               child: isLoading
                   ? const Center(child: CircularProgressIndicator())
                   : isEmpty
-                      ? Center(
-                          child: Text(
-                            'Нет данных',
-                            style: CMFonts.body(size: 14, color: colors.noise),
-                          ),
-                        )
-                      : child,
+                    ? Center(
+                      child: Text(
+                        'Нет данных',
+                        style: CMFonts.body(size: 14, color: colors.noise),
+                      ),
+                    )
+                  : child,
             ),
           ],
         ),

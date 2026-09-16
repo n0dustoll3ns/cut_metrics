@@ -17,7 +17,8 @@ import 'package:provider/provider.dart';
 /// карточки метрик Фазы 3 (U1: подтверждение остаётся здесь, инлайн;
 /// состояния Фазы 6 — B.4), кнопка «Открыть саммари» (Фаза 7: после
 /// карточек, как в макете), карточка «Питание» и подсказка профиля
-/// (Фаза 7, B.2/B.5).
+/// (Фаза 7, B.2/B.5). Шаги и питание — «за вчера» (2026-09-16): день ещё
+/// не завершён; вес — исключение (утренних данных достаточно).
 class TodayScreen extends StatelessWidget {
   /// Переход на вкладку «Саммари» (с проверкой готовности — гейт в main).
   final VoidCallback onOpenSummary;
@@ -36,6 +37,12 @@ class TodayScreen extends StatelessWidget {
     final vm = context.watch<DashboardViewModel>();
     final colors = context.cmColors;
     final today = DateKey(DateTime.now());
+
+    // Правило вывода «за вчера» (2026-09-16): шаги и питание показываем за
+    // вчера — сбор данных за сегодня ещё не завершён. Вес — исключение
+    // (утренних данных достаточно): большое число, «сырое значение сегодня»
+    // и карточка веса остаются за сегодня.
+    final yesterday = DateKey(DateTime.now().subtract(const Duration(days: 1)));
 
     final d = today.value;
     final dateStr = 'СЕГОДНЯ · ${d.day} ${kMonthsShort[d.month - 1].toUpperCase()}';
@@ -98,10 +105,10 @@ class TodayScreen extends StatelessWidget {
           ),
           const SizedBox(height: CMSpacing.sp4),
 
-          // Карточка шагов — инлайн
+          // Карточка шагов — инлайн, за вчера (правило «за вчера», 2026-09-16)
           MetricCard(
             key: const ValueKey('today_steps'),
-            date: today,
+            date: yesterday,
             type: MetricType.steps,
             viewModel: vm,
           ),
@@ -119,10 +126,10 @@ class TodayScreen extends StatelessWidget {
           ),
           const SizedBox(height: CMSpacing.sp4),
 
-          // Карточка «Питание» (Фаза 7, B.2)
+          // Карточка «Питание» (Фаза 7, B.2) — за вчера: ручной «Итог дня» вводится за вчера и старше (2026-09-16)
           NutritionCard(
             key: const ValueKey('today_nutrition'),
-            date: today,
+            date: yesterday,
             viewModel: vm,
           ),
 

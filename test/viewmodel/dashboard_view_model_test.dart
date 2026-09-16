@@ -645,12 +645,16 @@ void main() {
       repo.addExternalWeight(now.subtract(const Duration(days: 2)), 70);
       repo.addExternalNutrition(now.subtract(const Duration(days: 1)), calories: 2000);
       repo.addExternalNutrition(now.subtract(const Duration(days: 2)), calories: 2600);
+      repo.addExternalNutrition(now, calories: 1500); // сегодня — не выводится
+      repo.addBasal(now, 1800); // сегодня — не выводится
       repo.addBasal(now.subtract(const Duration(days: 1)), 1800);
       repo.addBasal(now.subtract(const Duration(days: 2)), 1800);
       vm = DashboardViewModel(repository: repo, processor: processor, autoLoad: false);
       await vm.load();
 
       final balances = vm.balanceData;
+      // «Сегодня» исключён (правило вывода «за вчера», 2026-09-16).
+      expect(balances.any((b) => b.date == DateKey(now)), isFalse);
       expect(balances.length, 2);
       final day2 = balances.firstWhere(
         (b) => b.date == DateKey(now.subtract(const Duration(days: 2))),

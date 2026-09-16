@@ -12,6 +12,10 @@ import 'package:cut_metrics/ui/months.dart';
 ///
 /// Возвращает карту «индекс → текст» и множество индексов-границ месяца
 /// (для тонкой вертикальной линии сетки на границе, outline 1px).
+///
+/// Календарная ось (2026-09-16): слот на КАЖДЫЙ день диапазона
+/// ([calendarDatesBetween]) — дни без данных остаются пустыми слотами
+/// («пустоты» на графике), а не сжимаются вплотную.
 class ChartDateAxisData {
   final Map<int, String> labels;
   final Set<int> monthBoundaries;
@@ -58,3 +62,14 @@ ChartDateAxisData computeChartDateAxis(List<DateTime> dates) {
 /// Полная дата для тултипа: «17 июл» (день + 3-буквенный месяц).
 String chartTooltipDate(DateTime date) =>
     '${date.day} ${kMonthsShort[date.month - 1]}';
+/// Все календарные дни от [first] до [last] включительно — календарная ось
+/// графиков (2026-09-16): по слоту на каждый день диапазона, дни без данных
+/// остаются пустыми («пустоты» между точками/столбцами). Даты
+/// нормализуются до полуночи.
+List<DateTime> calendarDatesBetween(DateTime first, DateTime last) {
+  final start = DateTime(first.year, first.month, first.day);
+  final end = DateTime(last.year, last.month, last.day);
+  return [
+    for (var d = start; !d.isAfter(end); d = d.add(const Duration(days: 1))) d,
+  ];
+}

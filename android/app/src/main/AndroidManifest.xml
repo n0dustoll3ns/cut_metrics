@@ -3,6 +3,11 @@
     <uses-permission android:name="android.permission.health.READ_SLEEP" />
     <uses-permission android:name="android.permission.health.READ_SLEEP_STAGE" />
     <uses-permission android:name="android.permission.health.READ_NUTRITION" />
+    <!-- Фаза 7: NUTRITION READ→READ_WRITE (ручной «Итог дня»), +BASAL, +HEIGHT.
+         HC не выдаёт права, не объявленные в манифесте (тумблеры не появляются). -->
+    <uses-permission android:name="android.permission.health.WRITE_NUTRITION" />
+    <uses-permission android:name="android.permission.health.READ_BASAL_METABOLIC_RATE" />
+    <uses-permission android:name="android.permission.health.READ_HEIGHT" />
     <uses-permission android:name="android.permission.health.READ_ENERGY_CONSUMED" />
     <uses-permission android:name="android.permission.health.READ_WEIGHT" />
     <uses-permission android:name="android.permission.health.WRITE_WEIGHT" />

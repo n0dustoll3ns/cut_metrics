@@ -622,10 +622,13 @@ class DashboardViewModel extends ChangeNotifier {
 
   /// Энергобаланс по дням диапазона (для графика A2): только дни, где есть
   /// И питание, И расход — баланс без расхода не считается (A.4 п.4).
-  /// Включает «сегодня» (A.8: осознанно, без спец-пометки).
+  /// «Сегодня» исключён — сбор данных за день ещё не завершён (правило
+  /// вывода «за вчера», 2026-09-16; вес — единственное исключение).
   List<EnergyBalanceDay> get balanceData {
+    final today = DateKey(DateTime.now());
     final result = <EnergyBalanceDay>[];
     for (final entry in _nutritionCache.entries) {
+      if (entry.key == today) continue;
       if (!entry.key.value.isInsideInterval(_start, _end)) continue;
       final out = _expenditureCache[entry.key];
       if (out == null) continue;

@@ -1,3 +1,4 @@
+import 'package:cut_metrics/domain/date_key.dart';
 import 'package:cut_metrics/domain/expenditure_day.dart';
 import 'package:cut_metrics/ui/chart_date_axis.dart';
 import 'package:cut_metrics/ui/format.dart';
@@ -13,9 +14,13 @@ import 'package:flutter/material.dart';
 /// - Нулевая линия — ink-muted 1px; целевая линия дефицита — signal 1.5px,
 ///   пунктир 5–4, подпись «цель −N» (N = вес × темп% × 11, кратно 10).
 /// - Ось дат — механика WeightChart A3 (`chart_date_axis.dart`).
+/// - Календарная ось (2026-09-16): слот на каждый день между первым и
+///   последним днём с балансом; дни без данных — пустые слоты («пустоты»
+///   между данными), а не сжатие столбцов вплотную.
 /// - Тултип в 2 строки: «17 июл» / «Приход 2 150 · Расход 2 680 · Баланс −530».
 /// - Масштаб: ноль, целевая и все балансы всегда в кадре.
-/// - Включает столбец «сегодня» (день ещё не завершён — осознанно, A.8).
+/// - «Сегодня» исключён — сбор данных за день ещё не завершён (правило
+///   вывода «за вчера», 2026-09-16; ранее включался — решение A.8 отменено).
 ///
 /// Отрицательные столбцы — нативная возможность fl_chart 0.69
 /// (`BarChartRodData.fromY → toY`), ось не сдвигалась.
@@ -46,8 +51,10 @@ class EnergyBalanceChart extends StatelessWidget {
     return (t / 10).round() * 10;
   }
 
-  double get _barWidth {
-    final n = balanceData.length;
+   /// Ширина столбца по числу слотов календарной оси (2026-09-16: слоты —
+  /// ВСЕ дни диапазона, не только дни с балансом).
+  double _barWidth(int slots) {
+    final n = slots;
     if (n <= 7) return 14;
     // ≈ min(14, 0.6 × шаг) при типичной ширине карточки ~320px.
     return (0.6 * 320 / n).clamp(3.0, 14.0);
@@ -102,9 +109,16 @@ class EnergyBalanceChart extends StatelessWidget {
 
   Widget _buildChart(BuildContext context) {
     final colors = context.cmColors;
-    final axis = computeChartDateAxis(
-      balanceData.map((e) => e.date.value).toList(),
+    // Календарная ось: слот на каждый день между первым и последним днём
+    // с балансом; дни без данных — пустые слоты («пустоты»).
+    final dates = calendarDatesBetween(
+      balanceData.first.date.value,
+      balanceData.last.date.value,
     );
+    final slotOf = <DateKey, int>{
+      for (var i = 0; i < dates.length; i++) DateKey(dates[i]): i,
+    };
+    final axis = computeChartDateAxis(dates);
     final target = _targetRounded;
 
     return BarChart(
@@ -194,15 +208,15 @@ class EnergyBalanceChart extends StatelessWidget {
           ],
         ),
         barGroups: [
-          for (var i = 0; i < balanceData.length; i++)
+          for (final day in balanceData)
             BarChartGroupData(
-              x: i,
+              x: slotOf[day.date]!,
               barRods: [
                 BarChartRodData(
                   fromY: 0,
-                  toY: balanceData[i].balance,
-                  color: balanceData[i].balance < 0 ? colors.steady : colors.alert,
-                  width: _barWidth,
+                  toY: day.balance,
+                  color: day.balance < 0 ? colors.steady : colors.alert,
+                  width: _barWidth(dates.length),
                   borderRadius: BorderRadius.circular(2),
                 ),
               ],

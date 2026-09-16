@@ -4,6 +4,7 @@ import 'package:cut_metrics/domain/date_key.dart';
 import 'package:cut_metrics/domain/expenditure_config.dart';
 import 'package:cut_metrics/domain/expenditure_day.dart';
 import 'package:cut_metrics/domain/nutrition_day.dart';
+import 'package:cut_metrics/domain/recommendation_config.dart';
 import 'package:cut_metrics/domain/source_selection.dart';
 import 'package:cut_metrics/domain/steps_day.dart';
 import 'package:cut_metrics/domain/weight_day.dart';
@@ -556,7 +557,14 @@ class HealthDataProcessor {
   /// Первая точка инициализируется самим значением веса, далее каждая
   /// следующая точка: `ema = (weight - prevEma) * multiplier + prevEma`.
   ///
-  /// Период [period] определяет сглаживание: больше период — сильнее сглаживание.
+   /// Разрыв данных (2026-09-16): между соседними взвешиваниями
+  /// [RecommendationConfig.emaBreakGapDays] (5) и более пустых дней — серия
+  /// ОБРЫВАЕТСЯ: новое скользящее стартует заново (инициализация весом
+  /// точки после разрыва), значение до разрыва не наследуется. Пропуски
+  /// 1–4 дня EMA «тянет» через себя как обычно. На графике веса это разрыв
+  /// линии на месте «пустот».
+  ///
+ /// Период [period] определяет сглаживание: больше период — сильнее сглаживание.
   /// EMA-точки не имеют отношения к приоритету источников, поэтому `source`
   /// устанавливается в [DataSource.external] (значение не используется
   /// потребителем), `sourcePackage` — `null`.
@@ -575,7 +583,14 @@ class HealthDataProcessor {
       WeightDay(date: sorted.first.date, weight: ema, source: DataSource.external),
     ];
     for (int i = 1; i < sorted.length; i++) {
-      ema = (sorted[i].weight - ema) * multiplier + ema;
+      final gapDays =
+          sorted[i].date.value.difference(sorted[i - 1].date.value).inDays - 1;
+      if (gapDays >= RecommendationConfig.emaBreakGapDays) {
+        // Длительный разрыв: серия обрывается, скользящее стартует заново.
+        ema = sorted[i].weight;
+      } else {
+        ema = (sorted[i].weight - ema) * multiplier + ema;
+      }
       result.add(WeightDay(date: sorted[i].date, weight: ema, source: DataSource.external));
     }
 

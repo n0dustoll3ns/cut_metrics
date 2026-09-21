@@ -28,7 +28,9 @@ class RecommendationConfig {
   static const double paceTolerance = 0.15;
 
   /// Минимум сырых точек веса в 7-дневном окне для расчёта саммари.
-  static const int minWeightPointsInWindow = 3;
+  ///
+  /// Решение пользователя 2026-09-18: порог поднят с 3 до 5.
+  static const int minWeightPointsInWindow = 5;
 
   /// Дефолтный целевой темп, %/нед (до первого захода в настройки).
   static const double defaultTargetPacePercent = 0.8;
@@ -52,7 +54,7 @@ class RecommendationConfig {
 
   /// Снекбар при попытке открыть Саммари без достаточных данных.
   static const String summaryNotReadyMessage =
-      'Недостаточно данных — нужно ≥3 взвешивания за неделю';
+      'Недостаточно данных — нужно ≥5 взвешиваний за неделю';
 
   /// Заголовок блока рекомендации на Саммари.
   static const String summaryRecLabel = 'Рекомендация на следующую неделю';

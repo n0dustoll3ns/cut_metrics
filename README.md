@@ -470,6 +470,35 @@ metaspace 4G) исчерпывали commit-лимит памяти — сбор
 (починено 2026-08-18). Не возвращать большие значения без проверки свободной памяти
 (`wmic OS get FreeVirtualMemory`).
 
+⚠️ **Подпись release и секреты (2026-09-22):** release-сборка подписывается ключом
+из `android/key.properties` (ссылается на `android/app/cut-metrics-release.jks`,
+alias `cut_metrics`, PKCS12 — store- и key-пароли одинаковые, разные PKCS12 не
+поддерживает). Оба файла в `.gitignore` — НИКОГДА не коммитить; копию keystore и
+пароли хранить вне репозитория (они же заведены в GitHub Secrets). При отсутствии
+`key.properties` Gradle молча фолбэчится на debug-подпись — `flutter run --release`
+продолжает работать, но APK с CI поверх такой локальной сборки не поставится.
+
+## CI: автосборка APK и установка на телефон (2026-09-22)
+
+`.github/workflows/build-apk.yml`: на каждый push в `main` (+ кнопка
+`workflow_dispatch`) GitHub Actions собирает release-APK (Flutter 3.44.3 = локальная
+версия, JDK 17) и публикует её в «роллинг-релиз» с тегом `latest`, перезаписывая
+предыдущий ассет (НЕ помечать prerelease — `releases/latest` их игнорирует).
+Перед сборкой гейт: `flutter analyze --no-fatal-infos` (базлайн 4 info) и
+`flutter test`. Публичный репо → Actions и релизы бесплатны, безлимитны.
+
+Свежайший APK на телефоне — закладка в мобильном браузере:
+
+`https://github.com/n0dustoll3ns/cut_metrics/releases/latest/download/app-release.apk`
+
+Без логина (репо публичное); Android один раз попросит разрешить установку из
+браузера. Подпись стабильная (секреты `KEYSTORE_BASE64`, `KEYSTORE_PASSWORD`,
+`KEY_ALIAS`, `KEY_PASSWORD` в Settings → Secrets and variables → Actions) →
+обновления ставятся поверх, Health Connect-разрешения сохраняются. Единственный
+раз удалить приложение придётся при переходе со старых локальных debug-подписанных
+сборок. Файл сборки НЕ коммитится в git (задача «APK в истории» отменена в пользу
+CI-раздачи).
+
 ---
 
 ## Типы данных Health Connect

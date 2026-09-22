@@ -46,3 +46,9 @@ app.*.map.json
 /android/app/release
 /android/java*.hprof
 /android/hs_err_*.*
+
+# Release signing secrets (never commit)
+android/key.properties
+android/app/*.jks
+android/app/*.keystore
+_setup_github_secrets.txt

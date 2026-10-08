@@ -1,0 +1,15 @@
+// .devcontainer/devcontainer.json
+{
+  "name": "android-dev",
+  "image": "mcr.microsoft.com/devcontainers/base:ubuntu-24.04",
+  "features": {
+    "ghcr.io/devcontainers/features/java:1": { "version": "17", "installGradle": false }
+  },
+  "remoteEnv": { "ANDROID_HOME": "/home/vscode/android-sdk" },
+  "postCreateCommand": "bash .devcontainer/post-create.sh",
+  "customizations": {
+    "vscode": {
+      "extensions": ["saoudrizwan.claude-dev"] // Cline — поставится сам
+    }
+  }
+}

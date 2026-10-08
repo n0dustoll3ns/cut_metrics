@@ -323,6 +323,66 @@
   .cbtn:focus-visible{outline:none; box-shadow:var(--focus-ring);}
   .tbtn{background:none; border:none; font-family:var(--f-body); font-weight:600; font-size:13px; color:var(--signal); cursor:pointer; padding:6px 4px;}
   .tbtn:focus-visible{outline:none; box-shadow:var(--focus-ring);}
+
+  /* ---------- Детализация расчёта: нижний лист «Как рассчитано» ---------- */
+  .calc-stage{background:var(--bg); border:1px solid var(--outline); border-radius:var(--r-lg); padding:var(--sp-4) var(--sp-4) 0; max-width:392px; margin:0 0 var(--sp-4); overflow:hidden;}
+  .calc-stage-hint{font-family:var(--f-mono); font-size:10px; letter-spacing:.05em; text-transform:uppercase; color:var(--noise); text-align:center; padding:var(--sp-2) 0 var(--sp-3); border-bottom:1px dashed var(--outline); margin:0 0 var(--sp-4);}
+  .calc-frag{background:var(--surface-0); border:1px solid var(--outline); border-radius:var(--r-lg); padding:var(--sp-3) var(--sp-4) var(--sp-4); max-width:392px; margin:0 0 var(--sp-4);}
+  .calc-sheet{background:var(--surface-0); border:1px solid var(--outline); border-bottom:none; border-radius:var(--r-xl) var(--r-xl) 0 0; box-shadow:var(--shadow-2); padding:var(--sp-2) var(--sp-4) var(--sp-6);}
+  .sheet-grip{width:36px; height:4px; border-radius:2px; background:var(--outline-strong); margin:var(--sp-1) auto var(--sp-3);}
+  .sheet-head{display:flex; align-items:flex-start; justify-content:space-between; gap:var(--sp-3);}
+  .sheet-kicker{font-family:var(--f-mono); font-size:10px; letter-spacing:.08em; text-transform:uppercase; color:var(--noise); margin:0 0 2px;}
+  .sheet-title{font-family:var(--f-body); font-weight:600; font-size:17px; color:var(--ink); margin:0;}
+  .sheet-close{width:30px; height:30px; flex-shrink:0; border-radius:var(--r-sm); border:1px solid var(--outline); background:var(--surface-0); color:var(--ink-muted); cursor:pointer; font-size:13px; line-height:1; display:flex; align-items:center; justify-content:center; padding:0;}
+  .sheet-close:focus-visible{outline:none; box-shadow:var(--focus-ring);}
+  .trace-cap{display:flex; align-items:center; gap:var(--sp-2); font-family:var(--f-mono); font-size:10px; letter-spacing:.08em; text-transform:uppercase; color:var(--noise); margin:var(--sp-5) 0 var(--sp-2);}
+  .trace-cap::after{content:''; flex:1; border-top:1px solid var(--outline);}
+  .trace-in{display:flex; align-items:baseline; gap:var(--sp-3); padding:7px 0; flex-wrap:wrap;}
+  .trace-val{font-family:var(--f-display); font-weight:600; font-size:18px; line-height:1.1; font-variant-numeric:tabular-nums; color:var(--ink); white-space:nowrap;}
+  .trace-val small{font-family:var(--f-mono); font-weight:400; font-size:10.5px; color:var(--noise); margin-left:3px;}
+  .trace-lbl{font-size:12.5px; color:var(--ink-muted); flex:1; min-width:110px;}
+  .tb{display:inline-flex; align-items:center; gap:5px; font-family:var(--f-mono); font-size:9.5px; letter-spacing:.04em; text-transform:uppercase; border-radius:var(--r-sm); padding:2.5px 7px; white-space:nowrap;}
+  .tb-dot{width:5px; height:5px; border-radius:50%; flex-shrink:0;}
+  .tb-hc{background:var(--surface-2); color:var(--ink);}
+  .tb-hc .tb-dot{background:var(--noise);}
+  .tb-own{background:var(--signal-tint); color:var(--ink);}
+  .tb-own .tb-dot{background:var(--signal);}
+  .trace-rec{font-family:var(--f-mono); font-size:10.5px; color:var(--ink-muted); margin:-3px 0 6px; padding-left:2px;}
+  .trace-comp .trace-val, .trace-comp .trace-lbl{color:var(--noise);}
+  .trace-comp-tag{font-family:var(--f-mono); font-size:9.5px; letter-spacing:.03em; color:var(--noise); white-space:nowrap;}
+  .trace-coll{display:grid; grid-template-rows:0fr; transition:grid-template-rows .22s cubic-bezier(.4,0,.2,1);}
+  .trace-coll>div{overflow:hidden;}
+  .trace-coll.open{grid-template-rows:1fr;}
+  .trace-check{display:inline-flex; align-items:center; gap:8px; font-size:12.5px; color:var(--ink-muted); cursor:pointer; margin:2px 0 var(--sp-2); -webkit-user-select:none; user-select:none;}
+  .trace-check input{appearance:none; -webkit-appearance:none; width:18px; height:18px; border:1.5px solid var(--outline-strong); border-radius:var(--r-sm); background:var(--surface-0); cursor:pointer; display:grid; place-content:center; margin:0; flex-shrink:0;}
+  .trace-check input:checked{background:var(--signal); border-color:var(--signal);}
+  .trace-check input:checked::after{content:''; width:9px; height:5px; border-left:2px solid var(--on-signal); border-bottom:2px solid var(--on-signal); transform:rotate(-45deg) translateY(-1px);}
+  .trace-check input:focus-visible{outline:none; box-shadow:var(--focus-ring);}
+  .tstep{display:flex; gap:var(--sp-3); padding:var(--sp-2) 0 var(--sp-3); border-bottom:1px dashed var(--outline);}
+  .tstep:last-child{border-bottom:none; padding-bottom:var(--sp-1);}
+  .tstep-n{font-family:var(--f-mono); font-size:10.5px; color:var(--noise); padding-top:3px; flex-shrink:0;}
+  .tstep-body{flex:1; min-width:0;}
+  .tstep-title{font-size:13px; font-weight:500; color:var(--ink); margin:0 0 3px;}
+  .tstep-formula{font-family:var(--f-mono); font-size:11.5px; color:var(--ink-muted); margin:0 0 3px; word-break:break-word;}
+  .tstep-result{font-family:var(--f-display); font-weight:600; font-size:15px; font-variant-numeric:tabular-nums; color:var(--ink); margin:0 0 3px;}
+  .tstep-note{font-family:var(--f-mono); font-size:10px; line-height:1.5; color:var(--noise); margin:0;}
+  .trace-total{border-top:1px solid var(--outline-strong); margin-top:var(--sp-4); padding-top:var(--sp-4);}
+  .trace-total-val{font-family:var(--f-display); font-weight:600; font-size:32px; line-height:1; letter-spacing:-0.01em; font-variant-numeric:tabular-nums; color:var(--ink);}
+  .trace-total-val small{font-family:var(--f-mono); font-weight:400; font-size:12px; color:var(--noise); margin-left:6px;}
+  .trace-total-cap{font-size:12.5px; color:var(--ink-muted); margin:6px 0 0;}
+  .trace-table{width:100%; border-collapse:collapse;}
+  .trace-table th{font-family:var(--f-mono); font-size:9.5px; letter-spacing:.06em; text-transform:uppercase; color:var(--noise); font-weight:400; text-align:left; padding:0 8px 6px 0; border-bottom:1px solid var(--outline-strong);}
+  .trace-table th:last-child{text-align:right;}
+  .trace-table td{border-bottom:1px solid var(--outline); padding:6px 8px 6px 0; vertical-align:baseline;}
+  .trace-table tr:last-child td{border-bottom:none;}
+  .tt-date{font-family:var(--f-mono); font-size:11px; color:var(--ink-muted); white-space:nowrap;}
+  .tt-val{font-family:var(--f-display); font-weight:500; font-size:14px; font-variant-numeric:tabular-nums; color:var(--ink); white-space:nowrap;}
+  .tt-src{font-family:var(--f-mono); font-size:9.5px; color:var(--noise); text-align:right; white-space:nowrap;}
+  .ema-cap{font-family:var(--f-mono); font-size:10px; line-height:1.6; color:var(--noise); margin:0 0 6px;}
+  .ema-row{display:flex; justify-content:space-between; gap:var(--sp-3); font-family:var(--f-mono); font-size:11px; color:var(--ink-muted); padding:4px 0; border-bottom:1px dashed var(--outline);}
+  .ema-row:last-child{border-bottom:none;}
+  .ema-row b{font-weight:700; color:var(--ink); font-variant-numeric:tabular-nums; white-space:nowrap;}
+  .ema-break{display:flex; align-items:center; gap:8px; font-family:var(--f-mono); font-size:10px; letter-spacing:.04em; text-transform:uppercase; color:var(--alert); background:var(--alert-tint); border-radius:var(--r-sm); padding:6px 10px; margin:7px 0;}
 </style>
   <script>
     // Применяем сохранённую (или системную) тему до первой отрисовки — без вспышки.
@@ -351,6 +411,7 @@
     <a href="#components">Компоненты</a>
     <a href="#dark">Тёмная тема</a>
     <a href="#a11y">Доступность</a>
+    <a href="#calcdetail">Детализация</a>
   </nav>
 
   <main>
@@ -924,6 +985,173 @@
           <div class="focus-static">Пример состояния фокуса</div>
         </div>
       </div>
+    </section>
+
+    <!-- ===================== CALC DETAIL ===================== -->
+    <section id="calcdetail">
+      <p class="kicker">08</p>
+      <h2>Детализация расчёта</h2>
+      <p class="lede">Любое вычисленное число на экранах (шаги, питание, расход, баланс, среднесуточные, темп) открывает единый нижний лист «Как рассчитано». Трасса всегда из трёх секций: исходные данные с источниками → шаги с формулами и промежуточными результатами → итог. Обязательное правило: итог трассы равен числу на экране и повторяет его формат — разделители разрядов, знаки после запятой, знак ±.</p>
+
+      <p class="sub-caption" style="margin-top:0;">Каркас листа — реальный пример «Шаги · 22 сентября»</p>
+      <div class="calc-stage">
+        <p class="calc-stage-hint">Экран за затемнением (scrim)</p>
+        <div class="calc-sheet">
+          <div class="sheet-grip"></div>
+          <div class="sheet-head">
+            <div>
+              <p class="sheet-kicker">Как рассчитано</p>
+              <h3 class="sheet-title">Шаги · 22 сентября</h3>
+            </div>
+            <button class="sheet-close" aria-label="Закрыть лист">✕</button>
+          </div>
+
+          <p class="trace-cap">Исходные данные</p>
+          <div class="trace-in">
+            <span class="trace-val">8 000<small>шагов</small></span>
+            <span class="trace-lbl">записи за день</span>
+            <span class="tb tb-hc"><span class="tb-dot"></span>Health Connect · Samsung Health</span>
+          </div>
+          <p class="trace-rec">2 000 + 4 500 + 1 500</p>
+          <label class="trace-check"><input type="checkbox"> Показать данные, не попавшие в расчёт</label>
+
+          <p class="trace-cap">Расчёт</p>
+          <div class="tstep">
+            <span class="tstep-n">01</span>
+            <div class="tstep-body">
+              <p class="tstep-title">Один источник на день: победитель — максимальная сумма среди неотклонённых</p>
+              <p class="tstep-formula">8 000 &gt; 6 000 → Samsung Health</p>
+              <p class="tstep-note">агрегат Health Connect не используется — резолюция по сырым точкам</p>
+            </div>
+          </div>
+          <div class="tstep">
+            <span class="tstep-n">02</span>
+            <div class="tstep-body">
+              <p class="tstep-title">Суммируем записи победителя</p>
+              <p class="tstep-formula">2 000 + 4 500 + 1 500</p>
+              <p class="tstep-result">= 8 000</p>
+            </div>
+          </div>
+
+          <p class="trace-cap">Итог</p>
+          <div class="trace-total">
+            <div class="trace-total-val">8 000<small>шагов</small></div>
+            <p class="trace-total-cap">сумма записей победившего источника — то же число, что на экране</p>
+          </div>
+        </div>
+      </div>
+      <p class="axis-rules" style="margin-bottom:var(--sp-8);"><b>Каркас:</b> открывается снизу вверх поверх затемнённого экрана (scrim — Deep Ink 45%); drag handle и кнопка закрытия; высота по контенту, максимум ~80% экрана, содержимое скроллится внутри листа. Фон — surface-0, основной текст — ink, второстепенный — ink-muted / noise, верхние углы — r-xl (20px, «крупные модалки»). Заголовок: «Как рассчитано» + показатель + дата или окно. Закрытие — кнопка ✕, тап по scrim или свайп вниз за handle. Тёмная тема — производная по токенам §06 (переключатель вверху страницы).</p>
+
+      <p class="sub-caption">Бейджи источников в трассе</p>
+      <div class="comp-block" style="margin-bottom:var(--sp-3);">
+        <span class="tb tb-hc"><span class="tb-dot"></span>Health Connect · Samsung Health</span>
+        <span class="tb tb-own"><span class="tb-dot"></span>Ручной ввод</span>
+        <span class="tb tb-own"><span class="tb-dot"></span>Настройки</span>
+        <span class="tb tb-own"><span class="tb-dot"></span>Формула</span>
+        <span class="tb tb-own"><span class="tb-dot"></span>Расчёт приложения</span>
+      </div>
+      <p class="axis-rules" style="margin-bottom:var(--sp-8);">Бейдж наследует язык <code>SourceBadge</code> Фазы 6: точка-индикатор + текст Deep Ink на бледной подложке, mono 9.5–10, верхний регистр. Два цветовых семейства, различие — только текстом, новых ролей цвета нет: внешние данные (<b>Health Connect · имя приложения</b>) — точка Noise на surface-2, имя — из словаря <code>source_names</code> с обрезкой; всё «наше» (<b>Ручной ввод</b> — Tier 1, <b>Настройки</b> — параметр профиля/темп, <b>Формула</b> — вычисленное значение вроде возраста, <b>Расчёт приложения</b> — производное нашего расчёта) — точка Signal на signal-tint. Если источник дал несколько записей — под строкой входа мелким mono перечисление: <code>2 000 + 4 500 + 1 500</code>.</p>
+      <p class="sub-caption">Неучтённые данные — чекбокс и анимация</p>
+      <div class="calc-frag">
+        <label class="trace-check"><input type="checkbox" onchange="document.getElementById('dsTraceColl').classList.toggle('open', this.checked)"> Показать данные, не попавшие в расчёт</label>
+        <div class="trace-coll" id="dsTraceColl"><div>
+          <div class="trace-in trace-comp" style="padding-top:2px;">
+            <span class="trace-val">6 000<small>шагов</small></span>
+            <span class="trace-lbl">записи за день</span>
+            <span class="trace-comp-tag">не учтено: сумма меньше</span>
+          </div>
+          <div class="trace-in trace-comp">
+            <span class="trace-val">—</span>
+            <span class="trace-lbl">записи за день</span>
+            <span class="tb tb-hc"><span class="tb-dot"></span>Health Connect · Mi Fitness</span>
+            <span class="trace-comp-tag">не учтено: источник отклонён</span>
+          </div>
+        </div></div>
+      </div>
+      <p class="axis-rules" style="margin-bottom:var(--sp-8);"><b>Чекбокс</b> стоит под секцией «Исходные данные», по умолчанию выключен. Включение плавно разворачивает блок строк конкурентов, выключение — плавно сворачивает. Строки конкурентов визуально «тише» (noise), бейдж источника тот же, справа пометка «не учтено» и причина: «сумма меньше» / «меньше покрытие дней» / «источник отклонён» / «проиграл авто-правилу». <b>Анимация — одна для всех раскрытий в листе</b> (конкуренты, таблица дней, цепочка EMA): высота, <code>220 мс</code>, кривая <code>cubic-bezier(0.4, 0, 0.2, 1)</code> — «standard» Material 3; во Flutter — <code>Curves.fastOutSlowIn</code> в <code>AnimatedSize</code>. Чекбокс не показывается, если конкурентов нет.</p>
+
+      <p class="sub-caption">Таблица по дням — для среднесуточных</p>
+      <div class="calc-frag">
+        <p class="trace-cap" style="margin-top:0;">Дни, вошедшие в расчёт · 41</p>
+        <p class="tstep-note" style="margin:0 0 7px;">Сегодня исключено — день не завершён · Отсечено дней: 12 — правило 5+-дневного разрыва</p>
+        <button class="tbtn" type="button" style="padding:6px 0;">Показать все дни (41)</button>
+      </div>
+      <div class="calc-frag">
+        <p class="trace-cap" style="margin-top:0;">Дни, вошедшие в расчёт · 41</p>
+        <table class="trace-table">
+          <tr><th>Дата</th><th>Значение</th><th>Источник</th></tr>
+          <tr><td class="tt-date">17 июл</td><td class="tt-val">1 940</td><td class="tt-src">MyFitnessPal</td></tr>
+          <tr><td class="tt-date">18 июл</td><td class="tt-val">2 210</td><td class="tt-src">MyFitnessPal</td></tr>
+          <tr><td class="tt-date">20 июл</td><td class="tt-val">2 050</td><td class="tt-src">MyFitnessPal</td></tr>
+          <tr><td class="tt-date">21 июл</td><td class="tt-val">1 880</td><td class="tt-src">Ручной ввод · Итог дня</td></tr>
+          <tr><td class="tt-date">22 июл</td><td class="tt-val">2 320</td><td class="tt-src">MyFitnessPal</td></tr>
+          <tr><td class="tt-date">23 июл</td><td class="tt-val">1 980</td><td class="tt-src">MyFitnessPal</td></tr>
+        </table>
+        <button class="tbtn" type="button" style="padding:6px 0 0;">Скрыть дни</button>
+      </div>
+      <p class="axis-rules" style="margin-bottom:var(--sp-8);">Колонки: дата · значение · источник (mono). Сегмент «3 месяца» (90 дней) — таблица <b>свёрнута</b>: только заголовок «Дни, вошедшие в расчёт · N» и кнопка «Показать все дни (N)»; Неделя/Месяц — развёрнута сразу. Длинная таблица скроллится внутри секции листа, раскрытие — анимацией 220 мс (см. выше). Дни, исключённые правилами (разрыв 5+ дней, «сегодня»), в таблицу не входят — вместо них одно примечание-шаг над таблицей.</p>
+      <p class="sub-caption">Цепочка EMA — темп и сглаженный вес</p>
+      <div class="calc-frag">
+        <p class="trace-cap" style="margin-top:0;">Точки окна · 7</p>
+        <table class="trace-table">
+          <tr><th>Дата</th><th>Сырой вес</th><th>EMA</th></tr>
+          <tr><td class="tt-date">17 сен</td><td class="tt-val">84.6</td><td class="tt-val">84.52</td></tr>
+          <tr><td class="tt-date">18 сен</td><td class="tt-val">84.2</td><td class="tt-val">84.44</td></tr>
+          <tr><td class="tt-date">19 сен</td><td class="tt-val">84.4</td><td class="tt-val">84.43</td></tr>
+          <tr><td class="tt-date">20 сен</td><td class="tt-val">84.1</td><td class="tt-val">84.35</td></tr>
+          <tr><td class="tt-date">21 сен</td><td class="tt-val">83.9</td><td class="tt-val">84.24</td></tr>
+          <tr><td class="tt-date">22 сен</td><td class="tt-val">84.0</td><td class="tt-val">84.18</td></tr>
+          <tr><td class="tt-date">23 сен</td><td class="tt-val">83.7</td><td class="tt-val">84.06</td></tr>
+        </table>
+        <button class="tbtn" type="button" style="padding:6px 0 0;">Показать все шаги EMA</button>
+      </div>
+      <div class="calc-frag">
+        <p class="ema-cap">EMA = (вес − EMA<sub>вчера</sub>) × k + EMA<sub>вчера</sub> · k = 2/(период+1) = 2/8 = 0.25</p>
+        <div class="ema-break">⚠ Разрыв — серия стартует заново</div>
+        <div class="ema-row"><span>2 сен — инициализация весом первой точки</span><b>85.40</b></div>
+        <div class="ema-row"><span>3 сен: (85.1 − 85.40) × 0.25 + 85.40</span><b>= 85.33</b></div>
+        <div class="ema-row"><span>5 сен: (85.3 − 85.33) × 0.25 + 85.33</span><b>= 85.32</b></div>
+        <div class="ema-row"><span>6 сен: (84.9 − 85.32) × 0.25 + 85.32</span><b>= 85.22</b></div>
+        <div class="ema-row"><span>8 сен: (84.8 − 85.22) × 0.25 + 85.22</span><b>= 85.11</b></div>
+        <div class="ema-row"><span>10 сен: (84.6 − 85.11) × 0.25 + 85.11</span><b>= 84.98</b></div>
+        <div class="ema-row"><span>12 сен: (84.5 − 84.98) × 0.25 + 84.98</span><b>= 84.86</b></div>
+        <div class="ema-row"><span>…</span><b></b></div>
+        <div class="ema-row"><span>23 сен: (83.7 − 84.18) × 0.25 + 84.18</span><b>= 84.06</b></div>
+        <button class="tbtn" type="button" style="padding:6px 0 0;">Скрыть шаги EMA</button>
+      </div>
+      <p class="axis-rules" style="margin-bottom:var(--sp-8);">Свёрнуто — таблица точек окна «дата · сырой вес · EMA» (только точки, вошедшие в расчёт темпа). Кнопка «Показать все шаги EMA» разворачивает полную цепочку от начала текущей серии: каждая строка — формула с реальными числами и результат; подпись с k — одна сверху. Рестарты серии (5+ пустых дней подряд) — строка-разделитель «Разрыв — серия стартует заново» на alert-токенах (alert-текст на alert-tint): сглаживание прервано, новые средние считаются только после разрыва. Раскрытие — та же анимация 220 мс.</p>
+
+      <p class="sub-caption">Тёмная тема — производная по токенам §06</p>
+      <div class="calc-frag theme-dark" style="border-color:var(--outline);">
+        <div class="sheet-grip"></div>
+        <div class="sheet-head">
+          <div>
+            <p class="sheet-kicker">Как рассчитано</p>
+            <h3 class="sheet-title">Шаги · 22 сентября</h3>
+          </div>
+          <button class="sheet-close" aria-label="Закрыть лист">✕</button>
+        </div>
+        <p class="trace-cap">Исходные данные</p>
+        <div class="trace-in">
+          <span class="trace-val">8 000<small>шагов</small></span>
+          <span class="trace-lbl">записи за день</span>
+          <span class="tb tb-hc"><span class="tb-dot"></span>Health Connect · Samsung Health</span>
+        </div>
+        <p class="trace-rec">2 000 + 4 500 + 1 500</p>
+        <div class="tstep">
+          <span class="tstep-n">02</span>
+          <div class="tstep-body">
+            <p class="tstep-title">Суммируем записи победителя</p>
+            <p class="tstep-formula">2 000 + 4 500 + 1 500</p>
+            <p class="tstep-result">= 8 000</p>
+          </div>
+        </div>
+        <div class="trace-total">
+          <div class="trace-total-val">8 000<small>шагов</small></div>
+          <p class="trace-total-cap">сумма записей победившего источника — то же число, что на экране</p>
+        </div>
+      </div>
+      <p class="axis-rules">Весь лист собирается из тех же токенов — при переключении страницы в тёмную тему (кнопка ☾ вверху) перекрашивается автоматически: фон surface-0 тёмный, формулы ink-muted, примечания noise, разрыв серии — alert-токены тёмной темы. Отдельных тёмных значений паттерн не вводит.</p>
     </section>
 
     <footer>

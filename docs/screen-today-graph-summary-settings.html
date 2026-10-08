@@ -309,13 +309,83 @@
   .editor-field{flex:1; min-width:0;}
   .editor-field label{display:block; font-size:11.5px; color:var(--ink-muted); margin-bottom:4px;}
   .input-sm{width:100%; padding:8px 10px; border:1px solid var(--outline-strong); border-radius:var(--r-sm); font-family:var(--f-body); font-size:14px; background:var(--surface-0); color:var(--ink);}
+
+  /* ---------- Детализация расчёта: точки входа и лист «Как рассчитано» ---------- */
+  .calc-entry{display:inline-flex; align-items:center; justify-content:center; width:17px; height:17px; padding:0; border-radius:50%; border:1px solid var(--outline-strong); background:var(--surface-0); color:var(--ink-muted); cursor:pointer; vertical-align:-3px; margin-left:5px;}
+  .calc-entry svg{width:11px; height:11px; display:block;}
+  .calc-entry:hover{color:var(--ink); border-color:var(--ink-muted);}
+  .calc-entry:focus-visible{outline:none; box-shadow:var(--focus-ring);}
+  .calc-entry--s{width:14px; height:14px; vertical-align:-2px; margin-left:3px;}
+  .calc-entry--s svg{width:9px; height:9px;}
+  .tap-zone{border-bottom:1px dotted var(--outline-strong); cursor:pointer; padding-bottom:1px;}
+  .tap-zone:hover{border-bottom-color:var(--ink-muted);}
+  .tbtn{background:none; border:none; font-family:var(--f-body); font-weight:600; font-size:13px; color:var(--signal); cursor:pointer; padding:6px 0;}
+  .tbtn:focus-visible{outline:none; box-shadow:var(--focus-ring);}
+  .ax-tip-link{font-family:var(--f-mono); font-size:9px; fill:var(--signal); letter-spacing:.02em;}
+  .sheet-scrim{position:absolute; inset:0; background:rgba(20,23,26,.45); z-index:5;}
+  .calc-sheet{position:absolute; left:0; right:0; bottom:0; z-index:6; max-height:86%; display:flex; flex-direction:column; background:var(--surface-0); border-radius:var(--r-xl) var(--r-xl) 0 0; box-shadow:var(--shadow-2);}
+  .calc-sheet-body{overflow-y:auto; padding:var(--sp-2) var(--sp-4) var(--sp-6);}
+  .sheet-grip{width:36px; height:4px; border-radius:2px; background:var(--outline-strong); margin:var(--sp-1) auto var(--sp-3);}
+  .sheet-head{display:flex; align-items:flex-start; justify-content:space-between; gap:var(--sp-3);}
+  .sheet-kicker{font-family:var(--f-mono); font-size:10px; letter-spacing:.08em; text-transform:uppercase; color:var(--noise); margin:0 0 2px;}
+  .sheet-title{font-family:var(--f-body); font-weight:600; font-size:17px; color:var(--ink); margin:0;}
+  .sheet-close{width:30px; height:30px; flex-shrink:0; border-radius:var(--r-sm); border:1px solid var(--outline); background:var(--surface-0); color:var(--ink-muted); cursor:pointer; font-size:13px; line-height:1; display:flex; align-items:center; justify-content:center; padding:0;}
+  .sheet-close:focus-visible{outline:none; box-shadow:var(--focus-ring);}
+  .trace-cap{display:flex; align-items:center; gap:var(--sp-2); font-family:var(--f-mono); font-size:10px; letter-spacing:.08em; text-transform:uppercase; color:var(--noise); margin:var(--sp-5) 0 var(--sp-2);}
+  .trace-cap::after{content:''; flex:1; border-top:1px solid var(--outline);}
+  .trace-in{display:flex; align-items:baseline; gap:var(--sp-3); padding:7px 0; flex-wrap:wrap;}
+  .trace-val{font-family:var(--f-display); font-weight:600; font-size:18px; line-height:1.1; font-variant-numeric:tabular-nums; color:var(--ink); white-space:nowrap;}
+  .trace-val small{font-family:var(--f-mono); font-weight:400; font-size:10.5px; color:var(--noise); margin-left:3px;}
+  .trace-lbl{font-size:12.5px; color:var(--ink-muted); flex:1; min-width:110px;}
+  .tb{display:inline-flex; align-items:center; gap:5px; font-family:var(--f-mono); font-size:9.5px; letter-spacing:.04em; text-transform:uppercase; border-radius:var(--r-sm); padding:2.5px 7px; white-space:nowrap;}
+  .tb-dot{width:5px; height:5px; border-radius:50%; flex-shrink:0;}
+  .tb-hc{background:var(--surface-2); color:var(--ink);}
+  .tb-hc .tb-dot{background:var(--noise);}
+  .tb-own{background:var(--signal-tint); color:var(--ink);}
+  .tb-own .tb-dot{background:var(--signal);}
+  .trace-rec{font-family:var(--f-mono); font-size:10.5px; color:var(--ink-muted); margin:-3px 0 6px; padding-left:2px;}
+  .trace-comp .trace-val, .trace-comp .trace-lbl{color:var(--noise);}
+  .trace-comp-tag{font-family:var(--f-mono); font-size:9.5px; letter-spacing:.03em; color:var(--noise); white-space:nowrap;}
+  .trace-coll{display:grid; grid-template-rows:0fr; transition:grid-template-rows .22s cubic-bezier(.4,0,.2,1);}
+  .trace-coll>div{overflow:hidden;}
+  .trace-coll.open{grid-template-rows:1fr;}
+  .trace-check{display:inline-flex; align-items:center; gap:8px; font-size:12.5px; color:var(--ink-muted); cursor:pointer; margin:2px 0 var(--sp-2); -webkit-user-select:none; user-select:none;}
+  .trace-check input{appearance:none; -webkit-appearance:none; width:18px; height:18px; border:1.5px solid var(--outline-strong); border-radius:var(--r-sm); background:var(--surface-0); cursor:pointer; display:grid; place-content:center; margin:0; flex-shrink:0;}
+  .trace-check input:checked{background:var(--signal); border-color:var(--signal);}
+  .trace-check input:checked::after{content:''; width:9px; height:5px; border-left:2px solid var(--on-signal); border-bottom:2px solid var(--on-signal); transform:rotate(-45deg) translateY(-1px);}
+  .trace-check input:focus-visible{outline:none; box-shadow:var(--focus-ring);}
+  .tstep{display:flex; gap:var(--sp-3); padding:var(--sp-2) 0 var(--sp-3); border-bottom:1px dashed var(--outline);}
+  .tstep:last-child{border-bottom:none; padding-bottom:var(--sp-1);}
+  .tstep-n{font-family:var(--f-mono); font-size:10.5px; color:var(--noise); padding-top:3px; flex-shrink:0;}
+  .tstep-body{flex:1; min-width:0;}
+  .tstep-title{font-size:13px; font-weight:500; color:var(--ink); margin:0 0 3px;}
+  .tstep-formula{font-family:var(--f-mono); font-size:11.5px; color:var(--ink-muted); margin:0 0 3px; word-break:break-word;}
+  .tstep-result{font-family:var(--f-display); font-weight:600; font-size:15px; font-variant-numeric:tabular-nums; color:var(--ink); margin:0 0 3px;}
+  .tstep-note{font-family:var(--f-mono); font-size:10px; line-height:1.5; color:var(--noise); margin:0;}
+  .trace-total{border-top:1px solid var(--outline-strong); margin-top:var(--sp-4); padding-top:var(--sp-4);}
+  .trace-total-val{font-family:var(--f-display); font-weight:600; font-size:32px; line-height:1; letter-spacing:-0.01em; font-variant-numeric:tabular-nums; color:var(--ink);}
+  .trace-total-val small{font-family:var(--f-mono); font-weight:400; font-size:12px; color:var(--noise); margin-left:6px;}
+  .trace-total-cap{font-size:12.5px; color:var(--ink-muted); margin:6px 0 0;}
+  .trace-table{width:100%; border-collapse:collapse;}
+  .trace-table th{font-family:var(--f-mono); font-size:9.5px; letter-spacing:.06em; text-transform:uppercase; color:var(--noise); font-weight:400; text-align:left; padding:0 8px 6px 0; border-bottom:1px solid var(--outline-strong);}
+  .trace-table th:last-child{text-align:right;}
+  .trace-table td{border-bottom:1px solid var(--outline); padding:6px 8px 6px 0; vertical-align:baseline;}
+  .trace-table tr:last-child td{border-bottom:none;}
+  .tt-date{font-family:var(--f-mono); font-size:11px; color:var(--ink-muted); white-space:nowrap;}
+  .tt-val{font-family:var(--f-display); font-weight:500; font-size:14px; font-variant-numeric:tabular-nums; color:var(--ink); white-space:nowrap;}
+  .tt-src{font-family:var(--f-mono); font-size:9.5px; color:var(--noise); text-align:right; white-space:nowrap;}
+  .ema-cap{font-family:var(--f-mono); font-size:10px; line-height:1.6; color:var(--noise); margin:0 0 6px;}
+  .ema-row{display:flex; justify-content:space-between; gap:var(--sp-3); font-family:var(--f-mono); font-size:11px; color:var(--ink-muted); padding:4px 0; border-bottom:1px dashed var(--outline);}
+  .ema-row:last-child{border-bottom:none;}
+  .ema-row b{font-weight:700; color:var(--ink); font-variant-numeric:tabular-nums; white-space:nowrap;}
+  .ema-break{display:flex; align-items:center; gap:8px; font-family:var(--f-mono); font-size:10px; letter-spacing:.04em; text-transform:uppercase; color:var(--alert); background:var(--alert-tint); border-radius:var(--r-sm); padding:6px 10px; margin:7px 0;}
 </style>
 </head>
 <body>
 <div class="page-wrap">
   <p class="kicker">Экраны — этап 4</p>
   <h1 class="title">Сегодня, Саммари, Тренд и Настройки</h1>
-  <p class="lede">Все четыре вкладки нижней навигации спроектированы; обновлено по Фазе 6 — ось дат на графиках, карточки метрик с кешем подтверждений и меню «⋯», блоки «Тема» и «Источники данных» в Настройках, подэкран выбора источника и тёмный фрейм «Сегодня»; по Фазе 7 — карточка «Питание» на «Сегодня», график энергобаланса и ПРИХОД/РАСХОД/Б/Ж/У на «Тренде», «Энергобаланс недели» на «Саммари», блоки «Профиль расхода» и «Расход калорий» в «Настройках». Онбординг и paywall — отдельные экраны вне вкладок. Тумблер справа — служебный, для показа обоих статусов саммари внутри одного макета; в реальном интерфейсе его нет.</p>
+  <p class="lede">Все четыре вкладки нижней навигации спроектированы; обновлено по Фазе 6 — ось дат на графиках, карточки метрик с кешем подтверждений и меню «⋯», блоки «Тема» и «Источники данных» в Настройках, подэкран выбора источника и тёмный фрейм «Сегодня»; по Фазе 7 — карточка «Питание» на «Сегодня», график энергобаланса и ПРИХОД/РАСХОД/Б/Ж/У на «Тренде», «Энергобаланс недели» на «Саммари», блоки «Профиль расхода» и «Расход калорий» в «Настройках»; по фиче «Детализация расчёта» — маркеры-точки входа (ⓘ) у вычисленных чисел всех четырёх экранов и пять фреймов с открытым нижним листом «Как рассчитано» (Шаги с конкурентами за чекбоксом, Расход с каскадом BMR, Темп с EMA-цепочкой, Среднесуточный приход со свёрнутой таблицей дней, тёмная версия листа). Онбординг и paywall — отдельные экраны вне вкладок. Тумблер справа — служебный, для показа обоих статусов саммари внутри одного макета; в реальном интерфейсе его нет.</p>
 
   <div class="workspace">
 
@@ -327,7 +397,7 @@
         <div class="panel active" id="panel-today">
           <p class="date-caption">Сегодня · 24 июл</p>
           <div class="big-metric" id="bigMetric">—</div>
-          <p class="big-metric-unit">кг · сглаженный вес</p>
+          <p class="big-metric-unit">кг · сглаженный вес<button class="calc-entry" type="button" aria-label="Как рассчитано: сглаженный вес (EMA)" title="Как рассчитано"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="10.5" x2="12" y2="16.5"/><circle cx="12" cy="7" r="1.3" fill="currentColor" stroke="none"/></svg></button></p>
           <p class="raw-today">Сырое значение сегодня: <b id="rawToday">—</b> кг</p>
 
           <div class="chart-block">
@@ -379,7 +449,7 @@
               <span class="metric-value-lg">2 150</span>
               <span class="metric-unit">ккал сегодня</span>
             </div>
-            <p class="balance-line">Расход ≈ 2 400 · Баланс −250</p>
+            <p class="balance-line"><span class="tap-zone" role="button" tabindex="0" title="Как рассчитано: расход">Расход ≈ 2 400</span> · <span class="tap-zo  ne" role="button" tabindex="0" title="Как рассчитано: баланс">Баланс −250</span></p>
             <span class="badge badge-source"><span class="badge-dot"></span>Из MyFitnessPal</span>
             <div class="confirm-btns">
               <button class="confirm-btn"><svg viewBox="0 0 24 24" fill="none" stroke="var(--steady)" stroke-width="2.4" stroke-linecap="round"><path d="M4 12l5 5 11-11"/></svg>Ок</button>
@@ -407,19 +477,19 @@
           </div>
 
           <div class="pace-row">
-            <span class="pace-value" id="paceValue">−0.6%</span>
+            <span class="pace-value" id="paceValue">−0.6%</span><button class="calc-entry" type="button" aria-label="Как рассчитано: темп" title="Как рассчитано" style="vertical-align:14px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="10.5" x2="12" y2="16.5"/><circle cx="12" cy="7" r="1.3" fill="currentColor" stroke="none"/></svg></button>
             <span class="pace-kg" id="paceKg">−0.5 кг за неделю</span>
           </div>
 
           <p class="conclusion" id="conclusionText">Вес снижается стабильно, в пределах целевого темпа.</p>
 
           <hr class="divider">
-          <p class="rec-label">Рекомендация на следующую неделю</p>
+          <p class="rec-label">Рекомендация на следующую неделю<button class="calc-entry calc-entry--s" type="button" aria-label="Как рассчитано: рекомендация" title="Как рассчитано"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="10.5" x2="12" y2="16.5"/><circle cx="12" cy="7" r="1.3" fill="currentColor" stroke="none"/></svg></button></p>
           <p class="rec-text" id="recText">Оставь текущую калорийность без изменений — точности данных уже достаточно, чтобы доверять тренду.</p>
 
           <!-- Фаза 7: энергобаланс недели (скрывается при <2 дней с приходом за окно) -->
           <div class="energy-week-card">
-            <p class="metrics-caption" style="margin-bottom:4px;">Энергобаланс недели</p>
+            <p class="metrics-caption" style="margin-bottom:4px;">Энергобаланс недели<button class="calc-entry calc-entry--s" type="button" aria-label="Как рассчитано: энергобаланс недели" title="Как рассчитано"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="10.5" x2="12" y2="16.5"/><circle cx="12" cy="7" r="1.3" fill="currentColor" stroke="none"/></svg></button></p>
             <div class="ew-row">
               <span class="ew-label">Средний приход</span>
               <span class="ew-value">2 150<small>ккал · по 6 из 7 дней</small></span>
@@ -472,27 +542,27 @@
             <p class="metrics-caption">Среднесуточные показатели за период</p>
             <div class="avg-cells">
               <div class="avg-cell">
-                <span class="avg-cell-label">Сон</span>
+                <span class="avg-cell-label">Сон<button class="calc-entry calc-entry--s" type="button" aria-label="Как рассчитано: средний сон" title="Как рассчитано"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="10.5" x2="12" y2="16.5"/><circle cx="12" cy="7" r="1.3" fill="currentColor" stroke="none"/></svg></button></span>
                 <div class="avg-cell-value" id="metricSleep">7.3<small>ч</small></div>
               </div>
               <div class="avg-cell">
-                <span class="avg-cell-label">Шаги</span>
+                <span class="avg-cell-label">Шаги<button class="calc-entry calc-entry--s" type="button" aria-label="Как рассчитано: средние шаги" title="Как рассчитано"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="10.5" x2="12" y2="16.5"/><circle cx="12" cy="7" r="1.3" fill="currentColor" stroke="none"/></svg></button></span>
                 <div class="avg-cell-value" id="metricSteps">9 140</div>
               </div>
               <div class="avg-cell">
-                <span class="avg-cell-label">Расход</span>
+                <span class="avg-cell-label">Расход<button class="calc-entry calc-entry--s" type="button" aria-label="Как рассчитано: средний расход" title="Как рассчитано"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="10.5" x2="12" y2="16.5"/><circle cx="12" cy="7" r="1.3" fill="currentColor" stroke="none"/></svg></button></span>
                 <div class="avg-cell-value" id="metricExpenditure">≈2 430<small>ккал</small></div>
                 <div class="avg-coverage" id="covExpenditure">по 27 дн.</div>
               </div>
             </div>
             <div class="macro-row">
               <div class="avg-cell">
-                <span class="avg-cell-label">Приход</span>
+                <span class="avg-cell-label">Приход<button class="calc-entry calc-entry--s" type="button" aria-label="Как рассчитано: средний приход" title="Как рассчитано"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="10.5" x2="12" y2="16.5"/><circle cx="12" cy="7" r="1.3" fill="currentColor" stroke="none"/></svg></button></span>
                 <div class="avg-cell-value" id="metricIntake">2 180<small>ккал</small></div>
                 <div class="avg-coverage" id="covIntake">по 27 дн.</div>
               </div>
               <div class="avg-cell">
-                <span class="avg-cell-label">Б / Ж / У</span>
+                <span class="avg-cell-label">Б / Ж / У<button class="calc-entry calc-entry--s" type="button" aria-label="Как рассчитано: средние макросы" title="Как рассчитано"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="10.5" x2="12" y2="16.5"/><circle cx="12" cy="7" r="1.3" fill="currentColor" stroke="none"/></svg></button></span>
                 <div class="avg-cell-value" id="metricMacros" style="font-size:17px;">148 / 69 / 216<small>г</small></div>
                 <div class="avg-coverage" id="covMacros">по 27 дн.</div>
               </div>
@@ -562,7 +632,7 @@
             <p class="settings-caption">Расход калорий</p>
             <div class="exp-row">
               <div>
-                <div class="exp-name">Базальный (BMR)</div>
+                <div class="exp-name">Базальный (BMR)<button class="calc-entry calc-entry--s" type="button" aria-label="Как рассчитано: BMR" title="Как рассчитано"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="10.5" x2="12" y2="16.5"/><circle cx="12" cy="7" r="1.3" fill="currentColor" stroke="none"/></svg></button></div>
                 <div class="exp-src">Health Connect · Samsung Health</div>
               </div>
               <span class="exp-val">1 670<small> ккал/день</small></span>
@@ -570,7 +640,7 @@
             </div>
             <div class="exp-row">
               <div>
-                <div class="exp-name">Шаги</div>
+                <div class="exp-name">Шаги<button class="calc-entry calc-entry--s" type="button" aria-label="Как рассчитано: расход на шаги" title="Как рассчитано"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="10.5" x2="12" y2="16.5"/><circle cx="12" cy="7" r="1.3" fill="currentColor" stroke="none"/></svg></button></div>
                 <div class="exp-src">0.0004 ккал/кг/шаг · нетто-ходьба</div>
               </div>
               <span class="exp-val">≈31<small> ккал/1000 шагов</small></span>
@@ -578,7 +648,7 @@
             </div>
             <div class="exp-row">
               <div>
-                <div class="exp-name">Силовые</div>
+                <div class="exp-name">Силовые<button class="calc-entry calc-entry--s" type="button" aria-label="Как рассчитано: силовые" title="Как рассчитано"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="10.5" x2="12" y2="16.5"/><circle cx="12" cy="7" r="1.3" fill="currentColor" stroke="none"/></svg></button></div>
                 <div class="exp-src">Compendium · 3.5 MET (умеренная)</div>
               </div>
               <span class="exp-val">≈84<small> ккал/день</small></span>
@@ -586,7 +656,7 @@
             </div>
             <div class="exp-row">
               <div>
-                <div class="exp-name">Бытовой</div>
+                <div class="exp-name">Бытовой<button class="calc-entry calc-entry--s" type="button" aria-label="Как рассчитано: бытовой расход" title="Как рассчитано"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="10.5" x2="12" y2="16.5"/><circle cx="12" cy="7" r="1.3" fill="currentColor" stroke="none"/></svg></button></div>
                 <div class="exp-src">TEF + мелкая активность</div>
               </div>
               <span class="exp-val">200<small> ккал/день</small></span>
@@ -623,7 +693,7 @@
               </div>
             </div>
             <div class="exp-total">
-              <span class="settings-caption" style="margin:0;">Итого сегодня</span>
+              <span class="settings-caption" style="margin:0;">Итого сегодня<button class="calc-entry calc-entry--s" type="button" aria-label="Как рассчитано: итого сегодня" title="Как рассчитано"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="10.5" x2="12" y2="16.5"/><circle cx="12" cy="7" r="1.3" fill="currentColor" stroke="none"/></svg></button></span>
               <span class="exp-total-val">≈ 2 240<small style="font-family:var(--f-mono); font-size:11px; font-weight:400; color:var(--ink-muted);"> ккал/день</small></span>
             </div>
           </section>
@@ -751,7 +821,7 @@
         <div class="panel active">
           <p class="date-caption">Сегодня · 24 июл</p>
           <div class="big-metric" id="bigMetricDark">—</div>
-          <p class="big-metric-unit">кг · сглаженный вес</p>
+          <p class="big-metric-unit">кг · сглаженный вес<button class="calc-entry" type="button" aria-label="Как рассчитано: сглаженный вес (EMA)" title="Как рассчитано"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="10.5" x2="12" y2="16.5"/><circle cx="12" cy="7" r="1.3" fill="currentColor" stroke="none"/></svg></button></p>
           <p class="raw-today">Сырое значение сегодня: <b id="rawTodayDark">—</b> кг</p>
 
           <div class="chart-block">
@@ -802,7 +872,7 @@
               <span class="metric-value-lg">2 150</span>
               <span class="metric-unit">ккал сегодня</span>
             </div>
-            <p class="balance-line">Расход ≈ 2 400 · Баланс −250</p>
+            <p class="balance-line"><span class="tap-zone" role="button" tabindex="0" title="Как рассчитано: расход">Расход ≈ 2 400</span> · <span class="tap-zone" role="button" tabindex="0" title="Как рассчитано: баланс">Баланс −250</span></p>
             <span class="badge badge-source"><span class="badge-dot"></span>Из MyFitnessPal</span>
             <div class="confirm-btns">
               <button class="confirm-btn"><svg viewBox="0 0 24 24" fill="none" stroke="var(--steady)" stroke-width="2.4" stroke-linecap="round"><path d="M4 12l5 5 11-11"/></svg>Ок</button>
@@ -829,6 +899,441 @@
             Настройки
           </button>
         </nav>
+      </div>
+    </div>
+
+    <!-- CalcDetail: лист «Как рассчитано» — Шаги (референс 6.1: конкуренты скрыты за чекбоксом) -->
+    <div class="phone-frame">
+      <div class="phone-notch"></div>
+      <div class="phone-screen">
+        <div class="panel active">
+          <p class="date-caption">Сегодня · 24 июл</p>
+          <div class="big-metric">78.4</div>
+          <p class="big-metric-unit">кг · сглаженный вес</p>
+          <p class="raw-today">Сырое значение сегодня: <b>78.1</b> кг</p>
+        </div>
+        <div class="sheet-scrim"></div>
+        <div class="calc-sheet">
+          <div class="calc-sheet-body">
+            <div class="sheet-grip"></div>
+            <div class="sheet-head">
+              <div>
+                <p class="sheet-kicker">Как рассчитано</p>
+                <h3 class="sheet-title">Шаги · 22 сентября</h3>
+              </div>
+              <button class="sheet-close" aria-label="Закрыть лист">✕</button>
+            </div>
+            <p class="trace-cap">Исходные данные</p>
+            <div class="trace-in">
+              <span class="trace-val">8 000<small>шагов</small></span>
+              <span class="trace-lbl">записи за день</span>
+              <span class="tb tb-hc"><span class="tb-dot"></span>Health Connect · Samsung Health</span>
+            </div>
+            <p class="trace-rec">2 000 + 4 500 + 1 500</p>
+            <label class="trace-check"><input type="checkbox" onchange="document.getElementById('shComp').classList.toggle('open', this.checked)"> Показать данные, не попавшие в расчёт</label>
+            <div class="trace-coll" id="shComp"><div>
+              <div class="trace-in trace-comp" style="padding-top:2px;">
+                <span class="trace-val">6 000<small>шагов</small></span>
+                <span class="trace-lbl">записи за день</span>
+                <span class="trace-comp-tag">не учтено: сумма меньше</span>
+              </div>
+            </div></div>
+            <p class="trace-cap">Расчёт</p>
+            <div class="tstep">
+              <span class="tstep-n">01</span>
+              <div class="tstep-body">
+                <p class="tstep-title">Один источник на день: победитель — максимальная сумма среди неотклонённых</p>
+                <p class="tstep-formula">8 000 &gt; 6 000 → Samsung Health</p>
+                <p class="tstep-note">агрегат Health Connect не используется — резолюция по сырым точкам</p>
+              </div>
+            </div>
+            <div class="tstep">
+              <span class="tstep-n">02</span>
+              <div class="tstep-body">
+                <p class="tstep-title">Суммируем записи победителя</p>
+                <p class="tstep-formula">2 000 + 4 500 + 1 500</p>
+                <p class="tstep-result">= 8 000</p>
+              </div>
+            </div>
+            <p class="trace-cap">Итог</p>
+            <div class="trace-total">
+              <div class="trace-total-val">8 000<small>шагов</small></div>
+              <p class="trace-total-cap">шаги за 22 сентября — то же число, что в карточке «Шаги»</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CalcDetail: лист «Как рассчитано» — Расход, Итого сегодня (референс 6.2: каскад BMR) -->
+    <div class="phone-frame">
+      <div class="phone-notch"></div>
+      <div class="phone-screen">
+        <div class="panel active">
+          <h1 class="title">Настройки</h1>
+          <section class="settings-block">
+            <p class="settings-caption">Расход калорий</p>
+            <div class="exp-row">
+              <div>
+                <div class="exp-name">Базальный (BMR)</div>
+                <div class="exp-src">Health Connect · Samsung Health</div>
+              </div>
+              <span class="exp-val">1 670<small> ккал/день</small></span>
+            </div>
+            <div class="exp-total">
+              <span class="settings-caption" style="margin:0;">Итого сегодня</span>
+              <span class="exp-total-val">≈ 2 378<small style="font-family:var(--f-mono); font-size:11px; font-weight:400; color:var(--ink-muted);"> ккал/день</small></span>
+            </div>
+          </section>
+        </div>
+        <div class="sheet-scrim"></div>
+        <div class="calc-sheet">
+          <div class="calc-sheet-body">
+            <div class="sheet-grip"></div>
+            <div class="sheet-head">
+              <div>
+                <p class="sheet-kicker">Как рассчитано</p>
+                <h3 class="sheet-title">Расход · Итого сегодня</h3>
+              </div>
+              <button class="sheet-close" aria-label="Закрыть лист">✕</button>
+            </div>
+            <p class="trace-cap">Исходные данные</p>
+            <div class="trace-in">
+              <span class="trace-val">1 670<small>ккал</small></span>
+              <span class="trace-lbl">BMR за сегодня</span>
+              <span class="tb tb-hc"><span class="tb-dot"></span>Health Connect · Samsung Health</span>
+            </div>
+            <div class="trace-in">
+              <span class="trace-val">12 400<small>шагов</small></span>
+              <span class="trace-lbl">шаги за сегодня</span>
+              <span class="tb tb-hc"><span class="tb-dot"></span>Health Connect · Google Fit</span>
+            </div>
+            <div class="trace-in">
+              <span class="trace-val">84.2<small>кг</small></span>
+              <span class="trace-lbl">вес на сегодня</span>
+              <span class="tb tb-own"><span class="tb-dot"></span>Ручной ввод</span>
+            </div>
+            <div class="trace-in">
+              <span class="trace-val">0.0004</span>
+              <span class="trace-lbl">ккал/кг/шаг — коэффициент шагов</span>
+              <span class="tb tb-own"><span class="tb-dot"></span>Настройки</span>
+            </div>
+            <div class="trace-in">
+              <span class="trace-val">3 × 60<small>мин</small></span>
+              <span class="trace-lbl">силовые, умеренная (3.5 MET)</span>
+              <span class="tb tb-own"><span class="tb-dot"></span>Настройки</span>
+            </div>
+            <div class="trace-in">
+              <span class="trace-val">200<small>ккал</small></span>
+              <span class="trace-lbl">бытовой расход</span>
+              <span class="tb tb-own"><span class="tb-dot"></span>Настройки</span>
+            </div>
+            <p class="trace-cap">Расчёт</p>
+            <div class="tstep">
+              <span class="tstep-n">01</span>
+              <div class="tstep-body">
+                <p class="tstep-title">Каскад BMR: ручной не задан → HC BASAL за день есть → берём его</p>
+                <p class="tstep-result">= 1 670</p>
+                <p class="tstep-note">порядок каскада: ручной → Health Connect → Mifflin-St Jeor</p>
+              </div>
+            </div>
+            <div class="tstep">
+              <span class="tstep-n">02</span>
+              <div class="tstep-body">
+                <p class="tstep-title">Шаги — нетто-расход на ходьбу</p>
+                <p class="tstep-formula">12 400 × 84.2 × 0.0004</p>
+                <p class="tstep-result">= 418</p>
+              </div>
+            </div>
+            <div class="tstep">
+              <span class="tstep-n">03</span>
+              <div class="tstep-body">
+                <p class="tstep-title">Силовые — нетто (MET − 1), распределение на неделю</p>
+                <p class="tstep-formula">(3.5 − 1) × 84.2 × 1 ч × 3/7</p>
+                <p class="tstep-result">= 90</p>
+              </div>
+            </div>
+            <div class="tstep">
+              <span class="tstep-n">04</span>
+              <div class="tstep-body">
+                <p class="tstep-title">Бытовой расход (TEF + мелкая активность)</p>
+                <p class="tstep-result">= 200</p>
+              </div>
+            </div>
+            <div class="tstep">
+              <span class="tstep-n">05</span>
+              <div class="tstep-body">
+                <p class="tstep-title">Сумма компонентов</p>
+                <p class="tstep-formula">1 670 + 418 + 90 + 200</p>
+                <p class="tstep-result">= 2 378</p>
+                <p class="tstep-note">все компоненты нетто — BMR учтён отдельно, двойного счёта нет</p>
+              </div>
+            </div>
+            <p class="trace-cap">Итог</p>
+            <div class="trace-total">
+              <div class="trace-total-val">≈ 2 378<small>ккал/день</small></div>
+              <p class="trace-total-cap">расход за сегодня — то же число, что в строке «Итого сегодня»</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CalcDetail: лист «Как рассчитано» — Темп (референс 6.3: точки окна + полная цепочка EMA) -->
+    <div class="phone-frame">
+      <div class="phone-notch"></div>
+      <div class="phone-screen">
+        <div class="panel active">
+          <p class="date-caption">17 СЕН — 23 СЕН</p>
+          <div class="status-row">
+            <span class="status-dot" style="background:var(--steady)"></span>
+            <span class="status-heading">В темпе</span>
+          </div>
+          <div class="pace-row">
+            <span class="pace-value">−1.0%</span>
+            <span class="pace-kg">−0.7 кг за неделю</span>
+          </div>
+        </div>
+        <div class="sheet-scrim"></div>
+        <div class="calc-sheet">
+          <div class="calc-sheet-body">
+            <div class="sheet-grip"></div>
+            <div class="sheet-head">
+              <div>
+                <p class="sheet-kicker">Как рассчитано</p>
+                <h3 class="sheet-title">Темп · 17–23 сентября</h3>
+              </div>
+              <button class="sheet-close" aria-label="Закрыть лист">✕</button>
+            </div>
+            <p class="trace-cap">Исходные данные</p>
+            <div class="trace-in">
+              <span class="trace-val">0.8<small>%/нед</small></span>
+              <span class="trace-lbl">целевой темп</span>
+              <span class="tb tb-own"><span class="tb-dot"></span>Настройки</span>
+            </div>
+            <div class="trace-in">
+              <span class="trace-val">±0.15<small>п.п.</small></span>
+              <span class="trace-lbl">допуск статуса «в темпе»</span>
+              <span class="tb tb-own"><span class="tb-dot"></span>Формула</span>
+            </div>
+            <p class="trace-cap">Точки окна · 7</p>
+            <table class="trace-table">
+              <tr><th>Дата</th><th>Сырой вес</th><th>EMA</th></tr>
+              <tr><td class="tt-date">17 сен</td><td class="tt-val">84.6</td><td class="tt-val">84.31</td></tr>
+              <tr><td class="tt-date">18 сен</td><td class="tt-val">84.2</td><td class="tt-val">84.24</td></tr>
+              <tr><td class="tt-date">19 сен</td><td class="tt-val">84.4</td><td class="tt-val">84.16</td></tr>
+              <tr><td class="tt-date">20 сен</td><td class="tt-val">84.1</td><td class="tt-val">84.07</td></tr>
+              <tr><td class="tt-date">21 сен</td><td class="tt-val">83.9</td><td class="tt-val">83.95</td></tr>
+              <tr><td class="tt-date">22 сен</td><td class="tt-val">84.0</td><td class="tt-val">83.80</td></tr>
+              <tr><td class="tt-date">23 сен</td><td class="tt-val">83.7</td><td class="tt-val">83.62</td></tr>
+            </table>
+            <button class="tbtn" type="button" onclick="var c=document.getElementById('emaChain'); c.classList.toggle('open'); this.textContent = c.classList.contains('open') ? 'Скрыть шаги EMA' : 'Показать все шаги EMA';">Показать все шаги EMA</button>
+            <div class="trace-coll" id="emaChain"><div>
+              <p class="ema-cap" style="margin-top:6px;">EMA = (вес − EMA<sub>вчера</sub>) × k + EMA<sub>вчера</sub> · k = 2/(7+1) = 0.25</p>
+              <div class="ema-break">⚠ Разрыв — серия стартует заново</div>
+              <div class="ema-row"><span>2 сен — инициализация весом первой точки</span><b>85.40</b></div>
+              <div class="ema-row"><span>3 сен: (85.1 − 85.40) × 0.25 + 85.40</span><b>= 85.33</b></div>
+              <div class="ema-row"><span>5 сен: (85.3 − 85.33) × 0.25 + 85.33</span><b>= 85.32</b></div>
+              <div class="ema-row"><span>6 сен: (84.9 − 85.32) × 0.25 + 85.32</span><b>= 85.22</b></div>
+              <div class="ema-row"><span>… до последней точки окна (23 сен)</span><b></b></div>
+            </div></div>
+            <p class="trace-cap">Расчёт</p>
+            <div class="tstep">
+              <span class="tstep-n">01</span>
+              <div class="tstep-body">
+                <p class="tstep-title">Берём первую и последнюю EMA-точки окна</p>
+                <p class="tstep-formula">EMA(17 сен) = 84.31 · EMA(23 сен) = 83.62 · между ними 6 дней</p>
+              </div>
+            </div>
+            <div class="tstep">
+              <span class="tstep-n">02</span>
+              <div class="tstep-body">
+                <p class="tstep-title">Темп за окно</p>
+                <p class="tstep-formula">(83.62 − 84.31) / 84.31 × 100</p>
+                <p class="tstep-result">= −0.82%</p>
+              </div>
+            </div>
+            <div class="tstep">
+              <span class="tstep-n">03</span>
+              <div class="tstep-body">
+                <p class="tstep-title">Нормализация к неделе</p>
+                <p class="tstep-formula">−0.82 × 7 / 6</p>
+                <p class="tstep-result">= −0.95%</p>
+              </div>
+            </div>
+            <div class="tstep">
+              <span class="tstep-n">04</span>
+              <div class="tstep-body">
+                <p class="tstep-title">В килограммах</p>
+                <p class="tstep-formula">83.62 − 84.31</p>
+                <p class="tstep-result">= −0.69 кг</p>
+              </div>
+            </div>
+            <div class="tstep">
+              <span class="tstep-n">05</span>
+              <div class="tstep-body">
+                <p class="tstep-title">Статус</p>
+                <p class="tstep-formula">|−0.95| против 0.8 ± 0.15 → «в темпе»</p>
+                <p class="tstep-note">точек окна после отсечения ≥ 5 — порог выполнен; при &lt;5 саммари не считается</p>
+              </div>
+            </div>
+            <p class="trace-cap">Итог</p>
+            <div class="trace-total">
+              <div class="trace-total-val">−1.0<small>%/нед</small></div>
+              <p class="trace-total-cap">−0.69 кг → −0.7 кг за неделю — числа и формат совпадают с саммари</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CalcDetail: лист «Как рассчитано» — среднесуточный приход (референс 6.4: 90 дней, таблица свёрнута) -->
+    <div class="phone-frame">
+      <div class="phone-notch"></div>
+      <div class="phone-screen">
+        <div class="panel active">
+          <h1 class="title" style="margin-bottom:0;">Тренд</h1>
+          <div class="segmented">
+            <button type="button">Неделя</button>
+            <button type="button">Месяц</button>
+            <button class="active" type="button">3 мес</button>
+          </div>
+          <div class="metrics-section">
+            <p class="metrics-caption">Среднесуточные показатели за период</p>
+            <div class="avg-cells">
+              <div class="avg-cell">
+                <span class="avg-cell-label">Приход</span>
+                <div class="avg-cell-value">2 105<small>ккал</small></div>
+                <div class="avg-coverage">по 41 дн.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="sheet-scrim"></div>
+        <div class="calc-sheet">
+          <div class="calc-sheet-body">
+            <div class="sheet-grip"></div>
+            <div class="sheet-head">
+              <div>
+                <p class="sheet-kicker">Как рассчитано</p>
+                <h3 class="sheet-title">Среднесуточный приход · 90 дней</h3>
+              </div>
+              <button class="sheet-close" aria-label="Закрыть лист">✕</button>
+            </div>
+            <p class="trace-cap">Исходные данные</p>
+            <div class="trace-in">
+              <span class="trace-val">90<small>дн.</small></span>
+              <span class="trace-lbl">окно (сегмент «3 мес»)</span>
+              <span class="tb tb-own"><span class="tb-dot"></span>Настройки</span>
+            </div>
+            <div class="trace-in">
+              <span class="trace-val">41<small>дн.</small></span>
+              <span class="trace-lbl">дней с питанием в расчёте</span>
+              <span class="tb tb-own"><span class="tb-dot"></span>Расчёт приложения</span>
+            </div>
+            <p class="tstep-note" style="margin:0 0 6px;">Сегодня исключено — день не завершён · Отсечено дней: 12 — правило 5+-дневного разрыва</p>
+            <p class="trace-cap">Дни, вошедшие в расчёт · 41</p>
+            <button class="tbtn" type="button" onclick="var c=document.getElementById('days41'); c.classList.toggle('open'); this.textContent = c.classList.contains('open') ? 'Скрыть дни' : 'Показать все дни (41)';">Показать все дни (41)</button>
+            <div class="trace-coll" id="days41"><div>
+              <table class="trace-table" style="margin-top:6px;">
+                <tr><th>Дата</th><th>Значение</th><th>Источник</th></tr>
+                <tr><td class="tt-date">17 июл</td><td class="tt-val">1 940</td><td class="tt-src">MyFitnessPal</td></tr>
+                <tr><td class="tt-date">18 июл</td><td class="tt-val">2 210</td><td class="tt-src">MyFitnessPal</td></tr>
+                <tr><td class="tt-date">20 июл</td><td class="tt-val">2 050</td><td class="tt-src">MyFitnessPal</td></tr>
+                <tr><td class="tt-date">21 июл</td><td class="tt-val">1 880</td><td class="tt-src">Ручной ввод · Итог дня</td></tr>
+                <tr><td class="tt-date">22 июл</td><td class="tt-val">2 320</td><td class="tt-src">MyFitnessPal</td></tr>
+                <tr><td class="tt-date">23 июл</td><td class="tt-val">1 980</td><td class="tt-src">MyFitnessPal</td></tr>
+                <tr><td class="tt-date" colspan="3" style="text-align:center;">… ещё 35 дней</td></tr>
+              </table>
+            </div></div>
+            <p class="trace-cap">Расчёт</p>
+            <div class="tstep">
+              <span class="tstep-n">01</span>
+              <div class="tstep-body">
+                <p class="tstep-title">Сумма значений дней, вошедших в расчёт</p>
+                <p class="tstep-formula">сумма 41 дня (в таблице выше)</p>
+                <p class="tstep-result">= 86 320</p>
+              </div>
+            </div>
+            <div class="tstep">
+              <span class="tstep-n">02</span>
+              <div class="tstep-body">
+                <p class="tstep-title">Среднесуточное</p>
+                <p class="tstep-formula">86 320 / 41</p>
+                <p class="tstep-result">= 2 105</p>
+                <p class="tstep-note">знаменатель — только дни с данными; «нет данных» ≠ 0</p>
+              </div>
+            </div>
+            <p class="trace-cap">Итог</p>
+            <div class="trace-total">
+              <div class="trace-total-val">2 105<small>ккал/день</small></div>
+              <p class="trace-total-cap">покрытие «по 41 дн.» — то же число, что в ячейке «Приход» на «Тренде»</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CalcDetail: лист «Как рассчитано» в тёмной теме — производная по токенам §06 -->
+    <div class="phone-frame">
+      <div class="phone-notch"></div>
+      <div class="phone-screen dark">
+        <div class="panel active">
+          <p class="date-caption">Сегодня · 24 июл</p>
+          <div class="big-metric">78.4</div>
+          <p class="big-metric-unit">кг · сглаженный вес</p>
+          <p class="raw-today">Сырое значение сегодня: <b>78.1</b> кг</p>
+        </div>
+        <div class="sheet-scrim"></div>
+        <div class="calc-sheet">
+          <div class="calc-sheet-body">
+            <div class="sheet-grip"></div>
+            <div class="sheet-head">
+              <div>
+                <p class="sheet-kicker">Как рассчитано</p>
+                <h3 class="sheet-title">Шаги · 22 сентября</h3>
+              </div>
+              <button class="sheet-close" aria-label="Закрыть лист">✕</button>
+            </div>
+            <p class="trace-cap">Исходные данные</p>
+            <div class="trace-in">
+              <span class="trace-val">8 000<small>шагов</small></span>
+              <span class="trace-lbl">записи за день</span>
+              <span class="tb tb-hc"><span class="tb-dot"></span>Health Connect · Samsung Health</span>
+            </div>
+            <p class="trace-rec">2 000 + 4 500 + 1 500</p>
+            <label class="trace-check"><input type="checkbox" onchange="document.getElementById('shCompDark').classList.toggle('open', this.checked)"> Показать данные, не попавшие в расчёт</label>
+            <div class="trace-coll" id="shCompDark"><div>
+              <div class="trace-in trace-comp" style="padding-top:2px;">
+                <span class="trace-val">6 000<small>шагов</small></span>
+                <span class="trace-lbl">записи за день</span>
+                <span class="trace-comp-tag">не учтено: сумма меньше</span>
+              </div>
+            </div></div>
+            <p class="trace-cap">Расчёт</p>
+            <div class="tstep">
+              <span class="tstep-n">01</span>
+              <div class="tstep-body">
+                <p class="tstep-title">Один источник на день: победитель — максимальная сумма среди неотклонённых</p>
+                <p class="tstep-formula">8 000 &gt; 6 000 → Samsung Health</p>
+                <p class="tstep-note">агрегат Health Connect не используется — резолюция по сырым точкам</p>
+              </div>
+            </div>
+            <div class="tstep">
+              <span class="tstep-n">02</span>
+              <div class="tstep-body">
+                <p class="tstep-title">Суммируем записи победителя</p>
+                <p class="tstep-formula">2 000 + 4 500 + 1 500</p>
+                <p class="tstep-result">= 8 000</p>
+              </div>
+            </div>
+            <p class="trace-cap">Итог</p>
+            <div class="trace-total">
+              <div class="trace-total-val">8 000<small>шагов</small></div>
+              <p class="trace-total-cap">шаги за 22 сентября — то же число, что в карточке «Шаги»</p>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -873,6 +1378,7 @@
           </div>
           <!-- меню «⋯», открыто статично для макета; доступно в autoConfirmed и sourceRefused -->
           <div class="menu-card">
+            <button class="menu-item" type="button">Детализация расчёта</button>
             <button class="menu-item" type="button">Доверять этому источнику</button>
             <button class="menu-item danger" type="button">Отклонить источник (вводить вручную)</button>
             <hr class="divider" style="margin:var(--sp-1) 0;">
@@ -888,6 +1394,15 @@
       <div class="note"><span class="note-mark"></span><p><b>Среднесуточные:</b> «АКТИВНОСТЬ» заменена на «РАСХОД» — полный расход из 4 компонентов (BMR + шаги + силовые + бытовой); добавлены «ПРИХОД» и строка Б/Ж/У с покрытием «по N дн.»; «сегодня» исключается из всех средних.</p></div>
       <div class="note"><span class="note-mark"></span><p><b>Саммари:</b> карточка «Энергобаланс недели» — средний приход (с покрытием «по 6 из 7 дней»), средний расход, средний баланс, ожидаемый темп из баланса (≈ −0.48 кг/нед). Скрывается при &lt;2 дней с приходом — движок тогда работает по текстам Фазы 5. Рекомендации v2 подставляют числа: дельта = вес × |цель − факт| × 11 (коридор 50–300 ккал).</p></div>
       <div class="note"><span class="note-mark"></span><p><b>Настройки:</b> «Профиль расхода» (пол, год рождения, рост с префиллом из Health Connect) и «Расход калорий» — 4 компонента с источником (HC / формула / дефолт) и ручным оверрайдом; редактор силовых: частота 0–7 / длительность / интенсивность (3.5 или 6.0 MET) / «своя ккал/сессия»; строка «Итого сегодня». Блок «Уровень активности» удаляется.</p></div>
+
+      <h3 style="margin-top:var(--sp-8);">Детализация расчёта (CalcDetail)</h3>
+      <div class="note"><span class="note-mark"></span><p><b>Единый нижний лист «Как рассчитано»</b> для всех вычисленных чисел: трасса из трёх секций — «Исходные данные» (значение + бейдж источника) → «Расчёт» (нумерованные шаги с формулами и промежуточными результатами) → «Итог». Обязательное правило: итог трассы == числу на экране, в том же формате (разделители разрядов, знаки после запятой, ±). Пять открытых листов с реальными числами — в фреймах справа; каркас и спецификация — секция «Детализация расчёта» дизайн-системы.</p></div>
+      <div class="note"><span class="note-mark"></span><p><b>Аффорданс точек входа один на все экраны</b> — иконка ⓘ (контур, ink-muted) рядом со значением или подписью: сглаженный вес на «Сегодня», ячейки СОН/ШАГИ/РАСХОД/ПРИХОД/Б/Ж/У на «Тренде», темп и «Энергобаланс недели» (строки тапабельны целиком) и заголовок «РЕКОМЕНДАЦИЯ» на «Саммари», строки BMR/Шаги/Силовые/Бытовой и «Итого сегодня» в «Настройках». Карточки метрик — пункт «Детализация расчёта» в существующем меню «⋯» (открыт статично в мини-карточке ниже); зоны «Расход ≈ N» и «Баланс ±N» в карточке «Питание» — dotted-подчёркивание; тултип столбца энергобаланса — строка «Как рассчитано →». Критерии выбора: не конфликтует с «Ок / Не ок», «⋯» и формами ввода, одинаков везде, не загромождает экран.</p></div>
+      <div class="note"><span class="note-mark"></span><p><b>Карточка «Питание» — три отдельные трассы:</b> калории (меню «⋯»), «Расход ≈ N» и «Баланс ±N» (тап по своей зоне) — у каждой свой набор исходных данных и шагов.</p></div>
+      <div class="note"><span class="note-mark"></span><p><b>Неучтённые данные скрыты по умолчанию:</b> чекбокс «Показать данные, не попавшие в расчёт» под секцией «Исходные данные»; конкуренты визуально «тише» (noise) и помечены причиной — «не учтено: сумма меньше» / «меньше покрытие дней» / «источник отклонён» / «проиграл авто-правилу». Раскрытие — анимация высоты <b>220 мс, cubic-bezier(0.4, 0, 0.2, 1)</b> («standard» M3; во Flutter — Curves.fastOutSlowIn в AnimatedSize), одна для всех раскрытий листа. Чекбокс в фреймах «Шаги» — живой.</p></div>
+      <div class="note"><span class="note-mark"></span><p><b>Таблица по дням</b> (среднесуточные): колонки дата · значение · источник; при сегменте «3 месяца» (90 дней) свёрнута — кнопка «Показать все дни (41)», при Неделе/Месяце развёрнута сразу. Дни, исключённые правилами, в таблицу не входят — примечанием над ней: «Сегодня исключено — день не завершён», «Отсечено дней: 12 — правило 5+-дневного разрыва». Кнопка в фрейме «Среднесуточный приход» — живая.</p></div>
+      <div class="note"><span class="note-mark"></span><p><b>Темп и сглаженный вес:</b> таблица точек окна «дата · сырой вес · EMA» + шаги (первая/последняя EMA-точки, % за окно, нормализация к неделе, кг, статус); полная цепочка сглаживания — по кнопке «Показать все шаги EMA», рестарты серии помечены строкой «Разрыв — серия стартует заново» на alert-токенах. Кнопка в фрейме «Темп» — живая.</p></div>
+      <div class="note"><span class="note-mark"></span><p><b>Тёмная версия листа</b> — производная по токенам §06 (последний фрейм): те же классы, перекраска автоматическая; отдельных тёмных значений паттерн не вводит. Новых hex-ролей нет — только существующие токены дизайн-системы.</p></div>
 
       <div class="mini-cards">
         <div class="metric-card mini-card">
@@ -1162,10 +1677,12 @@
     const l2 = 'Приход ' + intake[ti] + ' · Расход ' + expend[ti] + ' · Баланс ' + balances[ti];
     const rw = 236, rx = Math.max(2, Math.min(width - rw - 2, tx - rw / 2));
     const barTop = Math.min(yFor(balances[ti]), yFor(0));
-    svg += '<line x1="' + tx.toFixed(1) + '" y1="36" x2="' + tx.toFixed(1) + '" y2="' + (barTop - 3).toFixed(1) + '" stroke="var(--outline)"/>';
-    svg += '<rect class="ax-tip" x="' + rx.toFixed(1) + '" y="2" width="' + rw + '" height="34" rx="6"/>';
-    svg += '<text class="ax-tip-text" x="' + (rx + rw / 2).toFixed(1) + '" y="15.5" text-anchor="middle">' + l1 + '</text>';
-    svg += '<text class="ax-tip-text" style="font-size:9px" x="' + (rx + rw / 2).toFixed(1) + '" y="28.5" text-anchor="middle">' + l2 + '</text>';
+    svg += '<line x1="' + tx.toFixed(1) + '" y1="48" x2="' + tx.toFixed(1) + '" y2="' + (barTop - 3).toFixed(1) + '" stroke="var(--outline)"/>';
+    svg += '<rect class="ax-tip" x="' + rx.toFixed(1) + '" y="2" width="' + rw + '" height="46" rx="6"/>';
+    svg += '<text class="ax-tip-text" x="' + (rx + rw / 2).toFixed(1) + '" y="14.5" text-anchor="middle">' + l1 + '</text>';
+    svg += '<text class="ax-tip-text" style="font-size:9px" x="' + (rx + rw / 2).toFixed(1) + '" y="26.5" text-anchor="middle">' + l2 + '</text>';
+    // CalcDetail: вход в деталку дня — кнопка в тултипе столбца
+    svg += '<text class="ax-tip-link" x="' + (rx + rw / 2).toFixed(1) + '" y="40.5" text-anchor="middle">Как рассчитано →</text>';
     svg += '</svg>';
     document.getElementById('energyChart').innerHTML = svg;
 

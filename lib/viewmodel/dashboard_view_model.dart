@@ -198,17 +198,13 @@ class DashboardViewModel extends ChangeNotifier {
 
   DashboardViewModel({
     required HealthRepository repository,
-    required HealthDataProcessor processor,
-    Health? health,
+    required this._processor,
+    this._health,
     SettingsService? settingsService,
-    Future<bool> Function(Health health)? permissionCheck,
-    Future<bool?> Function(Health health)? permissionStatusCheck,
+    this._permissionCheck,
+    this._permissionStatusCheck,
     bool autoLoad = true,
   }) : _repo = repository,
-       _processor = processor,
-       _health = health,
-       _permissionCheck = permissionCheck,
-       _permissionStatusCheck = permissionStatusCheck,
        _settings = settingsService,
        _start = DateTime.now().subtract(
          const Duration(days: RecommendationConfig.todayChartDays - 1),

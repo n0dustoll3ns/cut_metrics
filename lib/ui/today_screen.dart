@@ -1,6 +1,7 @@
 import 'package:cut_metrics/domain/date_key.dart';
 import 'package:cut_metrics/domain/metric_type.dart';
 import 'package:cut_metrics/services/app_settings_opener.dart';
+import 'package:cut_metrics/ui/calc_detail_sheet.dart';
 import 'package:cut_metrics/ui/metric_card.dart';
 import 'package:cut_metrics/ui/months.dart';
 import 'package:cut_metrics/ui/nutrition_card.dart';
@@ -76,7 +77,20 @@ class TodayScreen extends StatelessWidget {
             smoothed == null ? '—' : smoothed.toStringAsFixed(1),
             style: CMFonts.metric(size: 60, color: colors.ink),
           ),
-          Text('кг · сглаженный вес', style: CMFonts.caption(size: 12, color: colors.noise)),
+          // Подпись + иконка «Как рассчитано» (CalcDetail, §6)
+          Row(
+            children: [
+              Text('кг · сглаженный вес',
+                  style: CMFonts.caption(size: 12, color: colors.noise)),
+              const SizedBox(width: CMSpacing.sp1),
+              if (smoothed != null)
+                CalcInfoIcon(
+                  tooltip: 'Как рассчитано',
+                  onTap: () => showCalcDetailSheet(
+                      context, vm.smoothedWeightTrace()),
+                ),
+            ],
+          ),
           const SizedBox(height: CMSpacing.sp2),
 
           // Сырое значение за сегодня

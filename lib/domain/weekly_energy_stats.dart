@@ -4,6 +4,50 @@ import 'package:cut_metrics/domain/expenditure_day.dart';
 import 'package:cut_metrics/domain/gap_rule.dart';
 import 'package:cut_metrics/domain/nutrition_day.dart';
 
+/// Строка таблицы дней окна энергобаланса — для трассы «Энергобаланс недели»
+/// (CalcDetail §3.7, решение пользователя «вариант A»: единый источник истины,
+/// значения не пересчитываются второй раз).
+///
+/// Строка есть для каждого дня окна, где есть приход ИЛИ расход. День без
+/// расхода — [balanceKcal] == `null`, «баланс не считается» (A.4 п.4).
+class EnergyDayRow {
+  final DateKey date;
+
+  /// Приход, ккал; `null` — дня нет в кеше питания («нет данных ≠ 0»).
+  final double? intakeKcal;
+
+  /// Расход, ккал; `null` — BMR не рассчитан.
+  final double? expenditureKcal;
+
+  /// Баланс `приход − расход`; `null` — одного из слагаемых нет.
+  final double? balanceKcal;
+
+  const EnergyDayRow({
+    required this.date,
+    this.intakeKcal,
+    this.expenditureKcal,
+    this.balanceKcal,
+  });
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is EnergyDayRow &&
+          date == other.date &&
+          intakeKcal == other.intakeKcal &&
+          expenditureKcal == other.expenditureKcal &&
+          balanceKcal == other.balanceKcal;
+
+  @override
+  int get hashCode => Object.hash(date, intakeKcal, expenditureKcal, balanceKcal);
+
+  @override
+  String toString() =>
+      'EnergyDayRow($date, приход: ${intakeKcal?.toStringAsFixed(0) ?? '—'}, '
+      'расход: ${expenditureKcal?.toStringAsFixed(0) ?? '—'}, '
+      'баланс: ${balanceKcal?.toStringAsFixed(0) ?? '—'})';
+}
+
 /// Энергостаты за скользящее окно (Фаза 7, C.1) — данные для карточки
 /// «Энергобаланс недели» и движка рекомендаций v2.
 ///
@@ -34,12 +78,21 @@ class WeeklyEnergyStats {
   /// `null` при [avgBalance] == null. Отрицательный = снижение.
   final double? expectedKgPerWeek;
 
+  /// Таблица дней окна для трассы «Энергобаланс недели» (CalcDetail §3.7,
+  /// «вариант A»): день · приход · расход · баланс. Строки для всех дней окна
+  /// с приходом или расходом; день без расхода — баланс `null` («баланс не
+  /// считается», A.4 п.4). Средние выше считаются по своим знаменателям —
+  /// при окне в 6 дней правило «после разрыва» отсечений не даёт, значения
+  /// строки и средних консистентны.
+  final List<EnergyDayRow> dayRows;
+
   const WeeklyEnergyStats({
     required this.avgIntake,
     required this.intakeDays,
     required this.avgExpenditure,
     required this.avgBalance,
     required this.expectedKgPerWeek,
+    this.dayRows = const [],
   });
 
   @override
@@ -100,11 +153,29 @@ WeeklyEnergyStats? computeEnergyStats({
   final expectedKgPerWeek =
       avgBalance == null ? null : avgBalance * 7 / ExpenditureConfig.kcalPerKgFat;
 
+  // Таблица дней окна (CalcDetail §3.7): строки не пересчитывают средние —
+  // это те же кеши, прочитанные по дням; средние выше — по своим знаменателям.
+  final rows = <EnergyDayRow>[];
+  for (var i = 6; i >= 1; i--) {
+    final k = DateKey(today.subtract(Duration(days: i)));
+    if (!inWindow(k)) continue;
+    final intake = nutritionCache[k]?.calories;
+    final exp = expenditureCache[k]?.total;
+    if (intake == null && exp == null) continue;
+    rows.add(EnergyDayRow(
+      date: k,
+      intakeKcal: intake,
+      expenditureKcal: exp,
+      balanceKcal: (intake != null && exp != null) ? intake - exp : null,
+    ));
+  }
+
   return WeeklyEnergyStats(
     avgIntake: avgIntake,
     intakeDays: intakeDays.length,
     avgExpenditure: avgExpenditure,
     avgBalance: avgBalance,
     expectedKgPerWeek: expectedKgPerWeek,
+    dayRows: rows,
   );
 }

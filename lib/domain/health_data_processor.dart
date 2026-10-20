@@ -534,6 +534,67 @@ class HealthDataProcessor {
         7;
   }
 
+  // ─── CalcDetail: отображаемые данные о конкурентах (§4 ТЗ) ─────────────────
+  //
+  // Чистые функции ТОЛЬКО для сбора данных трасс «Как рассчитано». Победителей
+  // по-прежнему определяют существующие `resolve*` — правила не дублируются,
+  // билдеры трасс берут победителя из резолвнутых кешей (`sourcePackage`).
+
+  /// Сумма шагов за день по КАЖДОМУ источнику с точками в этот день — включая
+  /// наш (Tier 1) и отклонённые (их билдер помечает «источник отклонён» по
+  /// карте решений). Для трассы шагов §3.1: сравнение сумм конкурентов.
+  Map<String, int> stepsSumsBySource(DateKey date, List<HealthDataPoint> points) {
+    final sums = <String, int>{};
+    for (final p in points) {
+      if (DateKey(p.dateFrom) != date) continue;
+      final source = sourcePackageOf(p);
+      sums[source] = (sums[source] ?? 0) + _numericValue(p).toInt();
+    }
+    return sums;
+  }
+
+  /// Статистика источника питания за загруженный диапазон (для трассы §3.2:
+  /// объяснение авто-правила «по покрытию дней»).
+  ///
+  /// Считается по ВСЕМ точкам (без фильтра решений/выбора) — победитель уже
+  /// известен из `NutritionDay.sourcePackage`, здесь только цифры для
+  /// отображения; отклонённые билдер помечает отдельно.
+  Map<String, NutritionSourceStat> nutritionSourceStats(List<HealthDataPoint> points) {
+    final daysBySource = <String, Set<DateKey>>{};
+    final countBySource = <String, int>{};
+    final kcalBySource = <String, double>{};
+    for (final p in points) {
+      final source = sourcePackageOf(p);
+      daysBySource.putIfAbsent(source, () => {}).add(DateKey(p.dateFrom));
+      countBySource[source] = (countBySource[source] ?? 0) + 1;
+      kcalBySource[source] =
+          (kcalBySource[source] ?? 0) + (_nutritionValue(p).calories ?? 0);
+    }
+    return {
+      for (final source in daysBySource.keys)
+        source: NutritionSourceStat(
+          package: source,
+          days: daysBySource[source]!.length,
+          records: countBySource[source] ?? 0,
+          kcalSum: kcalBySource[source] ?? 0,
+        ),
+    };
+  }
+
+  /// Вес «на дату»: последний резолвленный вес с датой ≤ [date] (правило то
+  /// же, что в [computeExpenditures] — префиксный проход по сортированному
+  /// кешу). Для трасс расхода §3.3; `WeightDay` несёт и дату записи веса.
+  static WeightDay? weightOnDate(Map<DateKey, WeightDay> weightCache, DateKey date) {
+    WeightDay? result;
+    final sorted = weightCache.values.toList()
+      ..sort((a, b) => a.date.compareTo(b.date));
+    for (final w in sorted) {
+      if (w.date.value.isAfter(date.value)) break;
+      result = w;
+    }
+    return result;
+  }
+
   // ─── Список найденных источников (C.1) ──────────────────────────────────────
 
 
@@ -637,4 +698,31 @@ class HealthDataProcessor {
     if (v is NutritionHealthValue) return v;
     throw StateError('Expected NutritionHealthValue, got ${v.runtimeType}');
   }
+}
+
+/// Статистика источника питания за диапазон — для трассы «Как рассчитано»
+/// (§4 ТЗ): покрытие дней, число записей, сумма калорий.
+class NutritionSourceStat {
+  final String package;
+
+  /// Дней диапазона, имеющих записи источника (авто-правило A.6 — главный
+  /// критерий).
+  final int days;
+
+  /// Всего записей (тай-брейк 1).
+  final int records;
+
+  /// Сумма калорий, ккал (тай-брейк 2).
+  final double kcalSum;
+
+  const NutritionSourceStat({
+    required this.package,
+    required this.days,
+    required this.records,
+    required this.kcalSum,
+  });
+
+  @override
+  String toString() =>
+      'NutritionSourceStat($package: $days дн., $records зап., ${kcalSum.toStringAsFixed(0)} ккал)';
 }

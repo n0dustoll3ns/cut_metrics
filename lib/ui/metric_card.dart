@@ -2,6 +2,7 @@ import 'package:cut_metrics/domain/data_source.dart';
 import 'package:cut_metrics/domain/date_key.dart';
 import 'package:cut_metrics/domain/metric_type.dart';
 import 'package:cut_metrics/services/source_names.dart';
+import 'package:cut_metrics/ui/calc_detail_sheet.dart';
 import 'package:cut_metrics/ui/metric_card_state.dart';
 import 'package:cut_metrics/ui/source_badge.dart';
 import 'package:cut_metrics/ui/source_settings_screen.dart';
@@ -397,6 +398,12 @@ class _MetricCardState extends State<MetricCard> {
                 builder: (_) => SourceSettingsScreen(metric: widget.type),
               ),
             );
+          case 'trace':
+            // CalcDetail (§6): детализация расчёта — шаги («Сегодня», за вчера).
+            showCalcDetailSheet(
+              context,
+              widget.viewModel.stepsTraceFor(widget.date),
+            );
         }
       },
       itemBuilder: (context) => [
@@ -406,6 +413,11 @@ class _MetricCardState extends State<MetricCard> {
           child: Text('Отклонить источник (вводить вручную)'),
         ),
         const PopupMenuItem(value: 'settings', child: Text('Настроить источники…')),
+        if (widget.type == MetricType.steps)
+          const PopupMenuItem(
+            value: 'trace',
+            child: Text('Детализация расчёта'),
+          ),
       ],
     );
   }

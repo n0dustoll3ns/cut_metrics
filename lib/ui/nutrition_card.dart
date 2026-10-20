@@ -2,12 +2,14 @@ import 'package:cut_metrics/domain/data_source.dart';
 import 'package:cut_metrics/domain/date_key.dart';
 import 'package:cut_metrics/domain/metric_type.dart';
 import 'package:cut_metrics/domain/nutrition_day.dart';
+import 'package:cut_metrics/ui/calc_detail_sheet.dart';
 import 'package:cut_metrics/ui/format.dart';
 import 'package:cut_metrics/ui/metric_card_state.dart';
 import 'package:cut_metrics/ui/source_badge.dart';
 import 'package:cut_metrics/ui/source_settings_screen.dart';
 import 'package:cut_metrics/ui/theme.dart';
 import 'package:cut_metrics/viewmodel/dashboard_view_model.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
 /// Карточка «Питание» для конкретной даты — 7 состояний (Фаза 7, B.2;
@@ -331,16 +333,38 @@ class _NutritionCardState extends State<NutritionCard> {
   }
 
   /// «Расход ≈ 2 400 · Баланс −250» — только если расход рассчитан.
+  ///
+  /// CalcDetail (§6): «Расход ≈» открывает трассу расхода, «Баланс» —
+  /// трассу баланса (TapGestureRecognizer на частях строки).
   Widget? _expenditureLine() {
     final vm = widget.viewModel;
     final value = vm.nutritionFor(widget.date);
     final exp = vm.expenditureFor(widget.date);
     if (value == null || exp == null) return null;
     final colors = context.cmColors;
-    return Text(
-      'Расход ≈ ${formatThousands(exp.total)} · '
-      'Баланс ${formatSignedKcal(value.calories - exp.total)}',
-      style: CMFonts.caption(size: 11, color: colors.inkMuted),
+    return Text.rich(
+      TextSpan(
+        style: CMFonts.caption(size: 11, color: colors.inkMuted),
+        children: [
+          TextSpan(
+            text: 'Расход ≈ ${formatThousands(exp.total)}',
+            recognizer: TapGestureRecognizer()
+              ..onTap = () => showCalcDetailSheet(
+                    context,
+                    vm.expenditureTraceFor(widget.date),
+                  ),
+          ),
+          const TextSpan(text: ' · '),
+          TextSpan(
+            text: 'Баланс ${formatSignedKcal(value.calories - exp.total)}',
+            recognizer: TapGestureRecognizer()
+              ..onTap = () => showCalcDetailSheet(
+                    context,
+                    vm.balanceTraceFor(widget.date),
+                  ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -469,12 +493,23 @@ class _NutritionCardState extends State<NutritionCard> {
                     const SourceSettingsScreen(metric: MetricType.nutrition),
               ),
             );
+          case 'trace':
+            // CalcDetail (§6): детализация расчёта калорий дня.
+            showCalcDetailSheet(
+              context,
+              widget.viewModel.nutritionTraceFor(widget.date),
+            );
         }
       },
-      itemBuilder: (context) => const [
-        PopupMenuItem(value: 'trust', child: Text('Доверять источнику')),
-        PopupMenuItem(value: 'refuse', child: Text('Отклонить источник')),
-        PopupMenuItem(value: 'sources', child: Text('Настроить источники')),
+      itemBuilder: (context) => [
+        const PopupMenuItem(value: 'trust', child: Text('Доверять источнику')),
+        const PopupMenuItem(value: 'refuse', child: Text('Отклонить источник')),
+        const PopupMenuItem(value: 'sources', child: Text('Настроить источники')),
+        if (value != null)
+          const PopupMenuItem(
+            value: 'trace',
+            child: Text('Детализация расчёта'),
+          ),
       ],
     );
   }

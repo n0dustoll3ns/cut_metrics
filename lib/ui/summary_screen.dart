@@ -1,6 +1,7 @@
 import 'package:cut_metrics/domain/recommendation_engine.dart';
 import 'package:cut_metrics/domain/recommendation_config.dart';
 import 'package:cut_metrics/domain/weekly_energy_stats.dart';
+import 'package:cut_metrics/ui/calc_detail_sheet.dart';
 import 'package:cut_metrics/ui/format.dart';
 import 'package:cut_metrics/ui/months.dart';
 import 'package:cut_metrics/ui/theme.dart';
@@ -69,8 +70,21 @@ class _EnergyWeekCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Энергобаланс недели',
-                  style: CMFonts.caption(size: 11, color: colors.noise)),
+              Row(
+                children: [
+                  Text('Энергобаланс недели',
+                      style: CMFonts.caption(size: 11, color: colors.noise)),
+                  const SizedBox(width: CMSpacing.sp1),
+                  // CalcDetail (§6): вход к трассе энергобаланса недели.
+                  CalcInfoIcon(
+                    tooltip: 'Как рассчитано',
+                    onTap: () => showCalcDetailSheet(
+                      context,
+                      context.read<DashboardViewModel>().energyWeekTrace(),
+                    ),
+                  ),
+                ],
+              ),
               const SizedBox(height: CMSpacing.sp3),
               _row(
                 label: 'Средний приход',
@@ -250,6 +264,14 @@ class _SummaryBody extends StatelessWidget {
                   _paceValue,
                   style: CMFonts.metric(size: 44, color: colors.signal),
                 ),
+                // CalcDetail (§6): вход к трассе темпа.
+                CalcInfoIcon(
+                  tooltip: 'Как рассчитано',
+                  onTap: () => showCalcDetailSheet(
+                    context,
+                    context.read<DashboardViewModel>().paceTrace(),
+                  ),
+                ),
                 const SizedBox(width: CMSpacing.sp3),
                 Expanded(
                   child: Text(
@@ -271,9 +293,21 @@ class _SummaryBody extends StatelessWidget {
             const SizedBox(height: CMSpacing.sp4),
 
             // Рекомендация
-            Text(
-              RecommendationConfig.summaryRecLabel.toUpperCase(),
-              style: CMFonts.caption(size: 11, color: colors.noise),
+            Row(
+              children: [
+                Text(
+                  RecommendationConfig.summaryRecLabel.toUpperCase(),
+                  style: CMFonts.caption(size: 11, color: colors.noise),
+                ),
+                // CalcDetail (§6): вход к трассе рекомендации.
+                CalcInfoIcon(
+                  tooltip: 'Как рассчитано',
+                  onTap: () => showCalcDetailSheet(
+                    context,
+                    context.read<DashboardViewModel>().recommendationTrace(),
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: CMSpacing.sp2),
             Text(

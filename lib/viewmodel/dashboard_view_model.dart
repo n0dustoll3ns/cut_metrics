@@ -1,4 +1,6 @@
 import 'package:collection/collection.dart';
+import 'package:cut_metrics/domain/calc_trace.dart';
+import 'package:cut_metrics/domain/calc_trace_builders.dart' as builders;
 import 'package:cut_metrics/domain/confirm_decision.dart';
 import 'package:cut_metrics/domain/data_source.dart';
 import 'package:cut_metrics/domain/date_key.dart';
@@ -520,35 +522,29 @@ class DashboardViewModel extends ChangeNotifier {
 
   /// Среднесуточный сон за диапазон, ч — только по ночам с данными (С4:
   /// пустые ночи исключаются из знаменателя). `null` — нет ни одной ночи.
-    double? get avgSleepHours {
-    // Правило «после последнего 5+-дневного разрыва» (2026-09-16): сон
-    // отсекается по своим ночам с данными.
-    final days = daysAfterLastGap(
-      _sleepCache.keys.where((k) => k.value.isInsideInterval(_start, _end)),
-    );
-    if (days.isEmpty) return null;
-    final total = days.map((k) => _sleepCache[k]!.total).reduce((a, b) => a + b);
-    return total / days.length;
-  }
+  ///
+  /// CalcDetail (§3.5): расчёт в `avgSleepWithTrace`, геттер делегирует
+  /// (единый источник истины для числа на экране и трассы).
+  double? get avgSleepHours => builders
+      .avgSleepWithTrace(
+        sleepCache: _sleepCache,
+        start: _start,
+        end: _end,
+        rangeDays: _rangeDays,
+      )
+      .value;
 
   /// Среднесуточные шаги за диапазон — по дням с записями, БЕЗ «сегодня»
   /// (A.8: подсчёт дня ещё не завершён). `null` — нет данных.
-    int? get avgSteps {
-    final today = DateKey(DateTime.now());
-    // Правило «после последнего 5+-дневного разрыва» (2026-09-16): шаги
-    // отсекаются по своим дням с записями.
-    final days = daysAfterLastGap(
-      _stepsCache.keys.where(
-        (k) => k.value.isInsideInterval(_start, _end) && k != today,
-      ),
-    );
-    if (days.isEmpty) return null;
-    var total = 0;
-    for (final k in days) {
-      total += _stepsCache[k]!.steps;
-    }
-    return (total / days.length).round();
-  }
+  int? get avgSteps => builders
+      .avgStepsWithTrace(
+        stepsCache: _stepsCache,
+        start: _start,
+        end: _end,
+        today: DateTime.now(),
+        rangeDays: _rangeDays,
+      )
+      .value;
 
   /// Дней с питанием в диапазоне, кроме «сегодня» (покрытие «по N дн.»).
     int get intakeDaysInRange {
@@ -563,56 +559,51 @@ class DashboardViewModel extends ChangeNotifier {
 
   /// Среднесуточный приход, ккал — по дням с данными, без «сегодня» (A.8).
   /// `null` — ни одного дня с питанием.
-    double? get avgCaloriesIn {
-    final today = DateKey(DateTime.now());
-    // Правило «после последнего 5+-дневного разрыва» (2026-09-16).
-    final days = daysAfterLastGap(
-      _nutritionCache.keys.where(
-        (k) => k.value.isInsideInterval(_start, _end) && k != today,
-      ),
-    );
-    if (days.isEmpty) return null;
-    final total =
-        days.map((k) => _nutritionCache[k]!.calories).reduce((a, b) => a + b);
-    return total / days.length;
-  }
+  ///
+  /// CalcDetail (§3.5): расчёт в `avgIntakeWithTrace`.
+  double? get avgCaloriesIn => builders
+      .avgIntakeWithTrace(
+        nutritionCache: _nutritionCache,
+        start: _start,
+        end: _end,
+        today: DateTime.now(),
+        rangeDays: _rangeDays,
+      )
+      .value;
 
   /// Средние макросы (Б/Ж/У, г/день) — по дням с приходом, без «сегодня»;
   /// день без макроса считается нулём (решение пользователя 2026-09-14).
   /// `null` — ни одного дня с питанием.
-    ({double? protein, double? fat, double? carbs})? get avgMacros {
-    final today = DateKey(DateTime.now());
-    // Правило «после последнего 5+-дневного разрыва» (2026-09-16).
-    final days = daysAfterLastGap(
-      _nutritionCache.keys.where(
-        (k) => k.value.isInsideInterval(_start, _end) && k != today,
-      ),
-    ).toList();
-    if (days.isEmpty) return null;
-    final n = days.length;
-    return (
-      protein: days.map((k) => _nutritionCache[k]!.protein ?? 0).reduce((a, b) => a + b) / n,
-      fat: days.map((k) => _nutritionCache[k]!.fat ?? 0).reduce((a, b) => a + b) / n,
-      carbs: days.map((k) => _nutritionCache[k]!.carbs ?? 0).reduce((a, b) => a + b) / n,
+  /// Средние макросы (Б/Ж/У, г/день) — по дням с приходом, без «сегодня»;
+  /// день без макроса считается нулём (решение пользователя 2026-09-14).
+  /// `null` — ни одного дня с питанием.
+  ///
+  /// CalcDetail (§3.5): расчёт в `avgMacrosWithTrace`.
+  ({double? protein, double? fat, double? carbs})? get avgMacros {
+    final r = builders.avgMacrosWithTrace(
+      nutritionCache: _nutritionCache,
+      start: _start,
+      end: _end,
+      today: DateTime.now(),
+      rangeDays: _rangeDays,
     );
+    if (r.protein == null) return null;
+    return (protein: r.protein, fat: r.fat, carbs: r.carbs);
   }
 
   /// Среднесуточный расход, ккал — по дням, где рассчитан BMR, без «сегодня»
   /// (полный расход из 4 компонентов; «РАСХОД» на Тренде). `null` — нет.
-    double? get avgExpenditure {
-    final today = DateKey(DateTime.now());
-    // Правило «после последнего 5+-дневного разрыва» (2026-09-16): расход
-    // отсекается по своим дням с рассчитанным BMR.
-    final days = daysAfterLastGap(
-      _expenditureCache.keys.where(
-        (k) => k.value.isInsideInterval(_start, _end) && k != today,
-      ),
-    );
-    if (days.isEmpty) return null;
-    final total =
-        days.map((k) => _expenditureCache[k]!.total).reduce((a, b) => a + b);
-    return total / days.length;
-  }
+  ///
+  /// CalcDetail (§3.5): расчёт в `avgExpenditureWithTrace`.
+  double? get avgExpenditure => builders
+      .avgExpenditureWithTrace(
+        expenditureCache: _expenditureCache,
+        start: _start,
+        end: _end,
+        today: DateTime.now(),
+        rangeDays: _rangeDays,
+      )
+      .value;
 
   /// Дней с расходом в диапазоне, кроме «сегодня» (покрытие «по N дн.»).
     int get expenditureDaysInRange {
@@ -813,6 +804,156 @@ class DashboardViewModel extends ChangeNotifier {
     await _settings?.saveTargetPace(value);
     notifyListeners();
   }
+
+  // ─── CalcDetail: трассы «Как рассчитано» (§5 ТЗ) ────────────────────────────
+  //
+  // Тонкие обёртки без бизнес-логики: передают в билдеры домена
+  // (`calc_trace_builders.dart`) кеши, сырые точки сессии, решения/выбор
+  // источников, профиль расхода и настройки. Пересчёт при каждом вызове —
+  // паттерн computeWeeklySummary (U3).
+
+  /// Эффективный профиль расхода — с HC-префиллом роста, если ручного нет
+  /// (то же правило, что в [_refreshExpenditure]).
+  ExpenditureProfile get _effectiveEnergyProfile => _energyProfile.heightCm != null
+      ? _energyProfile
+      : _energyProfile.copyWith(heightCm: _hcHeightCm);
+
+  /// Трасса карточки «Шаги» за дату (§3.1).
+  CalcTrace stepsTraceFor(DateKey date) => builders.stepsDayTrace(
+        processor: _processor,
+        date: date,
+        day: _stepsCache[date],
+        rawStepsPoints: _rawStepsPoints,
+        decisions: _decisions[MetricType.steps] ?? const {},
+        selection: _selections[MetricType.steps] ?? const SourceSelection.auto(),
+      );
+
+  /// Трасса калорий за дату — карточка «Питание» (§3.2).
+  CalcTrace nutritionTraceFor(DateKey date) => builders.nutritionDayTrace(
+        processor: _processor,
+        date: date,
+        day: _nutritionCache[date],
+        rawNutritionPoints: _rawNutritionPoints,
+        decisions: _decisions[MetricType.nutrition] ?? const {},
+        selection:
+            _selections[MetricType.nutrition] ?? const SourceSelection.auto(),
+      );
+
+  /// Трасса расхода за дату: 4 компонента + сумма (§3.3).
+  CalcTrace expenditureTraceFor(DateKey date) => builders.expenditureDayTrace(
+        processor: _processor,
+        date: date,
+        day: _expenditureCache[date],
+        weightCache: _weightCache,
+        stepsCache: _stepsCache,
+        basalCache: _basalCache,
+        profile: _effectiveEnergyProfile,
+        hcHeightCm: _hcHeightCm,
+      );
+
+  /// Трасса одного компонента расхода — строки «Настроек» (§3.3).
+  CalcTrace expenditureComponentTraceFor(
+          DateKey date, builders.ExpenditureComponent component) =>
+      builders.expenditureComponentTrace(
+        processor: _processor,
+        date: date,
+        day: _expenditureCache[date],
+        weightCache: _weightCache,
+        stepsCache: _stepsCache,
+        basalCache: _basalCache,
+        profile: _effectiveEnergyProfile,
+        hcHeightCm: _hcHeightCm,
+        component: component,
+      );
+
+  /// Трасса энергобаланса дня — карточка питания / график (§3.4).
+  CalcTrace balanceTraceFor(DateKey date) => builders.balanceDayTrace(
+        date: date,
+        intake: _nutritionCache[date],
+        out: _expenditureCache[date],
+        latestWeight: _latestWeight() == null
+            ? null
+            : HealthDataProcessor.weightOnDate(
+                _weightCache, DateKey(DateTime.now())),
+        targetPacePercent: _targetPace,
+      );
+
+  /// Трассы среднесуточных Тренда (§3.5).
+  CalcTrace avgSleepTrace() => builders.avgSleepWithTrace(
+        sleepCache: _sleepCache,
+        start: _start,
+        end: _end,
+        rangeDays: _rangeDays,
+      ).trace;
+
+  CalcTrace avgStepsTrace() => builders.avgStepsWithTrace(
+        stepsCache: _stepsCache,
+        start: _start,
+        end: _end,
+        today: DateTime.now(),
+        rangeDays: _rangeDays,
+      ).trace;
+
+  CalcTrace avgIntakeTrace() => builders.avgIntakeWithTrace(
+        nutritionCache: _nutritionCache,
+        start: _start,
+        end: _end,
+        today: DateTime.now(),
+        rangeDays: _rangeDays,
+      ).trace;
+
+  CalcTrace avgMacrosTrace() => builders.avgMacrosWithTrace(
+        nutritionCache: _nutritionCache,
+        start: _start,
+        end: _end,
+        today: DateTime.now(),
+        rangeDays: _rangeDays,
+      ).trace;
+
+  CalcTrace avgExpenditureTrace() => builders.avgExpenditureWithTrace(
+        expenditureCache: _expenditureCache,
+        start: _start,
+        end: _end,
+        today: DateTime.now(),
+        rangeDays: _rangeDays,
+      ).trace;
+
+  /// Трасса темпа — Саммари (§3.6). EMA движка считается тем же вызовом,
+  /// что и в [computeWeeklySummary].
+  CalcTrace paceTrace() {
+    final engineEma = _processor.computeEma(
+      _weightCache,
+      RecommendationConfig.engineEmaPeriod,
+    );
+    return builders.paceTrace(
+      weightCache: _weightCache,
+      engineEmaCache: engineEma,
+      today: DateTime.now(),
+      targetPacePercent: _targetPace,
+      summary: computeWeeklySummary(),
+    );
+  }
+
+  /// Трасса «Энергобаланс недели» — Саммари (§3.7).
+  CalcTrace energyWeekTrace() => builders.energyWeekTrace(
+        stats: computeWeeklyEnergyStats(),
+        today: DateTime.now(),
+      );
+
+  /// Трасса рекомендации — Саммари (§3.8).
+  CalcTrace recommendationTrace() => builders.recommendationTrace(
+        summary: computeWeeklySummary(),
+        energyStats: computeWeeklyEnergyStats(),
+        weightKg: _latestWeight(),
+      );
+
+  /// Трасса сглаженного веса — «Сегодня» (§3.9).
+  CalcTrace smoothedWeightTrace() => builders.smoothedWeightTrace(
+        smoothedWeight: smoothedWeightToday,
+        emaPeriod: _emaPeriod,
+        weightCache: _weightCache,
+        emaCache: _emaCache,
+      );
 
   // ─── API Фазы 3: подтверждение значения (секция 8 спеки) ─────────────────────
 

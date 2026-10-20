@@ -1,5 +1,7 @@
+import 'package:cut_metrics/domain/calc_trace_builders.dart';
 import 'package:cut_metrics/domain/date_key.dart';
 import 'package:cut_metrics/domain/expenditure_config.dart';
+import 'package:cut_metrics/ui/calc_detail_sheet.dart';
 import 'package:cut_metrics/ui/format.dart';
 import 'package:cut_metrics/ui/theme.dart';
 import 'package:cut_metrics/viewmodel/dashboard_view_model.dart';
@@ -187,6 +189,11 @@ class _ExpenditureBlockState extends State<ExpenditureBlock> {
               expanded: _expanded == 0,
               onToggle: () => _toggle(0),
               editor: _bmrEditor(profile),
+              onCalcDetail: () => showCalcDetailSheet(
+                context,
+                vm.expenditureComponentTraceFor(
+                    today, ExpenditureComponent.bmr),
+              ),
             ),
 
             // ── Шаги ──
@@ -200,6 +207,11 @@ class _ExpenditureBlockState extends State<ExpenditureBlock> {
               expanded: _expanded == 1,
               onToggle: () => _toggle(1),
               editor: _stepsEditor(vm),
+              onCalcDetail: () => showCalcDetailSheet(
+                context,
+                vm.expenditureComponentTraceFor(
+                    today, ExpenditureComponent.steps),
+              ),
             ),
 
             // ── Силовые ──
@@ -214,6 +226,11 @@ class _ExpenditureBlockState extends State<ExpenditureBlock> {
               expanded: _expanded == 2,
               onToggle: () => _toggle(2),
               editor: _trainingEditor(profile),
+              onCalcDetail: () => showCalcDetailSheet(
+                context,
+                vm.expenditureComponentTraceFor(
+                    today, ExpenditureComponent.training),
+              ),
             ),
 
             // ── Бытовой ──
@@ -225,6 +242,11 @@ class _ExpenditureBlockState extends State<ExpenditureBlock> {
               expanded: _expanded == 3,
               onToggle: () => _toggle(3),
               editor: _householdEditor(profile),
+              onCalcDetail: () => showCalcDetailSheet(
+                context,
+                vm.expenditureComponentTraceFor(
+                    today, ExpenditureComponent.household),
+              ),
             ),
 
             // ── Итого сегодня ──
@@ -236,16 +258,25 @@ class _ExpenditureBlockState extends State<ExpenditureBlock> {
               children: [
                 Text('Итого сегодня',
                     style: CMFonts.caption(size: 11, color: colors.noise)),
-                Text.rich(
-                  TextSpan(
-                    text: exp == null ? '—' : '≈ ${formatThousands(exp.total)}',
-                    style: CMFonts.metric(size: 20, color: colors.signal),
-                    children: [
-                      TextSpan(
-                        text: ' ккал/день',
-                        style: CMFonts.caption(size: 11, color: colors.inkMuted),
-                      ),
-                    ],
+                // CalcDetail (§6): тап по итогу → трасса расхода за сегодня.
+                InkWell(
+                  borderRadius: BorderRadius.circular(CMRadius.sm),
+                  onTap: exp == null
+                      ? null
+                      : () => showCalcDetailSheet(
+                          context, vm.expenditureTraceFor(today)),
+                  child: Text.rich(
+                    TextSpan(
+                      text: exp == null ? '—' : '≈ ${formatThousands(exp.total)}',
+                      style: CMFonts.metric(size: 20, color: colors.signal),
+                      children: [
+                        TextSpan(
+                          text: ' ккал/день',
+                          style:
+                              CMFonts.caption(size: 11, color: colors.inkMuted),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ],
@@ -266,6 +297,9 @@ class _ExpenditureBlockState extends State<ExpenditureBlock> {
     required bool expanded,
     required VoidCallback onToggle,
     required Widget editor,
+
+    /// CalcDetail (§6): тап ⓘ у строки → трасса компонента расхода.
+    VoidCallback? onCalcDetail,
   }) {
     final colors = context.cmColors;
     return Column(
@@ -278,7 +312,20 @@ class _ExpenditureBlockState extends State<ExpenditureBlock> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(name, style: CMFonts.label(size: 15, color: colors.ink)),
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(name,
+                              style:
+                                  CMFonts.label(size: 15, color: colors.ink)),
+                        ),
+                        if (onCalcDetail != null) ...[
+                          const SizedBox(width: 2),
+                          CalcInfoIcon(
+                              tooltip: 'Как рассчитано', onTap: onCalcDetail),
+                        ],
+                      ],
+                    ),
                     const SizedBox(height: 2),
                     Text(source,
                         style: CMFonts.caption(size: 10.5, color: colors.noise)),

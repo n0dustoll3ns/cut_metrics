@@ -4,6 +4,7 @@ import 'package:cut_metrics/ui/chart_date_axis.dart';
 import 'package:cut_metrics/ui/format.dart';
 import 'package:cut_metrics/ui/theme.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
 /// График энергобаланса — вариант A2 (Фаза 7, B.1 / дизайн-система §05).
@@ -34,6 +35,10 @@ class EnergyBalanceChart extends StatelessWidget {
   /// Дней в диапазоне без данных питания (примечание под графиком).
   final int daysWithoutNutrition;
 
+  /// CalcDetail (§6): тап «Как рассчитано» в тултипе столбца → трасса
+  /// баланса дня (`vm.balanceTraceFor`). `null` — строка не показывается.
+  final void Function(DateKey date)? onCalcDetail;
+
   final bool isLoading;
 
   const EnergyBalanceChart({
@@ -42,6 +47,7 @@ class EnergyBalanceChart extends StatelessWidget {
     required this.targetDeficitKcalPerDay,
     required this.daysWithoutNutrition,
     required this.isLoading,
+    this.onCalcDetail,
   });
 
   /// Цель, округлённая до 10 (для линии и подписи).
@@ -185,6 +191,14 @@ class EnergyBalanceChart extends StatelessWidget {
                         'Баланс ${formatSignedKcal(day.balance)}',
                     style: CMFonts.label(size: 11, color: colors.ink),
                   ),
+                  // CalcDetail (§6): кнопка-строка в тултипе столбца.
+                  if (onCalcDetail != null)
+                    TextSpan(
+                      text: '\nКак рассчитано',
+                      style: CMFonts.label(size: 11, color: colors.signal),
+                      recognizer: TapGestureRecognizer()
+                        ..onTap = () => onCalcDetail!(day.date),
+                    ),
                 ],
               );
             },

@@ -2,6 +2,7 @@ import 'package:cut_metrics/domain/date_key.dart';
 import 'package:cut_metrics/domain/metric_type.dart';
 import 'package:cut_metrics/domain/recommendation_config.dart';
 import 'package:cut_metrics/ui/energy_balance_chart.dart';
+import 'package:cut_metrics/ui/calc_detail_sheet.dart';
 import 'package:cut_metrics/ui/format.dart';
 import 'package:cut_metrics/ui/metric_card.dart';
 import 'package:cut_metrics/ui/theme.dart';
@@ -72,6 +73,9 @@ class _TrendScreenState extends State<TrendScreen> {
             targetDeficitKcalPerDay: vm.targetDeficitKcalPerDay,
             daysWithoutNutrition: vm.daysWithoutNutritionInRange,
             isLoading: vm.isLoading,
+            // CalcDetail (§6): «Как рассчитано» в тултипе столбца.
+            onCalcDetail: (date) =>
+                showCalcDetailSheet(context, vm.balanceTraceFor(date)),
           ),
           const SizedBox(height: CMSpacing.sp4),
 
@@ -93,6 +97,10 @@ class _TrendScreenState extends State<TrendScreen> {
                               ? '—'
                               : vm.avgSleepHours!.toStringAsFixed(1),
                           unit: 'ч',
+                          onCalcDetail: vm.avgSleepHours == null
+                              ? null
+                              : () => showCalcDetailSheet(
+                                  context, vm.avgSleepTrace()),
                         ),
                       ),
                       Expanded(
@@ -102,6 +110,10 @@ class _TrendScreenState extends State<TrendScreen> {
                               ? '—'
                               : formatThousands(vm.avgSteps!),
                           unit: '',
+                          onCalcDetail: vm.avgSteps == null
+                              ? null
+                              : () => showCalcDetailSheet(
+                                  context, vm.avgStepsTrace()),
                         ),
                       ),
                       Expanded(
@@ -114,6 +126,10 @@ class _TrendScreenState extends State<TrendScreen> {
                           coverage: vm.expenditureDaysInRange > 0
                               ? 'по ${vm.expenditureDaysInRange} дн.'
                               : null,
+                          onCalcDetail: vm.avgExpenditure == null
+                              ? null
+                              : () => showCalcDetailSheet(
+                                  context, vm.avgExpenditureTrace()),
                         ),
                       ),
                     ],
@@ -133,6 +149,10 @@ class _TrendScreenState extends State<TrendScreen> {
                           coverage: vm.intakeDaysInRange > 0
                               ? 'по ${vm.intakeDaysInRange} дн.'
                               : null,
+                          onCalcDetail: vm.avgCaloriesIn == null
+                              ? null
+                              : () => showCalcDetailSheet(
+                                  context, vm.avgIntakeTrace()),
                         ),
                       ),
                       Expanded(
@@ -148,6 +168,10 @@ class _TrendScreenState extends State<TrendScreen> {
                           coverage: vm.intakeDaysInRange > 0
                               ? 'по ${vm.intakeDaysInRange} дн.'
                               : null,
+                          onCalcDetail: vm.avgMacros == null
+                              ? null
+                              : () => showCalcDetailSheet(
+                                  context, vm.avgMacrosTrace()),
                         ),
                       ),
                     ],
@@ -201,20 +225,33 @@ class _AvgMetric extends StatelessWidget {
   final String unit;
   final String? coverage;
 
+  /// CalcDetail (§6): тап по ячейке → трасса среднесуточного.
+  /// `null` — ячейка не тапабельна (данных нет).
+  final VoidCallback? onCalcDetail;
+
   const _AvgMetric({
     required this.label,
     required this.value,
     required this.unit,
     this.coverage,
+    this.onCalcDetail,
   });
 
   @override
   Widget build(BuildContext context) {
     final colors = context.cmColors;
-    return Column(
+    final cell = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: CMFonts.caption(size: 10, color: colors.noise)),
+        Row(
+          children: [
+            Text(label, style: CMFonts.caption(size: 10, color: colors.noise)),
+            if (onCalcDetail != null) ...[
+              const SizedBox(width: 2),
+              CalcInfoIcon(tooltip: 'Как рассчитано', onTap: onCalcDetail!),
+            ],
+          ],
+        ),
         const SizedBox(height: CMSpacing.sp1),
         Row(
           crossAxisAlignment: CrossAxisAlignment.baseline,
@@ -242,6 +279,14 @@ class _AvgMetric extends StatelessWidget {
         ],
       ],
     );
+    // Тапабельность всей ячейки + иконка ⓘ (CalcDetail, §6).
+    return onCalcDetail == null
+        ? cell
+        : InkWell(
+            onTap: onCalcDetail,
+            borderRadius: BorderRadius.circular(CMRadius.sm),
+            child: cell,
+          );
   }
 }
 

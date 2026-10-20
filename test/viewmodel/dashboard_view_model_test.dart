@@ -1,3 +1,4 @@
+import 'package:cut_metrics/domain/calc_trace_builders.dart';
 import 'package:cut_metrics/domain/confirm_decision.dart';
 import 'package:cut_metrics/domain/data_source.dart';
 import 'package:cut_metrics/domain/date_key.dart';
@@ -7,6 +8,7 @@ import 'package:cut_metrics/domain/metric_type.dart';
 import 'package:cut_metrics/domain/recommendation_engine.dart';
 import 'package:cut_metrics/domain/source_selection.dart';
 import 'package:cut_metrics/repo/mock_health_repository.dart';
+import 'package:cut_metrics/ui/format.dart';
 import 'package:cut_metrics/viewmodel/dashboard_view_model.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:health/health.dart';
@@ -709,4 +711,56 @@ void main() {
 
       expect(vm.avgSteps, 9000); // (10000 + 8000) / 2
     });
+
+  // ─── CalcDetail: обёртки трасс (§5 ТЗ) ─────────────────────────────────────
+
+  group('CalcDetail: трассы VM делегируют билдерам домена', () {
+    test('avgStepsTrace.resultText == avgSteps (формат экрана)', () async {
+      repo = MockHealthRepository();
+      processor = HealthDataProcessor(appPackageId: kAppPackageId);
+      final now = DateTime.now();
+      repo.addExternalSteps(now.subtract(const Duration(days: 1)), 10000);
+      repo.addExternalSteps(now.subtract(const Duration(days: 2)), 8000);
+      vm = DashboardViewModel(repository: repo, processor: processor, autoLoad: false);
+      await vm.load();
+
+      final trace = vm.avgStepsTrace();
+      expect(trace.resultText, formatThousands(vm.avgSteps!));
+      expect(trace.dayRows, hasLength(2));
+    });
+
+    test('stepsTraceFor: итог == резолвнутому значению шагов за дату', () async {
+      repo = MockHealthRepository();
+      processor = HealthDataProcessor(appPackageId: kAppPackageId);
+      final yesterday = DateTime.now().subtract(const Duration(days: 1));
+      repo.addExternalSteps(yesterday, 2000, sourcePackage: 'com.samsung.health');
+      repo.addExternalSteps(yesterday, 4500, sourcePackage: 'com.samsung.health');
+      repo.addExternalSteps(yesterday, 3000, sourcePackage: 'com.google.fit');
+      vm = DashboardViewModel(repository: repo, processor: processor, autoLoad: false);
+      await vm.load();
+
+      final date = DateKey(yesterday);
+      final resolved = vm.getResolvedValue(date, MetricType.steps)!;
+      final trace = vm.stepsTraceFor(date);
+      expect(trace.resultText, formatThousands(resolved.value));
+      expect(trace.resultText, '6 500');
+    });
+
+    test('smoothedWeightTrace: итог == smoothedWeightToday (1 знак)', () async {
+      await setupViewModel(externalWeights: [80, 79.5, 79, 78.6, 78.2, 78]);
+      final trace = vm.smoothedWeightTrace();
+      expect(trace.resultText, vm.smoothedWeightToday!.toStringAsFixed(1));
+      expect(trace.emaRows, isNotEmpty);
+    });
+
+    test('expenditureComponentTraceFor: BMR за сегодня не падает', () async {
+      await setupViewModel(externalWeights: [80, 79.5]);
+      final today = DateKey(DateTime.now());
+      final trace =
+          vm.expenditureComponentTraceFor(today, ExpenditureComponent.bmr);
+      expect(trace.title, 'Расход: Базальный (BMR)');
+      // Профиля нет и BASAL нет → «—» с объяснением.
+      expect(trace.resultText, '—');
+    });
+  });
 }
